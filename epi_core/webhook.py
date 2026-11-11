@@ -254,6 +254,8 @@ def append_outbox_entry(
     urls: list[str],
     *,
     headers: dict[str, str] | None = None,
+    payloads: dict[str, dict[str, Any]] | None = None,
+    headers_by_url: dict[str, dict[str, str]] | None = None,
     path: Path | None = None,
 ) -> dict[str, Any]:
     """Append one witness entry with all urls pending. Returns the entry.
@@ -279,6 +281,10 @@ def append_outbox_entry(
         "delivered": {},
         "last_error": None,
     }
+    if payloads:
+        entry["payloads"] = dict(payloads)
+    if headers_by_url:
+        entry["headers_by_url"] = {k: dict(v) for k, v in headers_by_url.items()}
     data = (json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8")
     target.parent.mkdir(parents=True, exist_ok=True)
     with _APPEND_LOCK, _OutboxFileLock(target, timeout=10.0):
@@ -530,18 +536,21 @@ def deliver_entry(
                 resolved = secret_for_url(url)
             except Exception:
                 resolved = None
+        payload_for_url = (entry.get("payloads") or {}).get(url) or entry["payload"]
+        headers_for_url = dict(stored_headers)
+        headers_for_url.update((entry.get("headers_by_url") or {}).get(url) or {})
         try:
             _post_once(
                 url,
-                entry["payload"],
+                payload_for_url,
                 secret=resolved,
-                extra_headers=stored_headers,
+                extra_headers=headers_for_url,
                 timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
             failed[url] = str(exc)[:300]
             status = witness_http_status(exc)
-            kind = str((entry.get("payload") or {}).get("type") or "")
+            kind = str((payload_for_url or {}).get("type") or "")
             if status == 410 or (
                 status == 400
                 and kind in (
@@ -651,6 +660,8 @@ def build_witness_payload(
     ledger_id: str | None = None,
     prev_seq: int | None = None,
     prev_content_digest: str | None = None,
+    audience: str | None = None,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
     """Hash-only seal report. No content and no step data — hashes and counts only.
 
@@ -689,6 +700,10 @@ def build_witness_payload(
         payload["prev_seq"] = int(prev_seq)
     if prev_content_digest is not None:
         payload["prev_content_digest"] = prev_content_digest
+    if audience is not None:
+        payload["audience"] = str(audience)
+    if nonce is not None:
+        payload["nonce"] = str(nonce)
     return payload
 
 
@@ -725,6 +740,17 @@ def build_heartbeat_payload(
     return payload
 
 
+def _chain_kwargs_from_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seal_seq": entry.get("seq"),
+        "ledger_id": entry.get("ledger_id"),
+        "prev_seq": entry.get("prev_seq"),
+        "prev_content_digest": entry.get("prev_content_digest"),
+        "audience": entry.get("audience"),
+        "nonce": entry.get("nonce"),
+    }
+
+
 def _seal_chain_kwargs(manifest: Any) -> dict[str, Any]:
     """Witness fields from ``manifest.seal_chain``, if this seal has one."""
     chain = getattr(manifest, "seal_chain", None)
@@ -746,6 +772,10 @@ def _seal_chain_kwargs(manifest: Any) -> dict[str, Any]:
         fields["prev_seq"] = int(chain["prev_seq"])
     if chain.get("prev_content_digest"):
         fields["prev_content_digest"] = str(chain["prev_content_digest"])
+    if chain.get("audience"):
+        fields["audience"] = str(chain["audience"])
+    if chain.get("nonce"):
+        fields["nonce"] = str(chain["nonce"])
     return fields
 
 
@@ -759,6 +789,8 @@ def stage_seal_report(
     path: Path | None = None,
     case_id: str | None = None,
     signer: Any = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Build the witness payload from the FINAL file and append it to the outbox.
 
@@ -800,31 +832,43 @@ def stage_seal_report(
             }
         else:
             seal_ts = {"status": "none", "gen_time": None}
-        payload = build_witness_payload(
-            workflow_id=str(getattr(manifest, "workflow_id", "")),
-            manifest_hash=manifest_hash,
-            file_sha256=file_sha256,
-            content_digest=witness_content_digest(manifest),
-            public_key=public_key,
-            key_fingerprint=fingerprint,
-            steps=int(total_steps or 0),
-            sealed_at=_utc_now_iso(),
-            seal_timestamp=seal_ts,
-            goal=goal,
-            case_id=case_id,
-            **_seal_chain_kwargs(manifest),
-        )
-        headers: dict[str, str] = {}
+        from epi_core.audience import derive_audiences
+
         signing_key = signer if signer is not None else private_key_bytes
-        if signing_key and key_name:
-            try:
-                headers["X-EPI-Seal-Signature"] = seal_signature_header(
-                    json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                    signing_key,
-                    key_name,
-                )
-            except Exception as exc:
-                logger.warning("Witness seal signature failed: %s", exc)
+        payloads: dict[str, dict[str, Any]] = {}
+        headers_by_url: dict[str, dict[str, str]] = {}
+        entries = dict(audience_entries or {})
+        for url in targets:
+            audience = derive_audiences(customer, [url])[0]
+            entry = entries.get(audience) or {}
+            payload_for_target = build_witness_payload(
+                workflow_id=str(getattr(manifest, "workflow_id", "")),
+                manifest_hash=manifest_hash,
+                file_sha256=file_sha256,
+                content_digest=witness_content_digest(manifest),
+                public_key=public_key,
+                key_fingerprint=fingerprint,
+                steps=int(total_steps or 0),
+                sealed_at=_utc_now_iso(),
+                seal_timestamp=seal_ts,
+                goal=goal,
+                case_id=case_id,
+                **(_chain_kwargs_from_entry(entry) if entry else _seal_chain_kwargs(manifest)),
+            )
+            payloads[url] = payload_for_target
+            if signing_key and key_name:
+                try:
+                    headers_by_url[url] = {
+                        "X-EPI-Seal-Signature": seal_signature_header(
+                            json.dumps(payload_for_target, ensure_ascii=False).encode("utf-8"),
+                            signing_key,
+                            key_name,
+                        )
+                    }
+                except Exception as exc:
+                    logger.warning("Witness seal signature failed: %s", exc)
+        payload = next(iter(payloads.values()))
+        headers: dict[str, str] = dict(headers_by_url.get(targets[0], {}))
         # Report once per sealed file: the CLI wrapper and an instrumented
         # session can both report the same artifact (e.g. `epi record` around
         # a script that also uses record()). A second entry for an identical
@@ -837,13 +881,26 @@ def stage_seal_report(
                     continue
                 if str((existing["payload"] or {}).get("file_sha256") or "") != str(file_sha256):
                     continue
+                if str((existing["payload"] or {}).get("type") or "") != "epi.sealed":
+                    continue
+                if str((existing["payload"] or {}).get("audience") or "") != str(
+                    (payload or {}).get("audience") or ""
+                ):
+                    continue
                 if set(existing.get("pending") or []) == set(targets):
                     return existing
         except Exception:
             pass
-        return append_outbox_entry(payload, targets, headers=headers, path=path)
+        return append_outbox_entry(
+            payload,
+            targets,
+            headers=headers,
+            payloads=payloads,
+            headers_by_url=headers_by_url,
+            path=path,
+        )
     except Exception as exc:
-        logger.warning("Witness staging failed: %s", exc)
+        _handle_report_error("Witness staging failed", exc)
         return None
 
 
@@ -851,6 +908,7 @@ def stage_heartbeat(
     *,
     urls: list[str],
     ledger_id: str,
+    audience: str | None = None,
     key_fingerprint: str,
     last_seq: int,
     last_content_digest: str | None,
@@ -872,6 +930,8 @@ def stage_heartbeat(
         burned_seqs=burned_seqs,
         public_key=public_key,
     )
+    if audience is not None:
+        payload["audience"] = str(audience)
     headers: dict[str, str] = {}
     if signer is not None and key_name:
         try:
@@ -889,6 +949,7 @@ def report_heartbeat(
     *,
     urls: list[str],
     ledger_id: str,
+    audience: str | None = None,
     key_fingerprint: str,
     last_seq: int,
     last_content_digest: str | None,
@@ -904,6 +965,7 @@ def report_heartbeat(
     entry = stage_heartbeat(
         urls=urls,
         ledger_id=ledger_id,
+        audience=audience,
         key_fingerprint=key_fingerprint,
         last_seq=last_seq,
         last_content_digest=last_content_digest,
@@ -957,6 +1019,8 @@ def build_release_payload(
     ledger_id: str | None = None,
     prev_seq: int | None = None,
     prev_content_digest: str | None = None,
+    audience: str | None = None,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema": WITNESS_SCHEMA,
@@ -980,6 +1044,10 @@ def build_release_payload(
         payload["prev_seq"] = int(prev_seq)
     if prev_content_digest is not None:
         payload["prev_content_digest"] = prev_content_digest
+    if audience is not None:
+        payload["audience"] = str(audience)
+    if nonce is not None:
+        payload["nonce"] = str(nonce)
     return payload
 
 
@@ -1035,6 +1103,8 @@ def stage_release_report(
     key_name: str | None = None,
     signer: Any = None,
     path: Path | None = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Queue the witness report for a sealed release artifact."""
     targets = [u for u in (urls or []) if str(u or "").strip()]
@@ -1048,27 +1118,40 @@ def stage_release_report(
         release = getattr(manifest, "release", None)
         if release is None:
             return None
-        chain = _seal_chain_kwargs(manifest)
+        from epi_core.audience import derive_audiences
+
         public_key = getattr(manifest, "public_key", None)
-        payload = build_release_payload(
-            release_id=str(release.release_id),
-            name=str(release.name),
-            version=str(release.version),
-            release_digest=str(release.release_digest),
-            required_approvals=int(release.required_approvals),
-            sealed_at=_utc_now_iso(),
-            public_key=public_key,
-            key_fingerprint=key_fingerprint(str(public_key), grouped=False) if public_key else None,
-            **chain,
-        )
+        entries = dict(audience_entries or {})
+        payloads: dict[str, dict[str, Any]] = {}
+        headers_by_url: dict[str, dict[str, str]] = {}
+        for url in targets:
+            audience = derive_audiences(customer, [url])[0]
+            entry = entries.get(audience) or {}
+            chain = _chain_kwargs_from_entry(entry) if entry else _seal_chain_kwargs(manifest)
+            payload_for_target = build_release_payload(
+                release_id=str(release.release_id),
+                name=str(release.name),
+                version=str(release.version),
+                release_digest=str(release.release_digest),
+                required_approvals=int(release.required_approvals),
+                sealed_at=_utc_now_iso(),
+                public_key=public_key,
+                key_fingerprint=key_fingerprint(str(public_key), grouped=False) if public_key else None,
+                **chain,
+            )
+            payloads[url] = payload_for_target
+            headers_by_url[url] = _signed_headers(payload_for_target, signer, key_name)
+        payload = next(iter(payloads.values()))
         return append_outbox_entry(
             payload,
             targets,
-            headers=_signed_headers(payload, signer, key_name),
+            headers=headers_by_url.get(targets[0]) or {},
+            payloads=payloads,
+            headers_by_url=headers_by_url,
             path=path,
         )
     except Exception as exc:
-        logger.warning("Release witness staging failed: %s", exc)
+        _handle_report_error("Release witness staging failed", exc)
         return None
 
 
@@ -1120,6 +1203,8 @@ def report_release(
     signer: Any = None,
     timeout_seconds: float | None = None,
     path: Path | None = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Stage and deliver a release report. Never raises.
 
@@ -1136,6 +1221,8 @@ def report_release(
         key_name=key_name,
         signer=signer,
         path=path,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     release_entry = stage_release_report(
         epi_path,
@@ -1143,6 +1230,8 @@ def report_release(
         key_name=key_name,
         signer=signer,
         path=path,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     entries = [entry for entry in (seal_entry, release_entry) if entry is not None]
     if not entries:
@@ -1360,6 +1449,8 @@ def report_seal(
     path: Path | None = None,
     case_id: str | None = None,
     signer: Any = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Witness one sealed `.epi` to customer endpoints. Never raises, never slows the seal.
 
@@ -1376,6 +1467,8 @@ def report_seal(
         path=path,
         case_id=case_id,
         signer=signer,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     if entry is None:
         return None
@@ -1413,6 +1506,23 @@ def report_seal(
     except Exception as exc:
         logger.warning("Witness report failed: %s", exc)
         return entry
+
+
+def _handle_report_error(message: str, exc: Exception) -> None:
+    """Log a reporting failure, or re-raise in tests.
+
+    Reporting must never break a customer's seal, so production logs and
+    continues. In the suite, EPI_STRICT_REPORTING=1 turns a coding error
+    (TypeError/KeyError/AttributeError) into a failure instead of a warning
+    that hides the bug.
+    """
+    if os.environ.get("EPI_STRICT_REPORTING") == "1" and type(exc).__name__ in (
+        "TypeError",
+        "KeyError",
+        "AttributeError",
+    ):
+        raise exc
+    logger.warning("%s: %s", message, exc)
 
 
 def short_reason(error: object, urls: list[str] | None = None) -> str:

@@ -99,8 +99,8 @@ $ epi verify case.epi --policy strict --require-human-approval --witness-log rec
 <div class="table-wrap"><table>
 <thead><tr><th>Answer</th><th>Means</th><th>Exit</th></tr></thead>
 <tbody>
-<tr><td><code class="k badge-pass">clean</code></td><td>Every numbered record up to the latest heartbeat was reported. Without a heartbeat, only the delivered records are checked.</td><td>0</td></tr>
-<tr><td><code class="k badge-fail">MISSING #N</code></td><td>Record N was sealed but never reported to you. Ask why.</td><td>1</td></tr>
+<tr><td><code class="k badge-pass">clean</code></td><td>Every numbered record in your chain, up to the latest heartbeat, was reported. Numbering is per customer: another customer's log is a different sequence. Without a heartbeat, only the delivered records are checked.</td><td>0</td></tr>
+<tr><td><code class="k badge-fail">MISSING #N</code></td><td>Record N was sealed but never reported to you, in your chain. Ask why.</td><td>1</td></tr>
 <tr><td><code class="k badge-fail">FORK</code></td><td>Two different records claim the same number.</td><td>1</td></tr>
 <tr><td><code class="k badge-fail">CHAIN BREAK</code></td><td>A record doesn&rsquo;t link to the one before it.</td><td>1</td></tr>
 <tr><td><code class="k badge-fail">TAIL GAP</code></td><td>The vendor&rsquo;s heartbeat says more records exist than you received.</td><td>1</td></tr>
@@ -109,6 +109,7 @@ $ epi verify case.epi --policy strict --require-human-approval --witness-log rec
 <tr><td><code class="k badge-warn">NEW CHAIN</code></td><td>A new numbering started for a known key (new machine or reset).</td><td>0</td></tr>
 </tbody>
 </table></div>
+<p style="margin-top:1rem;font-size:0.9rem;color:var(--text-muted)">Numbers are per customer. A gap in one customer&rsquo;s log is not a gap in another&rsquo;s.</p>
 
 <h3>2. Did an approved version make this decision?</h3>
 <pre>epi verify decision.epi --witness-log received.jsonl --release-dir releases/ --require-release --min-approvals 2</pre>

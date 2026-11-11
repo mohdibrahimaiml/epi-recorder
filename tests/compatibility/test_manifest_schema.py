@@ -75,6 +75,7 @@ FROZEN_MANIFEST_FIELDS = {
     "policy_load_status",
     "producer_version",
     "seal_chain",
+    "seal_chains",
     "record_kind",
     "release",
     "release_ref",

@@ -74,12 +74,20 @@ def _safe_fingerprint(key_fingerprint: str) -> str:
     return clean or "unknown"
 
 
-def state_path(key_fingerprint: str) -> Path:
-    return ledger_dir() / f"{_safe_fingerprint(key_fingerprint)}.json"
+def _safe_audience(audience: str) -> str:
+    # ':' is not valid in a Windows filename; keep the id readable otherwise.
+    clean = "".join(
+        ch for ch in str(audience or "").lower() if ch.isalnum() or ch in "-_"
+    )
+    return clean or "local-unwitnessed"
 
 
-def _log_path(key_fingerprint: str) -> Path:
-    return ledger_dir() / f"{_safe_fingerprint(key_fingerprint)}{_LOG_NAME_SUFFIX}"
+def state_path(key_fingerprint: str, audience: str = "local:unwitnessed") -> Path:
+    return ledger_dir() / f"{_safe_fingerprint(key_fingerprint)}__{_safe_audience(audience)}.json"
+
+
+def _log_path(key_fingerprint: str, audience: str = "local:unwitnessed") -> Path:
+    return ledger_dir() / f"{_safe_fingerprint(key_fingerprint)}__{_safe_audience(audience)}{_LOG_NAME_SUFFIX}"
 
 
 def _now() -> str:
@@ -323,7 +331,7 @@ def _debug(message: str, exc: BaseException | None = None) -> None:
         traceback.print_exception(type(exc), exc, exc.__traceback__, file=sys.stderr)
 
 
-def allocate(key_fingerprint: str) -> dict[str, Any] | None:
+def allocate(key_fingerprint: str, audience: str = "local:unwitnessed") -> dict[str, Any] | None:
     """Reserve the next number for this key. Returns the seal_chain dict.
 
     Never raises. Returns None when no state can be written (e.g. a read-only
@@ -332,7 +340,9 @@ def allocate(key_fingerprint: str) -> dict[str, Any] | None:
     fingerprint = _safe_fingerprint(key_fingerprint)
     if not fingerprint or fingerprint == "unknown":
         return None
-    path = state_path(fingerprint)
+    audience = str(audience or "local:unwitnessed")
+    path = state_path(fingerprint, audience)
+    _warn_once_about_legacy_ledger(fingerprint, path)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -340,6 +350,7 @@ def allocate(key_fingerprint: str) -> dict[str, Any] | None:
     try:
         with _LOCAL_LOCK, FileLock(path, timeout=10.0):
             state = _load_state(path) or _new_state(fingerprint)
+            state["audience"] = audience
             _reap(state)
             seq = int(state.get("seq") or 0) + 1
             state["seq"] = seq
@@ -361,13 +372,20 @@ def allocate(key_fingerprint: str) -> dict[str, Any] | None:
                 os._exit(99)
             prev_seq = int(state.get("last_committed_seq") or 0)
             prev_digest = state.get("last_content_digest")
-            return {
+            from epi_core.audience import new_nonce
+
+            entry = {
+                "audience": audience,
                 "ledger_id": str(state["ledger_id"]),
                 "key_fingerprint": fingerprint,
                 "seq": seq,
                 "prev_seq": prev_seq,
                 "prev_content_digest": str(prev_digest) if prev_digest else GENESIS,
+                "nonce": new_nonce(),
             }
+            state["pending"][str(seq)]["entry"] = dict(entry)
+            _write_state(path, state)
+            return entry
     except Exception as exc:
         _debug(f"allocate failed for {fingerprint}", exc)
         return None
@@ -393,7 +411,8 @@ def commit(
     if fingerprint == "unknown" or seq < 1 or not content_digest:
         _debug(f"commit rejected invalid chain seq={seq}")
         return False
-    path = state_path(fingerprint)
+    audience = str(data.get("audience") or "local:unwitnessed")
+    path = state_path(fingerprint, audience)
     try:
         with _LOCAL_LOCK, FileLock(path, timeout=10.0):
             state = _load_state(path)
@@ -420,10 +439,11 @@ def commit(
                 state["last_committed_seq"] = seq
                 state["last_content_digest"] = str(content_digest)
                 state["last_sealed_at"] = sealed_at or _now()
+                state["last_entry"] = dict(data)
             state["updated_at"] = _now()
             _write_state(path, state)
             _append_log(
-                _log_path(fingerprint),
+                _log_path(fingerprint, audience),
                 {
                     "ledger_id": state.get("ledger_id"),
                     "key_fingerprint": fingerprint,
@@ -443,8 +463,44 @@ def commit_from_manifest(chain: Any, content_digest: str) -> bool:
     return commit(chain, content_digest)
 
 
-def load(key_fingerprint: str) -> dict[str, Any] | None:
-    return _load_state(state_path(key_fingerprint))
+def load(key_fingerprint: str, audience: str = "local:unwitnessed") -> dict[str, Any] | None:
+    return _load_state(state_path(key_fingerprint, audience))
+
+
+def head(key_fingerprint: str, audience: str = "local:unwitnessed") -> dict[str, Any] | None:
+    """The full last-committed entry for one audience, nonce included."""
+    state = load(key_fingerprint, audience)
+    entry = (state or {}).get("last_entry")
+    return dict(entry) if isinstance(entry, dict) else None
+
+
+def _warn_once_about_legacy_ledger(fingerprint: str, path: Path) -> None:
+    """Pre-audience dev files are ignored (4.10 was never published).
+
+    Every audience starts at 1. Say it once instead of silently leaving an old
+    file that a reader might mistake for the current chain.
+    """
+    legacy = ledger_dir() / f"{_safe_fingerprint(fingerprint)}.json"
+    if not legacy.exists() or path.exists():
+        return
+    marker = ledger_dir() / ".legacy-ignored"
+    try:
+        if marker.exists():
+            return
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(
+            "Pre-audience seal ledger ignored; audience chains start at 1.\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        return
+    import sys
+
+    print(
+        "[seal-ledger] ignoring pre-audience ledger file "
+        f"{legacy.name}; audience chains start at 1",
+        file=sys.stderr,
+    )
 
 
 def all_states() -> list[dict[str, Any]]:
@@ -509,7 +565,8 @@ def _digest_at(entries: list[dict[str, Any]]) -> str | None:
 def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """Structural audit of one customer witness log.
 
-    Groups by ``(key_fingerprint, ledger_id)`` and reports missing numbers,
+    Groups by ``(audience, key_fingerprint, ledger_id)``; a number missing
+    from one customer's log is never a hole in another's. Reports missing numbers,
     forks, chain breaks, tail gaps, vendor-declared burns and new chains.
     Entries without ``seal_seq`` are "unsequenced", never errors.
     """
@@ -533,8 +590,8 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
             continue
         seals.append(entry)
 
-    order: list[tuple[str, str]] = []
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    order: list[tuple[str, str, str]] = []
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     # A release is reported twice from 4.10: ``epi.sealed`` (the numbered
     # seal) and ``epi.release`` (the detail). Count the seal for sequence and
     # fork checks; ignore the extra when the same number is already present.
@@ -563,6 +620,7 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
     seals = filtered_seals
     for entry in seals:
         group_key = (
+            str(entry.get("audience") or ""),
             str(entry.get("key_fingerprint") or ""),
             str(entry.get("ledger_id") or ""),
         )
@@ -573,13 +631,13 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
     # A key with more than one ledger: every ledger after the first one seen is
     # a NEW CHAIN (state wiped, restored elsewhere, or a second machine). It is
     # shown as a warning, never hidden, and never silently merged.
-    key_order: dict[str, list[str]] = {}
-    for key_fingerprint, ledger_id in order:
-        key_order.setdefault(key_fingerprint, []).append(ledger_id)
+    key_order: dict[tuple[str, str], list[str]] = {}
+    for audience, key_fingerprint, ledger_id in order:
+        key_order.setdefault((audience, key_fingerprint), []).append(ledger_id)
 
     chains: list[dict[str, Any]] = []
-    for key_fingerprint, ledger_id in order:
-        items = grouped[(key_fingerprint, ledger_id)]
+    for audience, key_fingerprint, ledger_id in order:
+        items = grouped[(audience, key_fingerprint, ledger_id)]
         by_seq: dict[int, list[dict[str, Any]]] = {}
         for entry in items:
             by_seq.setdefault(int(entry["seal_seq"]), []).append(entry)
@@ -689,8 +747,8 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         denominator = max(1, max(max_seq, heartbeat_last))
         burn_rate = len(burned_seqs) / denominator
 
-        new_chain = len(key_order.get(key_fingerprint, [])) > 1 and (
-            key_order[key_fingerprint][0] != ledger_id
+        new_chain = len(key_order.get((audience, key_fingerprint), [])) > 1 and (
+            key_order[(audience, key_fingerprint)][0] != ledger_id
         )
 
         chains.append(

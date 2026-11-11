@@ -807,6 +807,7 @@ class EpiRecorderSession:
         witness_url: Optional[str] = None,
         witness_secret: Optional[str] = None,
         witness_include_goal: bool = False,
+        customer: Optional[str] = None,
         case_id: Optional[str] = None,
         storage_url: Optional[str] = None,
         with_viewer: bool = False,
@@ -906,6 +907,9 @@ class EpiRecorderSession:
         self.witness_url = witness_url if witness_url is not None else os.getenv("EPI_WITNESS_URL")
         self.witness_secret = witness_secret if witness_secret is not None else os.getenv("EPI_WITNESS_SECRET")
         self.witness_include_goal = bool(witness_include_goal)
+        self.customer = (str(customer).strip() or None) if customer else None
+        self.seal_entries: dict[str, dict] = {}
+        self.audiences = ["local:unwitnessed"]
         # The customer's own identifier for this case (a claim number, a
         # ticket). Sent to the witness so its log speaks the customer's
         # language; an id, never case content.
@@ -1115,7 +1119,18 @@ class EpiRecorderSession:
                 embed_viewer=self.with_viewer,
             )
 
-            # Sign if requested — fail closed so callers never mistake an
+            # Resolve the audiences ONCE, before any pack. The sealing step and
+            # the reporter must use the same object: a second derivation after
+            # sealing can disagree and leave a report without its chain.
+            try:
+                from epi_core.audience import derive_audiences
+
+                _witness_urls, _ = self._witness_sources()
+                self.audiences = derive_audiences(self.customer, _witness_urls)
+            except Exception:
+                self.audiences = ["local:unwitnessed"]
+
+            # Sign if requested - fail closed so callers never mistake an
             # unsigned artifact for a signed one.
             signed = False
             if self.auto_sign:
@@ -2085,6 +2100,32 @@ class EpiRecorderSession:
             )
         return ref, runtime
 
+    def _witness_sources(self) -> tuple[list[str], str | None]:
+        """Witness URLs and secret, explicit first, then the saved Cloud config."""
+        from epi_core.webhook import split_witness_urls
+
+        urls = split_witness_urls(
+            getattr(self, "witness_url", None) or os.environ.get("EPI_WITNESS_URL")
+        )
+        secret = getattr(self, "witness_secret", None) or os.environ.get("EPI_WITNESS_SECRET") or None
+        if urls:
+            return urls, secret
+        try:
+            import json as _json
+            import os as _os
+            from pathlib import Path as _Path
+
+            _home = _os.getenv("EPI_HOME")
+            _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
+            if _cfg.exists():
+                _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
+                if isinstance(_saved, dict):
+                    if isinstance(_saved.get("witness_url"), str) and _saved["witness_url"].strip():
+                        return split_witness_urls(_saved["witness_url"]), _saved.get("witness_secret") or None
+        except Exception:
+            pass
+        return [], secret
+
     def _witness_seal(self, signed: bool) -> None:
         """Report the sealed file to customer witness endpoint(s).
 
@@ -2092,34 +2133,37 @@ class EpiRecorderSession:
         background delivery, so this never fails or slows the seal.
         """
         try:
-            from epi_core.webhook import report_seal, split_witness_urls
+            from epi_core.webhook import report_seal
 
-            urls = split_witness_urls(getattr(self, "witness_url", None))
-            secret = getattr(self, "witness_secret", None)
-            if not urls:
-                # Simple onboarding: fall back to the witness settings saved
-                # by `epi cloud login` when no explicit url was given. The
-                # URL and secret always come from the SAME source: an
-                # explicit/ENV url pairs only with an explicit/ENV secret,
-                # and a saved url pairs only with the saved secret. Mixing a
-                # stale ENV secret with a fresh saved url fails delivery.
-                try:
-                    import json as _json
-                    import os as _os
-                    from pathlib import Path as _Path
-
-                    _home = _os.getenv("EPI_HOME")
-                    _cfg = (_Path(_home).expanduser() if _home else _Path.home() / ".epi") / "cloud.json"
-                    if _cfg.exists():
-                        _saved = _json.loads(_cfg.read_text(encoding="utf-8"))
-                        if isinstance(_saved, dict):
-                            if isinstance(_saved.get("witness_url"), str) and _saved["witness_url"].strip():
-                                urls = split_witness_urls(_saved["witness_url"])
-                                secret = _saved.get("witness_secret") or None
-                except Exception:
-                    pass
+            urls, secret = self._witness_sources()
             if not urls:
                 return
+            # The entries the pack allocated are the only ones we may report.
+            # A mismatch is a wiring bug, never a silent fallback: say so and
+            # record a capture gap on the artifact's evidence.
+            try:
+                from epi_core.audience import audience_for_url
+
+                expected = (
+                    set(self.audiences)
+                    if self.customer
+                    else {audience_for_url(u) for u in urls}
+                )
+                missing = sorted(a for a in expected if a not in self.seal_entries)
+                if missing:
+                    import logging
+
+                    logging.getLogger("epi_recorder").warning(
+                        "witness audience missing from the sealed pack: %s", missing
+                    )
+                    try:
+                        from epi_core.checkpoints import record_gap
+
+                        record_gap(Path(self.temp_dir), f"witness audience missing: {missing}")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             key_name: str | None = None
             signer = None
             if signed:
@@ -2139,6 +2183,8 @@ class EpiRecorderSession:
                 signer=signer,
                 goal=self.goal if getattr(self, "witness_include_goal", False) else None,
                 case_id=getattr(self, "case_id", None),
+                customer=self.customer,
+                audience_entries=self.seal_entries,
             )
             _print_witness_outcome(entry)
         except Exception:
@@ -2305,6 +2351,8 @@ class EpiRecorderSession:
                         embed_viewer=(current_format == EPI_CONTAINER_FORMAT_ENVELOPE),
                         generate_analysis=False,
                         seal_fingerprint=fingerprint_for_private_key(private_key),
+                        audiences=self.audiences,
+                        seal_entries=self.seal_entries,
                     )
                 finally:
                     if old_checkpoints is None:
@@ -2542,6 +2590,7 @@ def record(
     witness_url: Optional[str] = None,
     witness_secret: Optional[str] = None,
     witness_include_goal: bool = False,
+    customer: Optional[str] = None,
     case_id: Optional[str] = None,
     storage_url: Optional[str] = None,
     with_viewer: bool = False,
@@ -2574,6 +2623,9 @@ def record(
         witness_url: Customer witness endpoint(s), comma-separated (EPI_WITNESS_URL fallback)
         witness_secret: HMAC secret for witness delivery (EPI_WITNESS_SECRET fallback)
         witness_include_goal: Include the goal in the witness payload (default False)
+        customer: Stable audience for the seal chain (e.g. "acme-bank"). Keeps
+            one chain continuous when the witness URL changes; without it the
+            audience is derived from the witness destination.
         storage_url: Customer-owned bucket (s3://bucket[/prefix]) for every
             sealed `.epi` (EPI_STORAGE_URL fallback, endpoint via
             EPI_STORAGE_ENDPOINT). Outbox-first; never fails/slows the seal.
@@ -2668,6 +2720,7 @@ def record(
             witness_url=witness_url,
             witness_secret=witness_secret,
             witness_include_goal=witness_include_goal,
+            customer=customer,
             case_id=case_id,
             storage_url=storage_url,
             with_viewer=with_viewer,

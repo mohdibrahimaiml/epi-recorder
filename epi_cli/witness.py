@@ -1316,11 +1316,17 @@ def heartbeat(
             _plain(f"No key named {key!r}. Generate one with: epi keys generate --name {key}")
             raise typer.Exit(2)
         fingerprint = key_fingerprint(km.load_public_key(key).hex(), grouped=False)
-        state = seal_ledger.load(fingerprint)
-        if state is None or not int(state.get("last_committed_seq") or 0):
-            _plain("No sealed runs recorded for this key yet — nothing to report.")
+        states = [
+            st
+            for st in seal_ledger.all_states()
+            if str(st.get("key_fingerprint") or "") == fingerprint
+            and int(st.get("last_committed_seq") or 0)
+        ]
+        if not states:
+            _plain("No sealed runs recorded for this key yet - nothing to report.")
             return
-        targets.append((key, state))
+        for st in states:
+            targets.append((key, st))
 
     urls, effective_secret = _resolve_witness_targets(url, secret)
     if not urls:
@@ -1331,7 +1337,19 @@ def heartbeat(
         raise typer.Exit(2)
 
     failed = False
+    from epi_core.audience import urls_for_audience
+
     for key_name, state in targets:
+        audience_urls = (
+            urls
+            if (url and str(url).strip())
+            else urls_for_audience(str(state.get("audience") or ""), urls)
+        )
+        if not audience_urls:
+            _plain(
+                f"{key_name}: no witness URL for audience {state.get('audience') or 'unknown'}; skipped"
+            )
+            continue
         fields = seal_ledger.heartbeat_fields(state)
         try:
             signer = km.load_private_key(key_name)
@@ -1341,8 +1359,9 @@ def heartbeat(
             failed = True
             continue
         entry = report_heartbeat(
-            urls=urls,
+            urls=audience_urls,
             ledger_id=fields["ledger_id"],
+            audience=state.get("audience"),
             key_fingerprint=fields["key_fingerprint"],
             last_seq=fields["last_seq"],
             last_content_digest=fields.get("last_content_digest"),

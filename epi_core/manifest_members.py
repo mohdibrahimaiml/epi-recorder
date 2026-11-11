@@ -35,6 +35,7 @@ MANIFEST_MEMBER_FIELDS: frozenset[str] = frozenset(
     {
         "case_id",
         "seal_chain",
+        "seal_chains",
         "record_kind",
         "release",
         "release_ref",
@@ -47,6 +48,7 @@ MANIFEST_MEMBER_FIELDS: frozenset[str] = frozenset(
 # release document already written by `epi release create`.
 _MEMBER_PATHS: dict[str, str] = {
     "seal_chain": "artifacts/seal_chain.json",
+    "seal_chains": "artifacts/seal_chains.json",
     "case_id": "artifacts/case_id.json",
     "record_kind": "artifacts/record_kind.json",
     "release_ref": "artifacts/release_ref.json",
@@ -58,6 +60,7 @@ _MEMBER_PATHS: dict[str, str] = {
 # self-describing and lets release_ref.json carry two fields.
 _MEMBER_KEYS: dict[str, tuple[str, ...]] = {
     "artifacts/seal_chain.json": ("seal_chain",),
+    "artifacts/seal_chains.json": ("seal_chains",),
     "artifacts/case_id.json": ("case_id",),
     "artifacts/record_kind.json": ("record_kind",),
     "artifacts/release_ref.json": ("release_ref", "runtime_components"),

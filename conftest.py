@@ -9,6 +9,10 @@ step to a warning so the actual pass/fail signal is preserved.
 
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("EPI_STRICT_REPORTING", "1")
+
 from pathlib import Path
 from types import SimpleNamespace
 import argparse

@@ -486,3 +486,15 @@ session-only seed, passphrase wrapping) are tracked in
 | Viewer stored-XSS (receiver) | Partial | Output escaping; no CSP, no pen-test (R2) |
 | Decompression bomb (receiver) | Partial — expansion budget enforced, caps are operator-overridable | Central-directory expansion guard (R3) |
 | Browser seed theft (receiver) | No | localStorage is plain text (R4) |
+
+
+## Cross-customer seal inference
+
+A seal chain is scoped to an audience (the customer witness it is reported
+to), never to the signing key. A vendor that serves two customers with one
+key keeps two independent number sequences. A file handed to one customer
+stores only salted commitments for the other audiences, and each witness
+report carries only its own entry, so one customer cannot learn another
+customer's seal count, number, or audience id from the file or the reports.
+A seal made before any witness exists lands on its own local chain and can
+never create a hole in a customer's chain.
