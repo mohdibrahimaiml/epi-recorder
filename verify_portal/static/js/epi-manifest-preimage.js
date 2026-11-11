@@ -192,6 +192,7 @@
       }
     })(manifest);
     if (manifest.record_kind === null || manifest.record_kind === undefined) {
+      delete manifest.seal_chains;
       delete manifest.record_kind;
     }
     if (manifest.release === null || manifest.release === undefined) {
