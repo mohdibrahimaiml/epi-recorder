@@ -1,6 +1,6 @@
 {
   "demo": true,
-  "demo_notice": "DEMO — sample data for sales outreach. Not a real customer. Counts below are illustrations, not real runs.",
+  "demo_notice": "DEMO \u2014 sample data for sales outreach. Not a real customer. Counts below are illustrations, not real runs.",
   "vendor": "Acme Demo Corp (DEMO)",
   "slug": "acme-demo",
   "agents": [
@@ -27,7 +27,7 @@
     "head_hash": "DEMO-not-a-real-checkpoint",
     "signature": "DEMO-not-signed",
     "rekor": "DEMO-no-real-rekor-entry",
-    "note": "DEMO — real checkpoints are signed daily and anchored in Rekor + RFC 3161 + git. This demo shows the layout only."
+    "note": "DEMO \u2014 real checkpoints are signed daily and anchored in Rekor + RFC 3161 + git. This demo shows the layout only."
   },
   "files": [
     {
@@ -37,28 +37,28 @@
       "size_bytes": 508420,
       "workflow_id": "3c9dfcf6-94ed-43ec-945d-d9be89b36a1c",
       "goal": "Website sample.epi for browser verify",
-      "created_at": "2026-10-23T06:38:09.365675Z",
-      "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
+      "created_at": "2026-10-23 06:38:09.365675+00:00",
+      "demo_note": "DEMO file \u2014 real sealed .epi from this repo, shown as a sample."
     },
     {
       "path": "/assets/demo/demo-lending-affordability.epi",
       "label": "Mortgage refinance evaluation (DEMO)",
-      "claimed_sha256": "d5d63be874b73fe1c399eef37e915dff0b0c2e379e449f04a2db8c5138b1f934",
-      "size_bytes": 17754,
-      "workflow_id": "537c130f-9033-4469-bbb3-848fe6f2371a",
+      "claimed_sha256": "827fa7c89fa4bf01a38472d5f8b9d3c610b7befd1bf55315d7c92c177819d481",
+      "size_bytes": 18135,
+      "workflow_id": "0ba490bf-4f53-4a94-9574-95b065cb80c3",
       "goal": "Evaluate mortgage refinance application MORT-55102 for borrower affordability",
-      "created_at": "2026-10-30T10:56:08.174570Z",
-      "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
+      "created_at": "2026-11-11 18:49:13.868889+00:00",
+      "demo_note": "DEMO file \u2014 real sealed .epi from this repo, shown as a sample."
     },
     {
       "path": "/assets/demo/demo-finance-loan-underwriter.epi",
       "label": "Consumer loan underwriting (DEMO)",
-      "claimed_sha256": "27d4ffa5e50d98c177115e0b725c395e6e548bdecab77d28c09defa5a8805b42",
-      "size_bytes": 19059,
-      "workflow_id": "e5985df6-b698-48c3-a28b-8a7ce550efd5",
+      "claimed_sha256": "e83e565642fbf1843dde811cfa4c993ed4c9cae468ed4d4c1f470af2c144c19d",
+      "size_bytes": 19440,
+      "workflow_id": "03e80c5d-c92e-46dc-9c1c-c1cc714eb741",
       "goal": "Underwrite consumer loan application APP-78421",
-      "created_at": "2026-10-30T10:55:47.605179Z",
-      "demo_note": "DEMO file — real sealed .epi from this repo, shown as a sample."
+      "created_at": "2026-11-11 18:48:55.404737+00:00",
+      "demo_note": "DEMO file \u2014 real sealed .epi from this repo, shown as a sample."
     }
   ]
 }

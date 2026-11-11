@@ -188,9 +188,9 @@
           <p class="z-body" style="margin-top:0.75rem">
             The browser check above covers the seal. The demo ships the release, the witness log and the demo keys next to the record; check them with the CLI:
           </p>
-          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid var(--acc-envelope);font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">epi keys trust demo-sealer.pub --name demo-sealer --fingerprint "094d a55f a3fd 0844"
-epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "7192 6c38 f452 feee"
-epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "0406 2aa9 a53e 3031"
+          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid var(--acc-envelope);font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">epi keys trust demo-sealer.pub --name demo-sealer --fingerprint "fdb5 4940 d1f4 23b5"
+epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "8e66 15ff acf2 ae5d"
+epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "b7f3 156f a982 64cf"
 epi verify decision-example.epi --release claims-policy-1.4.epi \
   --witness-log witness.jsonl --require-release --min-approvals 1 \
   --require-pre-action-approval</pre>

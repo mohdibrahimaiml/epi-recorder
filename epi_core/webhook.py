@@ -79,6 +79,15 @@ def witness_content_digest(manifest: Any) -> str:
 
     omit_absent_optional_hash_fields(data, "ManifestModel")
     data.pop("signature", None)
+    # Member-backed fields are not in manifest.json: they live in their own
+    # ZIP members and are excluded from the signature preimage. read_manifest()
+    # restores them, the browser has only manifest.json, and including them made
+    # the two digests disagree for every file sealed with a seal chain, case id
+    # or release. Hash the evidence a verifier can reconstruct either way.
+    from epi_core.manifest_members import MANIFEST_MEMBER_FIELDS
+
+    for _field in MANIFEST_MEMBER_FIELDS:
+        data.pop(_field, None)
     for _field in _PRESENTATION_FIELDS:
         data.pop(_field, None)
     governance = data.get("governance")

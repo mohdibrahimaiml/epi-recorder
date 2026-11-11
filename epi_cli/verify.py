@@ -1047,17 +1047,27 @@ def _format_sequence_line(info: dict) -> str:
     """One display line for the seal's chain position (never a verdict)."""
     if not info or not info.get("present"):
         return "  [dim]- Sequence:     not present (sealed before seal sequence numbers)[/dim]"
-    if info.get("per_audience") and not info.get("in_log"):
-        return (
-            "  [dim]- Sequence:     per-customer "
-            "(supply --witness-log to check)[/dim]"
-        )
     seq = info.get("seq")
     chain = str(info.get("ledger_id") or "")[:4]
+    per_audience = bool(info.get("per_audience"))
     if not info.get("in_log"):
+        if per_audience:
+            # A log was supplied (this line is only built after one), it just
+            # does not carry this customer's seal. Saying "supply --witness-log"
+            # here blamed the wrong thing.
+            return (
+                "  [yellow]- Sequence:     not in this witness log — the file "
+                "carries per-customer commitments; check the log from this "
+                "customer's own witness[/yellow]"
+            )
         return (
             f"  [yellow]- Sequence:     #{seq} of chain {chain}… — this seal is "
             "not in the log[/yellow]"
+        )
+    if per_audience and info.get("contiguous") is None:
+        return (
+            f"  [green]- Sequence:     #{seq} of chain {chain}…, present in this "
+            "log[/green]"
         )
     if info.get("contiguous"):
         return (
@@ -1200,21 +1210,22 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         if _seal_chain is None and _commitments:
             # More than one audience: the file carries commitments only. Match
             # the customer's log by recomputing the commitment from each entry.
-            from epi_core.audience import verify_commitment
+            from epi_core.audience import entry_from_report, verify_commitment
 
-            _match = next(
-                (
-                    item["inner"]
-                    for item in signed_items
-                    if isinstance(item.get("inner"), dict)
-                    and verify_commitment(item["inner"], _commitments)
-                ),
-                None,
-            )
+            _match = None
+            for _record in _seq_records:
+                if not isinstance(_record, dict):
+                    continue
+                for _candidate in (_record, entry_from_report(_record)):
+                    if verify_commitment(_candidate, _commitments):
+                        _match = _candidate
+                        break
+                if _match is not None:
+                    break
             _sequence = {
                 "present": True,
                 "per_audience": True,
-                "seq": (_match or {}).get("seal_seq"),
+                "seq": (_match or {}).get("seal_seq", (_match or {}).get("seq")),
                 "ledger_id": (_match or {}).get("ledger_id"),
                 "in_log": _match is not None,
                 "contiguous": None,
@@ -1230,8 +1241,14 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
                     None,
                 )
                 if _group:
-                    _sequence["range"] = _group.get("range")
-                    _sequence["contiguous"] = not _group.get("missing")
+                    _sequence["range"] = (
+                        f"{_group['first_seq']}..{_group['last_seq']}"
+                    )
+                    _sequence["contiguous"] = bool(
+                        not _group["missing_all"]
+                        and not _group["forks"]
+                        and not _group["chain_breaks"]
+                    )
         if _seal_chain is not None:
             _chain = (
                 _seal_chain.model_dump()
