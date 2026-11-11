@@ -607,6 +607,7 @@ function prepareManifestCopy(manifest) {
     // Member-backed fields: always absent from the signed top level from 4.10.
     delete copy.case_id;
     delete copy.seal_chain;
+  delete copy.seal_chains;
     delete copy.record_kind;
     delete copy.release;
     delete copy.release_ref;
@@ -726,6 +727,7 @@ async function verifyManifestSignature(manifest, rawManifestText) {
             delete parsed.release_ref;
             delete parsed.runtime_components;
             delete parsed.seal_chain;
+            delete parsed.seal_chains;
             // normalize datetimes
             _normalizeDatetimeRec(parsed);
             // sorted JSON preserving __num raw text

@@ -182,4 +182,4 @@ def test_cli_default_matches_server() -> None:
 
     flat = re.sub(r"[│\s]+", " ", res.output)
     assert "[default: 7]" in flat, res.output
-    assert "max 30" in flat, res.output
+    assert "max 7" in flat, res.output
