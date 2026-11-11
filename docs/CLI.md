@@ -554,10 +554,10 @@ When `--users-file` is set, the browser app shows a small local sign-in form and
 
 ## `epi gateway serve`
 
-Starts the open-source EPI AI capture gateway.
+Starts the EPI AI capture gateway (part of EPI Enterprise; requires a licence).
 
 ```bash
-pip install "epi-recorder[gateway]"
+pip install epi-enterprise   # the gateway ships with EPI Cloud Startup and above
 epi gateway serve
 epi gateway serve --port 9000 --storage-dir ./gateway-vault
 epi gateway serve --retention-mode redacted_hashes --proxy-failure-mode fail-closed

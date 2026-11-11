@@ -279,8 +279,9 @@ def test_gateway_export_witnesses(monkeypatch, tmp_path: Path) -> None:
     """Case export with witness settings delivers a seal report."""
     from fastapi.testclient import TestClient
 
-    from epi_gateway.main import GatewayRuntimeSettings, create_app
-    from epi_gateway.worker import EvidenceWorker
+    pytest.importorskip("epi_enterprise.gateway.main")
+    from epi_enterprise.gateway.main import GatewayRuntimeSettings, create_app
+    from epi_enterprise.gateway.worker import EvidenceWorker
 
     monkeypatch.setenv("EPI_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("EPI_NOTARIZE", "0")
