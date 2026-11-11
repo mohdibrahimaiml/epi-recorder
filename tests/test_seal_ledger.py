@@ -29,6 +29,7 @@ def _report(chain: dict, digest: str, *, workflow: str = "wf", **extra) -> dict:
     entry = {
         "schema": "epi-witness/v1",
         "type": "epi.sealed",
+        "audience": chain.get("audience"),
         "seal_seq": chain["seq"],
         "ledger_id": chain["ledger_id"],
         "key_fingerprint": chain["key_fingerprint"],
@@ -238,6 +239,7 @@ def test_audit_finds_missing_fork_chain_break_tail_gap_and_new_chain(
         {
             "schema": "epi-witness/v1",
             "type": "epi.heartbeat",
+            "audience": chain.get("audience"),
             "ledger_id": chain["ledger_id"],
             "key_fingerprint": KEY,
             "last_seq": 10,

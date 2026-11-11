@@ -1316,11 +1316,17 @@ def heartbeat(
             _plain(f"No key named {key!r}. Generate one with: epi keys generate --name {key}")
             raise typer.Exit(2)
         fingerprint = key_fingerprint(km.load_public_key(key).hex(), grouped=False)
-        state = seal_ledger.load(fingerprint)
-        if state is None or not int(state.get("last_committed_seq") or 0):
-            _plain("No sealed runs recorded for this key yet — nothing to report.")
+        states = [
+            st
+            for st in seal_ledger.all_states()
+            if str(st.get("key_fingerprint") or "") == fingerprint
+            and int(st.get("last_committed_seq") or 0)
+        ]
+        if not states:
+            _plain("No sealed runs recorded for this key yet - nothing to report.")
             return
-        targets.append((key, state))
+        for st in states:
+            targets.append((key, st))
 
     urls, effective_secret = _resolve_witness_targets(url, secret)
     if not urls:
@@ -1343,6 +1349,7 @@ def heartbeat(
         entry = report_heartbeat(
             urls=urls,
             ledger_id=fields["ledger_id"],
+            audience=state.get("audience"),
             key_fingerprint=fields["key_fingerprint"],
             last_seq=fields["last_seq"],
             last_content_digest=fields.get("last_content_digest"),

@@ -1861,6 +1861,8 @@ class EPIContainer:
         notarize: bool | None = None,
         embed_viewer: bool = True,
         seal_fingerprint: str | None = None,
+        audiences: list[str] | None = None,
+        seal_entries: dict[str, dict] | None = None,
         **kwargs,
     ) -> None:
         """
@@ -1907,6 +1909,8 @@ class EPIContainer:
                     notarize=notarize,
                     embed_viewer=embed_viewer,
                     seal_fingerprint=seal_fingerprint,
+                    audiences=audiences,
+                    seal_entries=seal_entries,
                     **kwargs,
                 )
                 EPIContainer._write_artifact_from_payload(
@@ -1926,10 +1930,11 @@ class EPIContainer:
 
                     final_manifest = EPIContainer.read_manifest(output_path)
                     _digest = witness_content_digest(final_manifest)
-                    if _seal_entries:
+                    _committed = list((seal_entries or {}).values())
+                    if _committed:
                         from epi_core.seal_ledger import commit
 
-                        for _entry in _seal_entries:
+                        for _entry in _committed:
                             commit(_entry, _digest)
                     elif getattr(final_manifest, "seal_chain", None) is not None:
                         commit_from_manifest(final_manifest.seal_chain, _digest)

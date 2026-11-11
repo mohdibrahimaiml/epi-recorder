@@ -746,8 +746,8 @@ def analyze(entries: Iterable[dict[str, Any]]) -> dict[str, Any]:
         denominator = max(1, max(max_seq, heartbeat_last))
         burn_rate = len(burned_seqs) / denominator
 
-        new_chain = len(key_order.get(key_fingerprint, [])) > 1 and (
-            key_order[key_fingerprint][0] != ledger_id
+        new_chain = len(key_order.get((audience, key_fingerprint), [])) > 1 and (
+            key_order[(audience, key_fingerprint)][0] != ledger_id
         )
 
         chains.append(

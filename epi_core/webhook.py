@@ -769,6 +769,10 @@ def _seal_chain_kwargs(manifest: Any) -> dict[str, Any]:
         fields["prev_seq"] = int(chain["prev_seq"])
     if chain.get("prev_content_digest"):
         fields["prev_content_digest"] = str(chain["prev_content_digest"])
+    if chain.get("audience"):
+        fields["audience"] = str(chain["audience"])
+    if chain.get("nonce"):
+        fields["nonce"] = str(chain["nonce"])
     return fields
 
 
@@ -895,6 +899,7 @@ def stage_heartbeat(
     *,
     urls: list[str],
     ledger_id: str,
+    audience: str | None = None,
     key_fingerprint: str,
     last_seq: int,
     last_content_digest: str | None,
@@ -916,6 +921,8 @@ def stage_heartbeat(
         burned_seqs=burned_seqs,
         public_key=public_key,
     )
+    if audience is not None:
+        payload["audience"] = str(audience)
     headers: dict[str, str] = {}
     if signer is not None and key_name:
         try:
@@ -933,6 +940,7 @@ def report_heartbeat(
     *,
     urls: list[str],
     ledger_id: str,
+    audience: str | None = None,
     key_fingerprint: str,
     last_seq: int,
     last_content_digest: str | None,
@@ -948,6 +956,7 @@ def report_heartbeat(
     entry = stage_heartbeat(
         urls=urls,
         ledger_id=ledger_id,
+        audience=audience,
         key_fingerprint=key_fingerprint,
         last_seq=last_seq,
         last_content_digest=last_content_digest,
