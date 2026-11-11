@@ -116,13 +116,7 @@ aws-kms = [
 gcp-kms = [
     "google-cloud-kms>=3.0.0",
 ]
-gateway = [
-    "fastapi>=0.111.0,<1",
-    "uvicorn>=0.30.0,<1",
-    "python-multipart>=0.0.20",
-    "boto3>=1.34.0",
-    "httpx>=0.27.0",
-]
+# The team gateway dependencies moved to epi-enterprise.
 mcp = [
     "mcp>=2.0",
 ]
@@ -194,7 +188,7 @@ Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_gateway*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*", "epi_mcp*"]
+include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*", "epi_mcp*"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*", "*tests*"]
 
 [tool.setuptools]

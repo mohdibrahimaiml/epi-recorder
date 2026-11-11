@@ -171,10 +171,13 @@ The base install is small: it records, seals and verifies. Framework support is 
 | `epi-recorder[langchain]` / `[langgraph]` | callback handler / checkpoint saver |
 | `epi-recorder[litellm]` | `EPICallback` |
 | `epi-recorder[opentelemetry]` | OpenTelemetry export |
-| `epi-recorder[gateway]` | `epi gateway serve` (self-hosted capture) |
 | `epi-recorder[aws-kms]` / `[gcp-kms]` / `[pkcs11]` | HSM/KMS signing |
 | `epi-recorder[integrations]` | all of the above framework adapters |
 | `epi-recorder[all]` | everything except the dev/test toolchains |
+
+The team gateway (`epi gateway serve`, `epi connect`) and the framework
+integrations that write org-wide evidence ship in the paid
+`epi-enterprise` package. The base install above records, seals and verifies.
 
 ```python
 # pip install "epi-recorder[openai]"

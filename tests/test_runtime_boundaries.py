@@ -3,7 +3,6 @@ from pathlib import Path
 
 from epi_core.connectors import fetch_live_record as shared_fetch_live_record
 from epi_core.keys import KeyManager as SharedKeyManager
-from epi_cli.connect import fetch_live_record as cli_fetch_live_record
 from epi_cli.keys import KeyManager as CliKeyManager
 
 
@@ -25,13 +24,8 @@ def test_cli_key_manager_reexports_shared_manager():
     assert CliKeyManager is SharedKeyManager
 
 
-def test_cli_fetch_live_record_reexports_shared_function():
-    assert cli_fetch_live_record is shared_fetch_live_record
-
-
 def test_runtime_packages_do_not_import_cli_modules():
     runtime_files = [
-        REPO_ROOT / "epi_gateway" / "main.py",
         REPO_ROOT / "epi_recorder" / "api.py",
     ]
 

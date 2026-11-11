@@ -1,4 +1,4 @@
-"""Wave 3 coverage: epi_cli.dev, epi_cli.connect helpers, epi_cli.scitt."""
+"""Wave 3 coverage: epi_cli.dev and epi_cli.scitt (free) plus the paid connect helpers."""
 from __future__ import annotations
 
 import json
@@ -188,27 +188,27 @@ def test_dev_auto_export_and_verify(tmp_path, monkeypatch):
         def upsert_case_payload(self, payload):
             return {"id": payload.get("id")}
 
-    # Avoid importing epi_gateway.main at module level (side-effects).
+    # The gateway is a paid module now: patch it in sys.modules rather than
+    # importing it, so this free test never depends on epi-enterprise.
     class FakeSettings:
         pass
 
+    gateway_pkg = SimpleNamespace()
     with patch.dict(
         "sys.modules",
         {
-            "epi_gateway.main": SimpleNamespace(
+            "epi_enterprise": gateway_pkg,
+            "epi_enterprise.gateway": gateway_pkg,
+            "epi_enterprise.gateway.main": SimpleNamespace(
                 _build_gateway_signer=lambda s: None,
                 _build_settings_from_env=lambda: FakeSettings(),
             ),
-            "epi_gateway.worker": SimpleNamespace(EvidenceWorker=FakeWorker),
+            "epi_enterprise.gateway.worker": SimpleNamespace(EvidenceWorker=FakeWorker),
         },
     ):
         with patch("epi_cli.dev.subprocess.run", return_value=SimpleNamespace(returncode=0)):
-            # Re-import path used inside function by patching after import inside call
-            import epi_gateway.worker as gw
-
-            monkeypatch.setattr(gw, "EvidenceWorker", FakeWorker, raising=False)
             path = d._auto_export_and_verify(storage, case_id)
-    # May return path or None if export import fails — just exercise branch
+    # May return path or None if export import fails - just exercise branch
     assert path is None or path.exists()
 
 
@@ -224,7 +224,7 @@ def test_dev_cli_help():
 # ---------------------------------------------------------------------------
 
 def test_connect_workspace_helpers(tmp_path):
-    from epi_cli import connect as c
+    c = pytest.importorskip("epi_enterprise.cli_connect")
 
     assert c._clean(None) == ""
     assert c._clean("  x ") == "x"
@@ -263,7 +263,8 @@ def test_connect_workspace_helpers(tmp_path):
 
 def test_connect_bridge_handler_methods(tmp_path):
     """Exercise bridge handler without serve_forever (avoids Windows shutdown hangs)."""
-    from epi_cli.connect import (
+    pytest.importorskip("epi_enterprise.cli_connect")
+    from epi_enterprise.cli_connect import (
         _handler_factory,
         create_web_viewer_server,
         _endpoint_ready,
@@ -357,7 +358,8 @@ def test_connect_bridge_handler_methods(tmp_path):
 
 
 def test_connect_cli_help():
-    from epi_cli.connect import app
+    pytest.importorskip("epi_enterprise.cli_connect")
+    from epi_enterprise.cli_connect import app
 
     for cmd in ("serve", "serve-viewer", "open"):
         r = runner.invoke(app, [cmd, "--help"])
@@ -365,7 +367,7 @@ def test_connect_cli_help():
 
 
 def test_open_workspace_browser_helpers(monkeypatch):
-    from epi_cli import connect as c
+    c = pytest.importorskip("epi_enterprise.cli_connect")
 
     monkeypatch.setattr(c.webbrowser, "open", lambda url: True)
     assert c._open_workspace_in_browser("http://example.com") is True

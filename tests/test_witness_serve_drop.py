@@ -296,7 +296,7 @@ def test_windows_socket_errors_read_like_linux():
     """Windows words refused/busy sockets differently; users see one message."""
     import errno as _errno
 
-    from epi_cli.gateway import _short_reason
+    from epi_core.webhook import short_reason as _short_reason
     from epi_core.witness_receiver import bind_error_message
 
     win = (

@@ -32,7 +32,6 @@ def test_audit_wheel_accepts_expected_runtime_entries(tmp_path):
             "epi_recorder/api.py",
             "epi_core/__init__.py",
             "epi_cli/main.py",
-            "epi_gateway/main.py",
             "epi_viewer_static/crypto.js",
             "web_viewer/index.html",
             "web_viewer/jszip.min.js",
