@@ -1019,21 +1019,8 @@ app.add_typer(
     rich_help_panel="Start here",
 )
 
-from epi_cli.connect import app as connect_app
-app.add_typer(
-    connect_app,
-    name="connect",
-    help="Launch or serve the local team review workspace and connector bridge",
-    rich_help_panel="Team",
-)
-
-from epi_cli.gateway import app as gateway_app
-app.add_typer(
-    gateway_app,
-    name="gateway",
-    help="Advanced: run the open-source AI capture service",
-    rich_help_panel="Team",
-)
+# `gateway` and `connect` live in EPI Enterprise (epi-enterprise).
+# PAID_COMMANDS explains their absence instead of a bare parse error.
 
 from epi_cli.dev import app as dev_app
 app.add_typer(

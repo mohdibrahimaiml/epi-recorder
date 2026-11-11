@@ -48,6 +48,7 @@ GATING_TOKENS = (
 )
 
 PAID_MODULES = {
+    "epi_gateway",
     "cloud",
     "verify_portal",
     "epi_enterprise",

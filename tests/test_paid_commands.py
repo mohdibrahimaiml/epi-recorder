@@ -34,7 +34,26 @@ def test_free_commands_and_flags_pass_through():
 
 def test_the_real_app_still_has_the_free_surface():
     names = _registered_names()
-    for free in ("verify", "record", "view", "witness", "cloud", "review", "approvers"):
+    for free in ("verify", "record", "view", "witness", "cloud", "review", "approvers", "demo", "dev"):
         assert free in names, f"{free} disappeared from the free CLI"
     # Guard against the list going stale: every entry still names something.
     assert all(name and plan for name, plan in PAID_COMMANDS.items())
+
+
+def test_gateway_and_connect_moved_to_epi_enterprise(capsys: pytest.CaptureFixture[str]):
+    names = _registered_names()
+    for moved in ("gateway", "connect"):
+        assert moved not in names, f"{moved} is still in the free CLI"
+        with pytest.raises(SystemExit) as stop:
+            _paid_command_hint([moved, "serve"], known=names)
+        assert stop.value.code == 2
+        out = capsys.readouterr().out
+        assert moved in out
+        assert "EPI Enterprise" in out
+        assert "https://epilabs.org/plans" in out
+
+
+def test_the_gateway_package_is_gone_from_the_public_tree():
+    import importlib.util
+
+    assert importlib.util.find_spec("epi_gateway") is None, "epi_gateway still importable from the public install"

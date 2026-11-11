@@ -268,7 +268,7 @@ def _ingest_epi_into_gateway(epi_path: Path, storage_dir: Path) -> Optional[str]
     Labels the case "[Live captured]" so it's visually distinct from seeded demo data.
     """
     try:
-        from epi_gateway.worker import EvidenceWorker
+        from epi_enterprise.gateway.worker import EvidenceWorker
 
         try:
             EPIContainer.detect_container_format(epi_path)
@@ -323,7 +323,7 @@ def _seed_simulated_case(storage_dir: Path) -> str:
     now_iso = datetime.now(timezone.utc).isoformat()
 
     try:
-        from epi_gateway.worker import EvidenceWorker
+        from epi_enterprise.gateway.worker import EvidenceWorker
 
         worker = EvidenceWorker(storage_dir=storage_dir)
         payload = {
@@ -668,8 +668,15 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
     Prints the full verify output so the user sees the signed proof.
     Returns the exported path or None on failure.
     """
-    from epi_gateway.worker import EvidenceWorker
-    from epi_gateway.main import _build_gateway_signer, _build_settings_from_env
+    try:
+        from epi_enterprise.gateway.worker import EvidenceWorker
+        from epi_enterprise.gateway.main import _build_gateway_signer, _build_settings_from_env
+    except ImportError:
+        console.print(
+            "[dark_orange]Skipping the gateway export: the team gateway is part of "
+            "EPI Enterprise and above. See https://epilabs.org/plans[/dark_orange]"
+        )
+        return None
 
     out_path = Path("refund_case.epi").resolve()
 
@@ -1143,6 +1150,15 @@ def dev(
     console.print()
     console.print("[dim]Starting optional review workspace (--review)…[/dim]")
 
+    try:
+        import epi_enterprise.gateway.main  # noqa: F401
+    except ImportError:
+        console.print(
+            "[yellow]--review needs the team gateway, which is part of EPI Enterprise "
+            "and above. See https://epilabs.org/plans[/yellow]"
+        )
+        raise typer.Exit(2)
+
     actual_port = _find_free_port(port)
     if actual_port != port:
         console.print(f"[yellow]  [!] Port {port} busy — using {actual_port}[/yellow]")
@@ -1153,7 +1169,7 @@ def dev(
     gateway_env["EPI_GATEWAY_RETENTION_MODE"] = "full_content"
 
     gateway_proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "epi_gateway.main:app",
+        [sys.executable, "-m", "uvicorn", "epi_enterprise.gateway.main:app",
          "--host", "127.0.0.1", "--port", str(actual_port), "--log-level", "warning"],
         env=gateway_env,
         stdout=subprocess.DEVNULL,

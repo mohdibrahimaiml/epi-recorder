@@ -19,7 +19,6 @@ EXPECTED_TOP_LEVEL = {
     "epi_analyzer",
     "epi_cli",
     "epi_core",
-    "epi_gateway",
     "epi_postinstall.py",
     "epi_recorder",
     "epi_viewer_static",
@@ -31,6 +30,7 @@ EXPECTED_TOP_LEVEL = {
 
 FORBIDDEN_TOP_LEVEL = {
     "epi_enterprise",
+    "epi_gateway",
     "cloud",
     "verify_portal",
     "billing",
