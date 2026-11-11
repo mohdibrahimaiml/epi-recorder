@@ -1119,7 +1119,18 @@ class EpiRecorderSession:
                 embed_viewer=self.with_viewer,
             )
 
-            # Sign if requested — fail closed so callers never mistake an
+            # Resolve the audiences ONCE, before any pack. The sealing step and
+            # the reporter must use the same object: a second derivation after
+            # sealing can disagree and leave a report without its chain.
+            try:
+                from epi_core.audience import derive_audiences
+
+                _witness_urls, _ = self._witness_sources()
+                self.audiences = derive_audiences(self.customer, _witness_urls)
+            except Exception:
+                self.audiences = ["local:unwitnessed"]
+
+            # Sign if requested - fail closed so callers never mistake an
             # unsigned artifact for a signed one.
             signed = False
             if self.auto_sign:
@@ -2125,6 +2136,32 @@ class EpiRecorderSession:
             urls, secret = self._witness_sources()
             if not urls:
                 return
+            # The entries the pack allocated are the only ones we may report.
+            # A mismatch is a wiring bug, never a silent fallback: say so and
+            # record a capture gap on the artifact's evidence.
+            try:
+                from epi_core.audience import audience_for_url
+
+                expected = (
+                    set(self.audiences)
+                    if self.customer
+                    else {audience_for_url(u) for u in urls}
+                )
+                missing = sorted(a for a in expected if a not in self.seal_entries)
+                if missing:
+                    import logging
+
+                    logging.getLogger("epi_recorder").warning(
+                        "witness audience missing from the sealed pack: %s", missing
+                    )
+                    try:
+                        from epi_core.checkpoints import record_gap
+
+                        record_gap(Path(self.temp_dir), f"witness audience missing: {missing}")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             key_name: str | None = None
             signer = None
             if signed:

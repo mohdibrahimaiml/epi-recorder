@@ -657,6 +657,8 @@ def build_witness_payload(
     ledger_id: str | None = None,
     prev_seq: int | None = None,
     prev_content_digest: str | None = None,
+    audience: str | None = None,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
     """Hash-only seal report. No content and no step data — hashes and counts only.
 
@@ -695,6 +697,10 @@ def build_witness_payload(
         payload["prev_seq"] = int(prev_seq)
     if prev_content_digest is not None:
         payload["prev_content_digest"] = prev_content_digest
+    if audience is not None:
+        payload["audience"] = str(audience)
+    if nonce is not None:
+        payload["nonce"] = str(nonce)
     return payload
 
 
@@ -776,6 +782,8 @@ def stage_seal_report(
     path: Path | None = None,
     case_id: str | None = None,
     signer: Any = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Build the witness payload from the FINAL file and append it to the outbox.
 
@@ -817,31 +825,43 @@ def stage_seal_report(
             }
         else:
             seal_ts = {"status": "none", "gen_time": None}
-        payload = build_witness_payload(
-            workflow_id=str(getattr(manifest, "workflow_id", "")),
-            manifest_hash=manifest_hash,
-            file_sha256=file_sha256,
-            content_digest=witness_content_digest(manifest),
-            public_key=public_key,
-            key_fingerprint=fingerprint,
-            steps=int(total_steps or 0),
-            sealed_at=_utc_now_iso(),
-            seal_timestamp=seal_ts,
-            goal=goal,
-            case_id=case_id,
-            **_seal_chain_kwargs(manifest),
-        )
-        headers: dict[str, str] = {}
+        from epi_core.audience import derive_audiences
+
         signing_key = signer if signer is not None else private_key_bytes
-        if signing_key and key_name:
-            try:
-                headers["X-EPI-Seal-Signature"] = seal_signature_header(
-                    json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-                    signing_key,
-                    key_name,
-                )
-            except Exception as exc:
-                logger.warning("Witness seal signature failed: %s", exc)
+        payloads: dict[str, dict[str, Any]] = {}
+        headers_by_url: dict[str, dict[str, str]] = {}
+        entries = dict(audience_entries or {})
+        for url in targets:
+            audience = derive_audiences(customer, [url])[0]
+            entry = entries.get(audience) or {}
+            payload_for_target = build_witness_payload(
+                workflow_id=str(getattr(manifest, "workflow_id", "")),
+                manifest_hash=manifest_hash,
+                file_sha256=file_sha256,
+                content_digest=witness_content_digest(manifest),
+                public_key=public_key,
+                key_fingerprint=fingerprint,
+                steps=int(total_steps or 0),
+                sealed_at=_utc_now_iso(),
+                seal_timestamp=seal_ts,
+                goal=goal,
+                case_id=case_id,
+                **(_chain_kwargs_from_entry(entry) if entry else _seal_chain_kwargs(manifest)),
+            )
+            payloads[url] = payload_for_target
+            if signing_key and key_name:
+                try:
+                    headers_by_url[url] = {
+                        "X-EPI-Seal-Signature": seal_signature_header(
+                            json.dumps(payload_for_target, ensure_ascii=False).encode("utf-8"),
+                            signing_key,
+                            key_name,
+                        )
+                    }
+                except Exception as exc:
+                    logger.warning("Witness seal signature failed: %s", exc)
+        payload = next(iter(payloads.values()))
+        headers: dict[str, str] = dict(headers_by_url.get(targets[0], {}))
         # Report once per sealed file: the CLI wrapper and an instrumented
         # session can both report the same artifact (e.g. `epi record` around
         # a script that also uses record()). A second entry for an identical

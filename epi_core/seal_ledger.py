@@ -75,7 +75,10 @@ def _safe_fingerprint(key_fingerprint: str) -> str:
 
 
 def _safe_audience(audience: str) -> str:
-    clean = "".join(ch for ch in str(audience or "").lower() if ch.isalnum() or ch in "-_:")
+    # ':' is not valid in a Windows filename; keep the id readable otherwise.
+    clean = "".join(
+        ch for ch in str(audience or "").lower() if ch.isalnum() or ch in "-_"
+    )
     return clean or "local-unwitnessed"
 
 

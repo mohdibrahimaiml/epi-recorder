@@ -1047,6 +1047,11 @@ def _format_sequence_line(info: dict) -> str:
     """One display line for the seal's chain position (never a verdict)."""
     if not info or not info.get("present"):
         return "  [dim]- Sequence:     not present (sealed before seal sequence numbers)[/dim]"
+    if info.get("per_audience") and not info.get("in_log"):
+        return (
+            "  [dim]- Sequence:     per-customer "
+            "(supply --witness-log to check)[/dim]"
+        )
     seq = info.get("seq")
     chain = str(info.get("ledger_id") or "")[:4]
     if not info.get("in_log"):
@@ -1191,6 +1196,42 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
         ]
         _sequence: dict = {"present": False}
         _seal_chain = getattr(manifest, "seal_chain", None)
+        _commitments = getattr(manifest, "seal_chains", None)
+        if _seal_chain is None and _commitments:
+            # More than one audience: the file carries commitments only. Match
+            # the customer's log by recomputing the commitment from each entry.
+            from epi_core.audience import verify_commitment
+
+            _match = next(
+                (
+                    item["inner"]
+                    for item in signed_items
+                    if isinstance(item.get("inner"), dict)
+                    and verify_commitment(item["inner"], _commitments)
+                ),
+                None,
+            )
+            _sequence = {
+                "present": True,
+                "per_audience": True,
+                "seq": (_match or {}).get("seal_seq"),
+                "ledger_id": (_match or {}).get("ledger_id"),
+                "in_log": _match is not None,
+                "contiguous": None,
+                "range": None,
+            }
+            if _match is not None:
+                _group = next(
+                    (
+                        chain
+                        for chain in analyze(_seq_records).get("chains") or []
+                        if chain.get("ledger_id") == _match.get("ledger_id")
+                    ),
+                    None,
+                )
+                if _group:
+                    _sequence["range"] = _group.get("range")
+                    _sequence["contiguous"] = not _group.get("missing")
         if _seal_chain is not None:
             _chain = (
                 _seal_chain.model_dump()
