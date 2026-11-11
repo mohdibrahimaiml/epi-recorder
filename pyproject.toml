@@ -158,7 +158,7 @@ Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_guardrails*", "epi_mcp*"]
+include = ["epi_core*", "epi_cli*", "epi_recorder*", "epi_analyzer*", "epi_viewer_static*", "web_viewer*", "epi_postinstall*", "pytest_epi*", "epi_mcp*"]
 exclude = ["tests", "tests.*", "*.tests", "*.tests.*", "*tests*"]
 
 [tool.setuptools]

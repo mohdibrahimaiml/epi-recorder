@@ -196,7 +196,7 @@ The following were gaps and are now fixed — kept here for audit trail:
 - **Envelope trailing bytes & header transplant** — `extract_inner_payload` fails on extra bytes; `verify_integrity` cross-checks `header uuid/timestamp`
 - **Viewer 4MiB cap** — outer viewer hash scans full gap, not `4MiB`
 - **payload_hash stale** — recomputed after `viewer.html/VERIFY.txt/notarization`
-- **Guardrails truncation** — `epi_guardrails/session.py [:2000]` removed, full content sealed
+- **Guardrails truncation** - the guardrails session (EPI Enterprise) used to truncate payloads at 2000 characters; full content is sealed now
 - **Gateway defaults** — `epi gateway serve` (and direct uvicorn runs) default to `retention_mode full_content` and `proxy_failure_mode fail-closed`: full prompts and responses are stored. Pass `--retention-mode redacted_hashes` to keep hashes only. Streaming returns `501` either way
 - **SCITT fallback** — missing service key now `transparency_ok=None` not `PASS`
 - **Billing** — unknown `price_id` now `ValueError` (empty keeps `hosted` compat)

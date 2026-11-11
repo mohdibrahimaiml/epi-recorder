@@ -24,12 +24,12 @@ EXPECTED_TOP_LEVEL = {
     "epi_viewer_static",
     "web_viewer",
     "pytest_epi",
-    "epi_guardrails",
     "epi_mcp",
 }
 
 FORBIDDEN_TOP_LEVEL = {
     "epi_enterprise",
+    "epi_guardrails",
     "epi_gateway",
     "cloud",
     "verify_portal",

@@ -1,63 +1,14 @@
-"""
-epi_guardrails — EPI Recorder integration for Guardrails AI.
+"""Moved to the paid package.
 
-Produces tamper-evident, cryptographically signed .epi artifacts from Guardrails
-validation executions. One .epi artifact per Guard execution.
-
-Usage:
-    from epi_guardrails import instrument, uninstrument
-
-    # Instrument Guardrails (once at app startup)
-    instrument(output_path="my_run.epi", goal="Validate LLM output")
-
-    # Run Guardrails as normal
-    guard = Guard.from_rail("my.rail")
-    response = guard(llm_api, prompt)
-    # → my_run.epi is produced automatically
-
-    # When done (optional)
-    uninstrument()
-
-Step kinds produced:
-  - guardrails.execution.start    — session metadata
-  - guardrails.step               — each iteration / validation loop
-  - guardrails.llm.call           — LLM calls inside Guard
-  - guardrails.validator.result   — individual validator outcomes
-  - guardrails.execution.end       — session close + outcome
+The guardrails runtime (``instrument`` / ``uninstrument``) is part of EPI
+Enterprise and above. The free package records, seals and verifies; the
+guardrails adapter is how a team instruments Guard-based flows.
 """
 
-from epi_guardrails.instrumentor import instrument, uninstrument
-from epi_guardrails.session import GuardrailsRecorderSession
-from epi_guardrails.state import GuardrailsEPIState, guardrails_epi_state
-from epi_guardrails.step_types import (
-    GuardExecutionEndContent,
-    GuardExecutionStartContent,
-    GuardrailsIterationContent,
-    GuardrailsStepContent,
-    InputValidationContent,
-    LLMCallContent,
-    OutputValidationContent,
-    ValidatorResultContent,
+from __future__ import annotations
+
+raise ImportError(
+    "epi_guardrails is part of EPI Enterprise and above. "
+    "Install the licensed package and import epi_enterprise.guardrails. "
+    "See https://epilabs.org/plans"
 )
-
-__all__ = [
-    # Main API
-    "instrument",
-    "uninstrument",
-    # Session
-    "GuardrailsRecorderSession",
-    # State
-    "GuardrailsEPIState",
-    "guardrails_epi_state",
-    # Step types
-    "GuardExecutionStartContent",
-    "GuardExecutionEndContent",
-    "GuardrailsStepContent",
-    "GuardrailsIterationContent",
-    "LLMCallContent",
-    "ValidatorResultContent",
-    "InputValidationContent",
-    "OutputValidationContent",
-]
-
-__version__ = "1.0.0"
