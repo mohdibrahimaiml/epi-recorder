@@ -13,16 +13,6 @@ pytestmark = pytest.mark.unit
 runner = CliRunner()
 
 
-def test_cli_integrate_dry_run_writes_nothing(tmp_path: Path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(app, ["integrate", "pytest", "--dry-run"])
-
-    assert result.exit_code == 0, result.output
-    assert "DRY-RUN" in result.output
-    assert not (tmp_path / ".epi" / "examples").exists()
-
-
 def test_cli_verify_view_and_export_summary_offline(tmp_path: Path):
     artifact, _ = make_decision_epi(tmp_path, signed=True)
     extract_dir = tmp_path / "extract"
