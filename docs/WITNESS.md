@@ -41,6 +41,26 @@ fingerprint of the previous seal, written **inside the signed manifest**
 (`seal_chain`) and repeated in the witness report. The signature covers the
 number, so a vendor cannot renumber a file afterwards without breaking it.
 
+### One chain per customer, not per key
+
+A chain belongs to an **audience**, not to a key. One key that reports to two
+customers keeps two independent 1..n sequences, so a number missing from one
+customer's log is never a hole in the other's. The audience is the explicit
+`record(customer="acme-bank")` when given, otherwise the Cloud inbox id, then
+a hash of the normalised witness URL, then `local:unwitnessed` for seals made
+before any witness exists.
+
+`customer=` also keeps a chain continuous when the witness URL changes; a
+changed URL without it reads as a NEW CHAIN warning. A seal with no witness
+lands on its own `local:unwitnessed` chain and never creates a hole in a
+customer's chain.
+
+When one seal goes to more than one audience, the file stores only salted
+commitments for every audience (`artifacts/seal_chains.json`); the full entry
+and its nonce travel only in that audience's report. A file handed to one
+customer therefore reveals no audience id, number or count for another. A
+single-audience file keeps the plaintext `seal_chain`, as before.
+
 `prev_seq` names the last *committed* seal, which is not always `seq - 1`:
 two seals can be allocated and sealed at the same time (the gateway does
 this), and a seal cannot link to a number whose content digest is not known
@@ -53,7 +73,7 @@ epi witness audit received.jsonl          # plain English
 epi witness audit received.jsonl --json   # machine-readable
 ```
 
-Per `(key fingerprint, ledger id)` it reports:
+Per `(audience, key fingerprint, ledger id)` it reports:
 
 | Finding | Meaning |
 | --- | --- |
