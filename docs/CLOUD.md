@@ -62,7 +62,31 @@ commit. The `epi cloud` client here only consumes the API.
 
 Login for **epilabs.org Sign In** and the CLI is Cloud only.
 
-Legacy hosted paths still on Render (not the account system, not required to record or verify): the one-shot fallback for `epi share` uploads, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. `epi share` defaults to `https://cloud.epilabs.org`, which now serves `POST /api/share`; the fallback exists for clients older than the current release. Cloud trust links are the customer path going forward.
+## Portfolio analytics and audit export
+
+Two read-only endpoints turn a workspace into something a reviewer can renew a
+year later. Both are for signed-in members of the workspace (owner, member or
+viewer); another workspace's id returns `403`.
+
+- `GET /v1/orgs/:orgId/analytics?from=<iso>&to=<iso>` — files, witnessed runs,
+  signature outcomes and bytes for the period, grouped by month and by
+  customer. Defaults to the last 90 days; the range is capped at 730 days.
+  A file with no customer assigned reports under `unassigned`.
+- `GET /v1/orgs/:orgId/export/audit?from=<iso>&to=<iso>&format=json|csv` — one
+  row per file: SHA-256, spec version, workflow, customer, sealed and uploaded
+  time, witness status, signature check, size and `retention_until`. The CSV is
+  RFC 4180 quoted and downloads as `epi-audit-<from>-to-<to>.csv`.
+
+Neither endpoint reads a customer bucket, and neither changes anything. They
+report what the workspace already stored; retention deletes rows on its own
+schedule, and each exported row carries the date it is retained until.
+
+A workspace can hold more than one customer: each customer is a separate
+record set with its own share links, and analytics groups by that name. That is
+the "per-customer workspace" in practice - one billing relationship, many
+reviewer-facing scopes.
+
+Still on Render (not the account system, not required to record or verify): the one-shot fallback for `epi share` uploads, MCP HTTP hosting, opt-in telemetry/pilot signup URLs, keep-warm cron, and some `/api/*` Cloudflare proxies. `epi share` defaults to `https://cloud.epilabs.org`, which now serves `POST /api/share`; the fallback exists for clients older than the current release. Cloud trust links are the customer path going forward.
 
 ---
 
