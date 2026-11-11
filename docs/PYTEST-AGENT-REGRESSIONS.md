@@ -1,6 +1,6 @@
 # Use `pytest --epi` for Agent Regressions
 
-**Product version:** 4.9.0.
+**Product version:** 4.10.0.
 
 `pytest --epi` is the fastest way to turn a failing AI test into a portable repro artifact.
 
