@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import zlib
 from pathlib import Path
 from typing import Any
@@ -325,7 +326,8 @@ def _write_config(base: str, org: str, api_key: str, extra: dict | None = None) 
     data: dict = {"url": base, "org_id": org, "api_key": api_key}
     for key in ("witness_url", "witness_secret", "customer", "auto_push", "org_name"):
         if extra and extra.get(key) not in (None, ""):
-            data[key] = extra[key]
+            value = extra[key]
+            data[key] = value.strip() if isinstance(value, str) else value
         elif key == "auto_push" and extra and "auto_push" in extra and isinstance(extra["auto_push"], bool):
             data[key] = extra[key]
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
@@ -456,6 +458,16 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
     console.print(f"Type the code and your customer's name at {verify_url}")
     console.print(f"[bold cyan]{escape(str(user_code))}[/bold cyan]")
     console.print("[dim]A browser window will open. The code works only for this computer.[/dim]")
+    # Rich buffers when stdout is not a terminal; scripts and CI would never
+    # see the code. Flush explicitly so automation logs get it immediately.
+    try:
+        console.file.flush()
+    except Exception:
+        pass
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
     try:
         webbrowser.open(verify_url)
     except Exception:
@@ -500,10 +512,10 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
                     if body.get("api_key"):
                         org_id = str(body.get("org_id", ""))
                         raw_key = str(body.get("api_key", ""))
-                        witness_url = str(body.get("witness_url") or "") or None
-                        witness_secret = str(body.get("witness_secret") or "") or None
-                        customer = str(body.get("customer_label") or "") or None
-                        org_name = str(body.get("org_name") or "") or None
+                        witness_url = str(body.get("witness_url") or "").strip() or None
+                        witness_secret = str(body.get("witness_secret") or "").strip() or None
+                        customer = str(body.get("customer_label") or "").strip() or None
+                        org_name = str(body.get("org_name") or "").strip() or None
                         break
                     console.print("[red][FAIL][/red] Key already retrieved.")
                     console.print("[dim]Run login again for a new code.[/dim]")
@@ -536,7 +548,7 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
             with _client({"url": base, "org": org_id, "key": raw_key}) as client:
                 who = client.get(f"/v1/orgs/{org_id}/whoami")
             if who.status_code == 200 and isinstance(who.json(), dict):
-                org_name = str(who.json().get("org_name") or "") or None
+                org_name = str(who.json().get("org_name") or "").strip() or None
         except Exception:
             org_name = None
     _write_config(base, org_id, raw_key, {"witness_url": witness_url, "witness_secret": witness_secret, "customer": customer, "auto_push": auto_push, "org_name": org_name})
@@ -742,13 +754,23 @@ def _print_this_computer(creds: dict[str, str], who: dict | None = None) -> None
         os.getenv("EPI_WITNESS_URL")
     )
     waiting = _waiting_witness_reports()
+    try:
+        from epi_core.webhook import (
+            format_witness_capabilities,
+            witness_capabilities,
+        )
+
+        accepts = format_witness_capabilities(witness_capabilities())
+    except Exception:
+        accepts = "?"
     rows = [
         ("Workspace", f"{workspace} ({org_id})" if workspace else org_id),
-        ("Customer", customer or "none yet — run epi cloud login"),
+        ("Customer", customer or "none yet - run epi cloud login"),
         ("Cloud", creds.get("url") or ""),
         ("Auto-push", "on" if cfg.get("auto_push") is True else "off"),
-        ("Witness", "set up" if witness else "not set up — run epi cloud login"),
+        ("Witness", "set up" if witness else "not set up - run epi cloud login"),
         ("Witness reports waiting", str(waiting) + (" (details: epi witness status)" if waiting else "")),
+        ("Witness accepts", accepts),
     ]
     console.print("[bold]This computer[/bold]")
     for label, value in rows:

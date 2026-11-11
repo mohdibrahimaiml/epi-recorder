@@ -8,6 +8,7 @@ import base64
 import os
 import re
 import stat
+import subprocess
 import tempfile
 from pathlib import Path
 
@@ -60,6 +61,137 @@ def key_fingerprint(public_key_hex: str, *, grouped: bool = True) -> str:
 
     raw = hashlib.sha256(public_key_hex.strip().lower().encode("utf-8")).hexdigest()[:16]
     return " ".join(raw[i:i + 4] for i in range(0, 16, 4)) if grouped else raw
+
+
+def fingerprint_for_private_key(private_key: object) -> str:
+    """Fingerprint for a private key object, without a temporary key file."""
+    public_key = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    return key_fingerprint(public_key.hex(), grouped=False)
+
+
+def _windows_user() -> str | None:
+    user = os.environ.get("USERNAME")
+    domain = os.environ.get("USERDOMAIN")
+    if user and domain:
+        return f"{domain}\\{user}"
+    return user or None
+
+
+def secure_private_file(path: Path) -> None:
+    """Make a private key file owner-only.
+
+    Windows inherits the profile ACL, which can include unrelated SIDs. POSIX
+    ``chmod 0600`` was already applied on Unix; Windows needs an explicit
+    ``icacls`` ACL (no new dependency) that removes inheritance and grants only
+    the current user. Best-effort: a filesystem that does not support ACLs must
+    not fail key generation, but the failure is visible to ``epi doctor``.
+    """
+    path = Path(path)
+    try:
+        if os.name != "nt":
+            os.chmod(path, 0o600)
+            return
+        user = _windows_user()
+        if not user:
+            return
+        subprocess.run(
+            [
+                "icacls",
+                str(path),
+                "/inheritance:r",
+                "/grant:r",
+                f"{user}:(R,W)",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except Exception:
+        return
+
+
+def _icacls_extra_principals(path: Path) -> list[str]:
+    """Principals on a Windows private key beyond the user/SYSTEM/Admins."""
+    try:
+        result = subprocess.run(
+            ["icacls", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except Exception:
+        return []
+    if result.returncode != 0:
+        return []
+    me = (_windows_user() or "").lower()
+    # icacls may print the principal with or without the domain prefix.
+    me_bare = me.split("\\")[-1]
+    allowed = {me, me_bare, "nt authority\\system", "builtin\\administrators"}
+    extras: list[str] = []
+    path_text = str(path)
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line.lower().startswith("successfully processed"):
+            continue
+        # The first line starts with the path, then the first principal.
+        if line.lower().startswith(path_text.lower()):
+            line = line[len(path_text):].strip()
+        # icacls prints "PRINCIPAL:(R,W)" or "PRINCIPAL:(I)(F)".
+        principal = line.split(":", 1)[0].strip()
+        if not principal:
+            continue
+        if principal.lower() in allowed:
+            continue
+        if principal.lower().startswith("s-1-5-21-"):
+            extras.append(principal)
+        elif principal.lower().startswith("s-1-"):
+            # Well-known SIDs such as Everyone / Users are also too broad.
+            extras.append(principal)
+        else:
+            extras.append(principal)
+    return extras
+
+
+def key_acl_advice(keys_dir: Path | None = None) -> str | None:
+    """Human-readable warning when a private key is readable too broadly."""
+    directory = Path(keys_dir) if keys_dir is not None else _resolve_default_keys_dir()
+    try:
+        key_files = sorted(directory.glob("*.key"))
+    except OSError:
+        return None
+    if not key_files:
+        return None
+    problems: list[str] = []
+    for key_file in key_files:
+        if os.name == "nt":
+            extras = _icacls_extra_principals(key_file)
+            if extras:
+                problems.append(f"{key_file.name}: {', '.join(sorted(set(extras))[:3])}")
+        else:
+            try:
+                mode = key_file.stat().st_mode & 0o777
+            except OSError:
+                continue
+            if mode & 0o077:
+                problems.append(f"{key_file.name}: mode {oct(mode)}")
+    if not problems:
+        return None
+    example = key_files[0]
+    fix = (
+        f'icacls "{example}" /inheritance:r /grant:r "%USERNAME%:(R,W)"'
+        if os.name == "nt"
+        else f"chmod 600 {example}"
+    )
+    return (
+        "Private key permissions are broader than owner-only ("
+        + "; ".join(problems[:3])
+        + f"). Fix: {fix}"
+    )
 
 
 def _is_writable_dir(path: Path) -> bool:
@@ -233,6 +365,7 @@ class KeyManager:
         else:
             os.chmod(private_tmp, stat.S_IREAD | stat.S_IWRITE)
         private_tmp.replace(private_key_path)
+        secure_private_file(private_key_path)
 
         public_key_path.write_bytes(public_pem)
         if os.name != "nt":
@@ -290,6 +423,7 @@ class KeyManager:
         else:
             os.chmod(private_tmp, stat.S_IREAD | stat.S_IWRITE)
         private_tmp.replace(private_key_path)
+        secure_private_file(private_key_path)
 
         public_key_path.write_bytes(public_pem)
         if os.name != "nt":

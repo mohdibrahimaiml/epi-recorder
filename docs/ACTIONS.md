@@ -1,6 +1,6 @@
 # GitHub Actions shipped in this repo
 
-**Product version:** 4.9.0.
+**Product version:** 4.10.0.
 
 These are the composite actions under `.github/actions/`. They check or pack **files**. They do not certify EU AI Act conformity, SOC 2, or any other regime.
 

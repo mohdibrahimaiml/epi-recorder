@@ -1,6 +1,6 @@
 # File safety — is a `.epi` file safe to open?
 
-**Product version:** 4.9.0. Docs map: [README.md](./README.md).
+**Product version:** 4.10.0. Docs map: [README.md](./README.md).
 
 This page answers one question a bank, hospital, or insurer asks before it
 lets a vendor's evidence file through the email gateway: **"Is this `.epi`
@@ -78,7 +78,7 @@ as it shipped in **4.6.3** (SHA-256
 way the viewer could reach out. Both the **outer** polyglot HTML and the
 **inner** `viewer.html` were checked.
 
-> The samples shipped **today** are **data-only**: the same path is the 4.9.0
+> The samples shipped **today** are **data-only**: the same path is the 4.10.0
 > file, SHA-256 `6a286fcf51a189327d2fa6baafe3a3b285a029dcc1f71197c6a7e37500a9720e`,
 > and it carries no `viewer.html` member at all (it opens in `epi view` or on
 > `/verify`). The scan below still describes the viewer code that gets inlined

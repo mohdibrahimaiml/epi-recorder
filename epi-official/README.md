@@ -15,6 +15,7 @@ Canonical rules (same content, longer form): [docs/WEBSITE.md](../docs/WEBSITE.m
 - `index.html`, `plans.html`, `account.html`, `login.html`, …
 - `css/`, `js/`, `assets/`
 - `_redirects` (API proxies only — no `/page → page.html` rewrites)
+- `blog/` — generated from `blog/posts/*.md` by `python scripts/build_blog.py`; edit the Markdown and templates, not the HTML
 
 ## Do not edit
 
@@ -37,7 +38,7 @@ python scripts/sync_website.py
 
 Keep these true on every page:
 
-- Banner version matches `pyproject.toml` (currently **4.9.0**).
+- Banner version matches `pyproject.toml` (currently **4.10.0**).
 - Sign In goes to EPI Cloud, not Render.
 - Open-source record/seal/verify needs no account.
 - Verification is never charged.

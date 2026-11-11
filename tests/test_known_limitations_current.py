@@ -1,9 +1,8 @@
 """Item 7: limitations doc current, strict easy to find."""
 
-from pathlib import Path
-import inspect
 import re
 import tomllib
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,38 +17,40 @@ def test_limitations_pypi_version_matches_pyproject():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     version = pyproject["project"]["version"]
     text = (ROOT / "docs" / "KNOWN_LIMITATIONS.md").read_text(encoding="utf-8")
-    # The release line may be prepared in-tree before the upload finishes.
-    # The release-line stamp must match pyproject; the published-on-PyPI stamp
-    # is separate and is checked by the test below.
-    assert f"Current release line:** **{version}**" in text
+    # The release line tracks pyproject; the published-on-PyPI stamp may be one
+    # release behind while a prepared release waits for its upload.
+    assert f"Current release line: **{version}**" in text
 
 
-def test_published_version_is_not_still_called_unpublished():
-    """A version that is on PyPI must not be described as pending anywhere.
+def test_published_version_is_never_claimed_before_its_upload():
+    """A prepared release must not be described as already on PyPI.
 
-    4.7.0 shipped through Trusted Publishing on 28 Oct 2026, but README-adjacent
-    docs kept saying it was "prepared, not yet published" — so a reader could not
-    tell whether `pip install epi-recorder` would get the attested release.
+    The release line comes from pyproject. When it differs from the version the
+    page names as published, the page must say the upload is pending; when they
+    match, it must not still read as unpublished.
     """
     version = _current_version()
-    stale = (
-        "not yet published",
-        "Until it is published",
-        "prepared and version-bumped",
-    )
-    for rel in ("docs/RELEASING.md", "docs/KNOWN_LIMITATIONS.md", "README.md"):
-        text = (ROOT / rel).read_text(encoding="utf-8")
-        for phrase in stale:
-            assert phrase not in text, f"{rel} still reads as unpublished: {phrase!r}"
-
     limitations = (ROOT / "docs" / "KNOWN_LIMITATIONS.md").read_text(encoding="utf-8")
-    published = re.search(r"published on PyPI: \*\*(?P<v>[0-9.]+)\*\*", limitations, re.I)
-    assert published, "KNOWN_LIMITATIONS must name what is on PyPI"
-    if published.group("v") != version:
-        # Bumped before upload: the doc must say so rather than imply it is live.
-        assert "publish pending" in limitations.lower(), (
-            f"KNOWN_LIMITATIONS says {published.group('v')} is on PyPI but does not "
-            f"mark {version} as publish pending"
+    match = re.search(
+        r"published on PyPI: \*\*(\d+\.\d+\.\d+)\*\*", limitations, re.I
+    )
+    assert match, "KNOWN_LIMITATIONS must name the published PyPI version"
+    published = match.group(1)
+
+    if published == version:
+        for rel in ("docs/RELEASING.md", "docs/KNOWN_LIMITATIONS.md", "README.md"):
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            for phrase in (
+                "not yet published",
+                "Until it is published",
+                f"{version} is prepared",
+                "prepared and version-bumped",
+            ):
+                assert phrase not in text, f"{rel} still reads as unpublished: {phrase!r}"
+    else:
+        assert "pending" in limitations.lower(), (
+            f"KNOWN_LIMITATIONS says {published} is published while pyproject is "
+            f"{version}, so it must say the {version} upload is pending"
         )
 
 

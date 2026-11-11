@@ -260,6 +260,40 @@ def _block_external_network_by_default(request, monkeypatch):  # type: ignore[no
 
 
 @pytest.fixture(autouse=True)
+def _stable_browser_navigation(monkeypatch):  # type: ignore[no-untyped-def]
+    """Do not wait for every subresource in long full-suite runs.
+
+    Under load the browser's ``load`` event can take longer than Playwright's
+    30s default even though every document/resource returned 200. Navigation
+    tests only need the DOM; page-specific waits still assert their own
+    conditions. Explicit ``wait_until``/``timeout`` arguments always win.
+    """
+    try:
+        from playwright.async_api import Page as AsyncPage
+        from playwright.sync_api import Page
+    except Exception:
+        return
+
+    sync_goto = Page.goto
+
+    def _sync_goto(self, url, **kwargs):  # type: ignore[no-untyped-def]
+        kwargs.setdefault("wait_until", "domcontentloaded")
+        kwargs.setdefault("timeout", 60000)
+        return sync_goto(self, url, **kwargs)
+
+    monkeypatch.setattr(Page, "goto", _sync_goto)
+
+    async_goto = AsyncPage.goto
+
+    async def _async_goto(self, url, **kwargs):  # type: ignore[no-untyped-def]
+        kwargs.setdefault("wait_until", "domcontentloaded")
+        kwargs.setdefault("timeout", 60000)
+        return await async_goto(self, url, **kwargs)
+
+    monkeypatch.setattr(AsyncPage, "goto", _async_goto)
+
+
+@pytest.fixture(autouse=True)
 def _no_real_browser_launch(request, monkeypatch):  # type: ignore[no-untyped-def]
     """Never let a test open the user's real browser.
 

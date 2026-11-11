@@ -16,6 +16,7 @@ doc links in here.
 | Doc | What it is | Moved from |
 |-----|------------|------------|
 | [design/org-trust-bundle.md](./design/org-trust-bundle.md) | Org trust bundle v0 build spec (referenced by `epi_core/org_bundle.py`) | `docs/design/` |
+| [website-copy-part2.md](./website-copy-part2.md) | Website Part 2 copy brief for the homepage and `/reviewers`; source text only, not linked from the public site | feature branch |
 
 Sales qualification questions and the kill test are no longer in this repo. They
 live in `PRIVATE-EPI/SALES-QUESTIONS.md`, which is git-ignored: everything under

@@ -4,7 +4,7 @@ One page, no jargon, for whoever has to act on the file. Written for an
 auditor, a reviewer, a claims handler, or a colleague — not for the person who
 recorded it.
 
-Product version 4.9.0. Related: [USER-GUIDE.md](./USER-GUIDE.md) (full manual),
+Product version 4.10.0. Related: [USER-GUIDE.md](./USER-GUIDE.md) (full manual),
 [FILE-SAFETY.md](./FILE-SAFETY.md) (is it safe to open?),
 [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) (what it does not prove).
 

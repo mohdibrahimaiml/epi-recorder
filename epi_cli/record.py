@@ -134,11 +134,14 @@ def record(
     
     signed = False
     signer = None
+    seal_fp = None
     if not no_sign:
         try:
             km = KeyManager()
             priv = km.load_private_key("default")
+            from epi_core.keys import fingerprint_for_private_key
             from epi_core.trust import sign_manifest
+            seal_fp = fingerprint_for_private_key(priv)
             def signer_func(m):
                 nonlocal signed
                 signed_manifest = sign_manifest(m, priv, "default")
@@ -157,6 +160,7 @@ def record(
             EPI_CONTAINER_FORMAT_ENVELOPE if with_viewer else EPI_CONTAINER_FORMAT_LEGACY
         ),
         embed_viewer=with_viewer,
+        seal_fingerprint=seal_fp,
     )
 
     # Final output panel

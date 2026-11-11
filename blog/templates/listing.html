@@ -1,35 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Blog — EPI Labs</title>
-<meta name="description" content="Technical articles about AI evidence provenance, cryptographic audit trails, SCITT transparency, and agent governance.">
-<link rel="icon" type="image/x-icon" href="../assets/epi.ico">
-<link rel="stylesheet" href="../css/epi.css">
+<title>Blog - EPI Labs</title>
+<meta name="description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<link rel="canonical" href="https://epilabs.org/blog/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="EPI Labs">
+<meta property="og:title" content="Blog - EPI Labs">
+<meta property="og:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<meta property="og:url" content="https://epilabs.org/blog/">
+<meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Blog - EPI Labs">
+<meta name="twitter:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/blog.css?v=1">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
 </head>
-<body>
-<nav id="nav"><div class="nav-inner"><a href="/" class="nav-logo"><img src="../assets/logo.png" alt="EPI Labs"></a>
-<ul class="nav-links" id="navLinks">
-<li><a href="/">Home</a></li>
-<li><a href="/blog/" class="active">Blog</a></li>
-<li><a href="/blog/write.html">Write</a></li>
-<li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank">GitHub</a></li>
-</ul>
-<button class="nav-mob" id="mobBtn" aria-label="Menu"><span></span><span></span><span></span></button>
-</div></nav>
-<main style="padding-top:100px;padding-bottom:80px;max-width:800px;margin:0 auto;padding-left:24px;padding-right:24px;">
-<h1 style="font-size:clamp(1.8rem,3.5vw,2.4rem);margin-bottom:8px;color:#1a1a2e;">Blog</h1>
-<p style="font-size:1.1rem;color:#666;margin-bottom:48px;line-height:1.6;">Technical articles about AI evidence, cryptographic provenance, SCITT transparency, and agent governance.</p>
-{% for post in posts %}
-<article style="margin-bottom:48px;padding-bottom:48px;border-bottom:1px solid rgba(0,0,0,0.08);">
-<time style="font-size:0.85rem;color:#666;display:block;margin-bottom:8px;">{{ post.date }}</time>
-<h2 style="font-size:1.4rem;margin-bottom:12px;"><a href="posts/{{ post.slug }}.html" style="color:#1a1a2e;text-decoration:none;">{{ post.title }}</a></h2>
-<p style="color:#666;line-height:1.7;margin-bottom:16px;">{{ post.excerpt }}</p>
-<a href="posts/{{ post.slug }}.html" style="color:#0066ff;font-weight:500;text-decoration:none;">Read more →</a>
-</article>
-{% endfor %}
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+{{ nav }}
+<main id="main">
+<div class="page blog-index">
+<span class="tag">Blog</span>
+<h1>Evidence someone else can check</h1>
+<p class="lede">Technical notes on AI decision evidence, cryptographic provenance, release control, and the difference between a promise and a record a third party can verify.</p>
+<div class="blog-list">
+{{ cards }}
+</div>
+</div>
 </main>
-<footer style="text-align:center;padding:40px 24px;font-size:0.85rem;color:#888;border-top:1px solid rgba(0,0,0,0.06);max-width:800px;margin:0 auto;"><p><a href="/" style="color:#888;text-decoration:none;">EPI Labs</a> — Evidence infrastructure for AI agents.</p></footer>
+{{ footer }}
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
 </body>
 </html>

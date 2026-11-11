@@ -810,6 +810,13 @@ class EpiRecorderSession:
         case_id: Optional[str] = None,
         storage_url: Optional[str] = None,
         with_viewer: bool = False,
+        release_document: Optional[Dict[str, Any]] = None,
+        release_strict: bool = False,
+        policy: Optional[Union[Dict[str, str], List[str], str]] = None,
+        prompts: Optional[Union[Dict[str, str], List[str], str]] = None,
+        tools: Optional[Union[Dict[str, str], List[str], str]] = None,
+        config: Optional[Union[Dict[str, str], List[str], str]] = None,
+        git_commit: Optional[str] = None,
     ):
         """
         Initialize EPI recording session.
@@ -909,6 +916,29 @@ class EpiRecorderSession:
         # wins, then EPI_STORAGE_URL env. Empty means no customer bucket.
         self.storage_url = storage_url if storage_url is not None else os.getenv("EPI_STORAGE_URL")
 
+        # Signed release records (docs/RELEASES.md). The release is resolved and
+        # verified before the run starts, so a bad config fails before any
+        # decision is taken. Files are hashed now and re-hashed at seal.
+        self.release_document = release_document
+        self.release_strict = bool(release_strict)
+        self._declared_components: list[dict[str, Any]] = []
+        if release_document is not None:
+            from epi_core.release import code_component, parse_component_specs
+
+            for component_type, values in (
+                ("policy", policy),
+                ("prompt", prompts),
+                ("tool_schema", tools),
+                ("config", config),
+            ):
+                self._declared_components.extend(
+                    parse_component_specs(values, component_type)
+                )
+            if git_commit:
+                observed_code = code_component(git_commit)
+                if observed_code:
+                    self._declared_components.append(observed_code)
+
         # Legacy mode flag (deprecated)
         self.legacy_patching = legacy_patching
         self.capture_prints = capture_prints
@@ -977,6 +1007,14 @@ class EpiRecorderSession:
         # Set as active recording context
         set_recording_context(self.recording_context)
         _thread_local.active_session = self
+        try:
+            from epi_recorder.trust.approval import warn_auto_approve
+            from epi_recorder.trust.context import set_step_sink
+
+            warn_auto_approve()
+            self._step_sink_token = set_step_sink(self)
+        except Exception:
+            self._step_sink_token = None
         
         # Only patch LLM libraries if legacy mode is enabled (deprecated)
         if self.legacy_patching:
@@ -1010,6 +1048,12 @@ class EpiRecorderSession:
         and signs it if auto_sign is enabled.
         """
         try:
+            from epi_recorder.trust.context import reset_step_sink
+
+            reset_step_sink(getattr(self, "_step_sink_token", None))
+        except Exception:
+            pass
+        try:
             # Capture environment snapshot BEFORE session.end
             self._capture_environment()
             
@@ -1035,6 +1079,8 @@ class EpiRecorderSession:
             if self.recording_context:
                 self.recording_context.finalize()
 
+            _release_ref, _runtime_components = self._release_manifest_fields()
+
             # Create manifest with metadata.
             # Org root binding lives here (not in _sign_epi_file) so it
             # applies to unsigned artifacts too — it is an identity claim
@@ -1048,6 +1094,8 @@ class EpiRecorderSession:
                 tags=self.metadata_tags,
                 case_id=self.case_id,
                 governance={"org_root": self.org_root} if self.org_root else None,
+                release_ref=_release_ref,
+                runtime_components=_runtime_components,
             )
 
             # Pack into .epi file. When we are about to sign, defer the
@@ -1146,6 +1194,12 @@ class EpiRecorderSession:
         Uses run_in_executor for I/O operations to avoid blocking.
         """
         try:
+            from epi_recorder.trust.context import reset_step_sink
+
+            reset_step_sink(getattr(self, "_step_sink_token", None))
+        except Exception:
+            pass
+        try:
             loop = asyncio.get_running_loop()
 
             # Capture environment snapshot BEFORE session.end
@@ -1173,6 +1227,8 @@ class EpiRecorderSession:
             if self.recording_context:
                 await loop.run_in_executor(None, self.recording_context.finalize)
 
+            _release_ref, _runtime_components = self._release_manifest_fields()
+
             # Create manifest with metadata.
             # Org root binding lives here (not in _sign_epi_file) so it
             # applies to unsigned artifacts too — it is an identity claim
@@ -1186,6 +1242,8 @@ class EpiRecorderSession:
                 tags=self.metadata_tags,
                 case_id=self.case_id,
                 governance={"org_root": self.org_root} if self.org_root else None,
+                release_ref=_release_ref,
+                runtime_components=_runtime_components,
             )
 
             # Pack into .epi file (run in executor to avoid blocking).
@@ -1257,6 +1315,32 @@ class EpiRecorderSession:
         self._original_stdout = None
         self._original_stderr = None
     
+    def chain_head(self) -> str:
+        """Hash of the latest sealed step (used by pre-action approval)."""
+        if self.recording_context is None:
+            return "CHAIN_START"
+        return self.recording_context.chain_head()
+
+    @property
+    def release_ref(self) -> Dict[str, str] | None:
+        if not self.release_document:
+            return None
+        return {
+            "release_id": str(self.release_document.get("release_id") or ""),
+            "release_digest": str(self.release_document.get("release_digest") or ""),
+        }
+
+    def log_step_unredacted(self, kind: str, content: Dict[str, Any]) -> None:
+        """Log evidence that must survive byte-exact (signed approvals).
+
+        Only used for pre-action approval steps: their contents are already
+        redacted/secret-free, and redacting them would break the approver's
+        signature over the response.
+        """
+        if self.recording_context is None:
+            raise RuntimeError("recording context is not active")
+        self.recording_context.add_step(kind, content, redact=False)
+
     def log_step(self, kind: str, content: Dict[str, Any]) -> None:
         """
         Manually log a custom step.
@@ -1858,6 +1942,149 @@ class EpiRecorderSession:
             print(f"      epi view {self.output_path.name}", file=target)
         print(file=target)
 
+    def _observed_model_components(self) -> list[dict[str, Any]]:
+        """Distinct model ids that actually answered, read from the sealed steps."""
+        if not self.temp_dir:
+            return []
+        steps_path = Path(self.temp_dir) / "steps.jsonl"
+        found: dict[str, dict[str, Any]] = {}
+        try:
+            lines = steps_path.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            return []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                step = json.loads(line)
+            except Exception:
+                continue
+            kind = str(step.get("kind") or "")
+            if not (kind.startswith("llm.") or kind in ("agent.decision", "agent.run.start")):
+                continue
+            content = step.get("content") if isinstance(step.get("content"), dict) else {}
+            nested = []
+            for key in ("request", "response"):
+                if isinstance(content.get(key), dict):
+                    nested.append(content[key])
+            candidates = [content, *nested]
+            model = None
+            provider = None
+            for source in candidates:
+                for key in ("model", "model_id", "model_name"):
+                    value = source.get(key)
+                    if isinstance(value, str) and value.strip():
+                        model = value.strip()
+                        break
+                for key in ("provider", "vendor", "api_provider"):
+                    value = source.get(key)
+                    if isinstance(value, str) and value.strip():
+                        provider = value.strip()
+                        break
+                if model:
+                    break
+            if not model:
+                continue
+            identifier = model if ":" in model else (f"{provider}:{model}" if provider else model)
+            found.setdefault(
+                identifier,
+                {
+                    "type": "model",
+                    "name": identifier,
+                    "identifier": identifier,
+                    "observed": True,
+                },
+            )
+        return list(found.values())
+
+    def _release_manifest_fields(
+        self,
+    ) -> tuple[dict[str, Any] | None, list[dict[str, Any]] | None]:
+        """release_ref + runtime_components, computed before signing.
+
+        Never raises on a changed file unless the caller opted into
+        ``release_strict=True``: a prompt edited mid-run is recorded as DRIFT
+        and a capture gap, not as a failure of the decision.
+        """
+        if not self.release_document:
+            return None, None
+        from epi_core.release import sha256_file
+
+        ref = {
+            "release_id": str(self.release_document.get("release_id") or ""),
+            "release_digest": str(self.release_document.get("release_digest") or ""),
+        }
+        runtime: list[dict[str, Any]] = []
+        drift = False
+        for component in self._declared_components:
+            entry: dict[str, Any] = {
+                "type": component.get("type"),
+                "name": component.get("name"),
+                "observed": True,
+            }
+            if component.get("path"):
+                entry["path"] = component.get("path")
+            if component.get("sha256"):
+                path = Path(str(component.get("path") or ""))
+                try:
+                    at_seal = sha256_file(path) if path.is_file() else ""
+                except Exception:
+                    at_seal = ""
+                entry["sha256"] = at_seal or component["sha256"]
+                entry["sha256_at_start"] = component["sha256"]
+                entry["sha256_at_seal"] = at_seal
+                if not at_seal:
+                    entry["observed"] = False
+                    entry["drift_reason"] = "file disappeared during the run"
+                    drift = True
+                elif at_seal != component["sha256"]:
+                    entry["drift"] = True
+                    entry["drift_reason"] = "changed during the run"
+                    drift = True
+            if component.get("identifier"):
+                entry["identifier"] = component.get("identifier")
+            if component.get("dirty"):
+                entry["dirty"] = True
+            runtime.append(entry)
+
+        # The policy EPI actually loaded: an explicitly declared policy wins;
+        # otherwise the same epi_policy.json load_policy() would read.
+        if not any(item.get("type") == "policy" for item in runtime):
+            candidate = Path.cwd() / "epi_policy.json"
+            if candidate.is_file():
+                try:
+                    runtime.append(
+                        {
+                            "type": "policy",
+                            "name": candidate.name,
+                            "path": str(candidate),
+                            "sha256": sha256_file(candidate),
+                            "observed": True,
+                        }
+                    )
+                except Exception:
+                    pass
+
+        runtime.extend(self._observed_model_components())
+
+        if drift:
+            try:
+                from epi_core.checkpoints import record_gap
+
+                record_gap(
+                    Path(self.temp_dir),
+                    "a release component changed between record start and seal "
+                    "(see manifest.runtime_components)",
+                )
+            except Exception:
+                pass
+        if drift and self.release_strict:
+            raise RuntimeError(
+                "a release component changed during the run and release_strict=True"
+            )
+        return ref, runtime
+
     def _witness_seal(self, signed: bool) -> None:
         """Report the sealed file to customer witness endpoint(s).
 
@@ -1999,6 +2226,7 @@ class EpiRecorderSession:
             from epi_core.keys import (
                 KeyManager,
                 external_key_required,
+                fingerprint_for_private_key,
                 no_vault_key_message,
             )
             from epi_core.trust import sign_manifest
@@ -2076,6 +2304,7 @@ class EpiRecorderSession:
                         container_format=current_format,
                         embed_viewer=(current_format == EPI_CONTAINER_FORMAT_ENVELOPE),
                         generate_analysis=False,
+                        seal_fingerprint=fingerprint_for_private_key(private_key),
                     )
                 finally:
                     if old_checkpoints is None:
@@ -2316,6 +2545,15 @@ def record(
     case_id: Optional[str] = None,
     storage_url: Optional[str] = None,
     with_viewer: bool = False,
+    # Signed release records (docs/RELEASES.md)
+    release: Optional[Union[str, Path]] = None,
+    release_dir: Optional[Union[str, Path]] = None,
+    release_strict: bool = False,
+    policy: Optional[Union[Dict[str, str], List[str], str]] = None,
+    prompts: Optional[Union[Dict[str, str], List[str], str]] = None,
+    tools: Optional[Union[Dict[str, str], List[str], str]] = None,
+    config: Optional[Union[Dict[str, str], List[str], str]] = None,
+    git_commit: Optional[str] = None,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -2380,8 +2618,35 @@ def record(
             # Your code here
             pass
     """
+    def _release_doc() -> Optional[Dict[str, Any]]:
+        if release is None:
+            return None
+        from epi_core.release import ReleaseError, load_release, resolve_release
+
+        release_path: Path | None = None
+        candidate = Path(str(release)).expanduser()
+        if candidate.is_file():
+            release_path = candidate
+        elif release_dir is not None or os.environ.get("EPI_RELEASE_DIR"):
+            resolved = resolve_release(
+                {"release_id": str(release), "release_digest": ""},
+                release_dir=release_dir or os.environ.get("EPI_RELEASE_DIR"),
+            )
+            if resolved.get("status") != "found":
+                raise ReleaseError(
+                    f"cannot resolve release {release!r}: {resolved.get('detail')}"
+                )
+            release_path = Path(resolved["path"])
+        else:
+            raise ReleaseError(
+                f"release {release!r} is not a .epi file and no release_dir/ "
+                "EPI_RELEASE_DIR was given"
+            )
+        return load_release(release_path)["document"]
+
     def _make_session(name_hint: str) -> EpiRecorderSession:
         auto_path = _auto_generate_output_path(name_hint)
+        release_document = _release_doc()
         return EpiRecorderSession(
             auto_path,
             workflow_name or name_hint,
@@ -2406,6 +2671,13 @@ def record(
             case_id=case_id,
             storage_url=storage_url,
             with_viewer=with_viewer,
+            release_document=release_document,
+            release_strict=release_strict,
+            policy=policy,
+            prompts=prompts,
+            tools=tools,
+            config=config,
+            git_commit=git_commit,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -2472,6 +2744,13 @@ def record(
             case_id=case_id,
             storage_url=storage_url,
             with_viewer=with_viewer,
+            release_document=_release_doc(),
+            release_strict=release_strict,
+            policy=policy,
+            prompts=prompts,
+            tools=tools,
+            config=config,
+            git_commit=git_commit,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

@@ -450,10 +450,13 @@ def run(
     # Auto-sign
     signed = False
     signer = None
+    seal_fp = None
     try:
         km = KeyManager()
         priv = km.load_private_key("default")
+        from epi_core.keys import fingerprint_for_private_key
         from epi_core.trust import sign_manifest
+        seal_fp = fingerprint_for_private_key(priv)
         def signer_func(m):
             nonlocal signed
             signed_manifest = sign_manifest(m, priv, "default")
@@ -473,6 +476,7 @@ def run(
             EPI_CONTAINER_FORMAT_ENVELOPE if with_viewer else EPI_CONTAINER_FORMAT_LEGACY
         ),
         embed_viewer=with_viewer,
+        seal_fingerprint=seal_fp,
     )
 
     step_count, step_kinds = _summarize_recording_steps(temp_workspace)

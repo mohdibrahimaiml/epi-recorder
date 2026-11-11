@@ -1,6 +1,6 @@
 # Data Processing Addendum (starting point — have counsel review)
 
-**Product version:** 4.9.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.10.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DATA-RETENTION](./DATA-RETENTION.md). **Not legal advice.** This is a
 starting-point DPA for EPI Cloud private-beta pilots. Both sides should have
 counsel review it before signing. If it conflicts with a signed agreement,

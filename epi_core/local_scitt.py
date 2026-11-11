@@ -84,6 +84,9 @@ def _generate_service_keypair() -> tuple[Ed25519PrivateKey, bytes]:
 
     _ensure_state_dir()
     _service_private_key_path().write_bytes(private_pem)
+    from epi_core.keys import secure_private_file
+
+    secure_private_file(_service_private_key_path())
     _service_public_key_path().write_bytes(public_pem)
     return private_key, public_bytes
 

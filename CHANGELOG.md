@@ -2,8 +2,6 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
-
 ## [4.10.0] - 2026-11-11
 
 ### Licensing
@@ -17,20 +15,60 @@ All notable changes to EPI Recorder are documented here.
 - **Versions up to and including 4.9.0 are MIT and stay MIT.** That grant is
   permanent and is not withdrawn by this release.
 
-### Fixed
+### Added
 
-- **The case number is sealed into the record.** `record(case_id="ORD-9001")`
-  was accepted and then dropped: `ManifestModel` had no `case_id`, so a reviewer
-  could not find an artifact by claim or order number without opening the steps.
-  The field is optional, omitted from the signature preimage when unset, so
-  artifacts sealed before it still verify unchanged.
-- **A review handoff no longer reads as a constraint violation.** `epi demo`
-  approves a $900 refund and hands it to a manager, because the policy requires
-  review above $500. The analyzer read the $900 as a breach of the $500 limit
-  and the summary led with "P2 (Constraint Violation)" and "Controls failed: 1"
-  on the first file a new user opens. A commitment followed by a
-  `review.handoff` or `agent.approval.request` is now treated as the control
-  working, not as an unapproved breach.
+- **Signed release records tied to decisions.** `epi release create` seals a
+  release record pinning the policy file, prompts, model ids, tool schemas,
+  code commit and config by hash or exact identifier; `required_approvals` is
+  inside the digest. `epi release approve` adds an approval signed with the
+  approver's own key and reports it to the witness as `epi.release_approval`
+  (so approval time is independently observed). `record(..., release=...)`
+  writes `release_ref` before signing and records the components EPI actually
+  observed (`runtime_components`); `epi verify --release` reports MATCHES,
+  DRIFT, UNDECLARED, UNAPPROVED RELEASE, APPROVED AFTER USE, DIRTY RELEASE,
+  RELEASE NOT FOUND or AMBIGUOUS RELEASE. `epi verify --min-approvals N` lets
+  the verifier's threshold win; `--require-release` turns a mismatch into a
+  failure; `epi release history` lists versions in seal order. See
+  `docs/RELEASES.md`. Old artifacts keep their exact verdict (all new manifest
+  fields are omitted from the signature preimage when absent).
+- **Signed pre-action approvals.** `ApprovalGate` now builds a request that
+  binds one exact tool call (tool, canonical `args_digest`, nonce, expiry,
+  redacted `args_display` and `redacted_fields`), waits for a pinned approver's
+  signature, and blocks deny/timeout/expiry/argument changes/nonce reuse/the
+  sealing key/an unpinned key. The gate reports `epi.approval_executed` to the
+  customer's witness before the tool runs, so order is anchored outside the
+  vendor's chain; `epi verify --witness-log --require-pre-action-approval`
+  reports `APPROVED BEFORE ACTION` only when the received order is request <
+  response < executed, otherwise `ACTION BEFORE APPROVAL` and the other
+  statuses. `epi approval list/export/sign/import` lets the approver sign on a
+  different machine; a key readable from the agent host is flagged as not
+  independent. `EPI_AUTO_APPROVE` is recorded as `auto (not a person)` and never
+  counts as human. See `docs/HUMAN-APPROVAL.md`.
+
+- **Seal sequence numbers and gap detection.** Every seal made with a signing
+  key now carries `seal_chain` (`ledger_id`, `key_fingerprint`, `seq`,
+  `prev_seq`, `prev_content_digest`) inside the signed manifest, and the
+  witness report carries `seal_seq`, `ledger_id`, `prev_seq` and
+  `prev_content_digest`. `epi witness audit received.jsonl` reports MISSING,
+  FORK, CHAIN BREAK and TAIL GAP, plus vendor-declared BURNED numbers (warning
+  by default, `--strict` fails) and NEW CHAIN warnings. `epi witness
+  heartbeat` sends a signed "sealed through #N" report through the same
+  outbox, so a withheld tail is visible when run from cron. `epi verify
+  --witness-log` shows the file's chain position in one display-only line.
+  Allocation is cross-process and links to the last *committed* seal, so
+  concurrent seals never duplicate a number. Old artifacts and old witness
+  logs verify exactly as before; browser-signed seals are listed as
+  unsequenced. See `docs/WITNESS.md`.
+
+- **DORA evidence guide for AI vendors.** `docs/DORA-VENDOR-EVIDENCE.md` maps
+  DORA Article 28/30 questions to evidence an EU bank can check itself, gives
+  five reviewer commands, and includes a draft contract schedule. It is
+  evidence support, not a compliance claim.
+- **Blog on epilabs.org.** `scripts/build_blog.py` renders `blog/posts/*.md`
+  into `website/blog/` (index and `posts/<slug>.html`) as well as the legacy
+  portal, using the site's CSS, nav and footer, with canonical, Open Graph,
+  Twitter and Article JSON-LD metadata. The Cloudflare build regenerates it.
+  "Verifiable, Not Just Immutable" is the first post on the live site.
 
 ### Changed
 
@@ -90,24 +128,20 @@ All notable changes to EPI Recorder are documented here.
   no licence. A free install can pin an approver, sign an approval, run the
   oversight report and check the customer's own key history.
 
-### Added
+### Fixed
 
-- `tests/test_open_core_boundary.py` - fails if the verifier gains a network
-  client or a gating token, or if paid modules enter the wheel allowlist.
-- `tests/test_free_trust_commands.py` - a free install can pin an approver, sign
-  an approval, run the oversight report and open the org bundle check.
-- `tests/test_plugins.py`, `tests/test_share_fallback.py`.
-
-### Removed from this repository
-
-- `cloud/` server implementation, `cloud/src/lib/plans.ts`, Cloud CI workflows,
-  the Paddle catalog seeder, tier matrices, and the pricing/billing tests. All
-  moved to the private service repository; their published history stays public
-  under MIT.
-- The enterprise command modules (`epi_cli/{annex,approvers,audit,chat,enterprise,notify,org_cmd,oversight,review,role_bindings}.py`)
-  and the report/mapping generators they use (`epi_core/{annex_report_template,annex_schemas,org_bundle,eu_notification}.py`).
-  They are now `epi-enterprise`, distributed to licensed customers only. Their
-  previously published versions remain MIT.
+- **The case number is sealed into the record.** `record(case_id="ORD-9001")`
+  was accepted and then dropped: `ManifestModel` had no `case_id`, so a reviewer
+  could not find an artifact by claim or order number without opening the steps.
+  The field is optional, omitted from the signature preimage when unset, so
+  artifacts sealed before it still verify unchanged.
+- **A review handoff no longer reads as a constraint violation.** `epi demo`
+  approves a $900 refund and hands it to a manager, because the policy requires
+  review above $500. The analyzer read the $900 as a breach of the $500 limit
+  and the summary led with "P2 (Constraint Violation)" and "Controls failed: 1"
+  on the first file a new user opens. A commitment followed by a
+  `review.handoff` or `agent.approval.request` is now treated as the control
+  working, not as an unapproved breach.
 
 ## [4.9.0] - 2026-11-01
 

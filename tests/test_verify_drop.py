@@ -80,7 +80,7 @@ def test_genuine_file_dropped_on_verify_page(site, browser) -> None:
     ctx = browser.new_context()
     pg = ctx.new_page()
     try:
-        pg.goto(site + "/verify/")
+        pg.goto(site + "/verify/", wait_until="domcontentloaded", timeout=60000)
         pg.wait_for_selector("#dropZoneEl", timeout=15000)
         assert _drop(pg) == "dropped"
         pg.wait_for_function(
@@ -105,7 +105,7 @@ def test_tampered_file_dropped_on_verify_page(site, browser) -> None:
     ctx = browser.new_context()
     pg = ctx.new_page()
     try:
-        pg.goto(site + "/verify/")
+        pg.goto(site + "/verify/", wait_until="domcontentloaded", timeout=60000)
         pg.wait_for_selector("#dropZoneEl", timeout=15000)
         assert _drop(pg, "viewer") == "dropped"
         pg.wait_for_function(
@@ -123,7 +123,7 @@ def test_non_epi_file_dropped_on_verify_page(site, browser) -> None:
     ctx = browser.new_context()
     pg = ctx.new_page()
     try:
-        pg.goto(site + "/verify/")
+        pg.goto(site + "/verify/", wait_until="domcontentloaded", timeout=60000)
         pg.wait_for_selector("#dropZoneEl", timeout=15000)
         assert _drop(pg, "text") == "dropped"
         pg.wait_for_function(
@@ -147,7 +147,7 @@ def test_a_human_approved_file_is_not_reported_as_tampered(site, browser) -> Non
     ctx = browser.new_context()
     pg = ctx.new_page()
     try:
-        pg.goto(site + "/verify/")
+        pg.goto(site + "/verify/", wait_until="domcontentloaded", timeout=60000)
         pg.wait_for_selector("#dropZoneEl", timeout=15000)
         assert pg.evaluate(DROP_JS + f'("{APPROVED_URL}")') == "dropped"
         pg.wait_for_function(

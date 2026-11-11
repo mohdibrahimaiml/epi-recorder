@@ -32,6 +32,8 @@ We produce the record, and leave your customer a copy they can check themselves.
 
 The fee is **credited in full** against the full engagement if you start it within 30 days.
 
+For an EU bank customer, the DORA Art. 28/30 evidence mapping and a draft contract schedule are in [DORA-VENDOR-EVIDENCE.md](./DORA-VENDOR-EVIDENCE.md).
+
 ### 2. Full engagement — €9,500 founding price (first three customers)
 
 **Thirty days, one workflow.** The **€9,500 founding price is for the first three customers only**, in exchange for a named reference and a verification session with the relying party. Standard price after those three: **€15,000**. Each additional workflow: **+€6,000**.

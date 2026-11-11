@@ -3,7 +3,7 @@
 **Source of truth:** the `website/` folder in this repo.  
 **Live site:** https://epilabs.org, served by **Cloudflare Pages** from the
 generated `site/` directory (`wrangler.toml`: `pages_build_output_dir = "site"`).  
-**Version shown on the banner must match `pyproject.toml` (currently 4.9.0).**
+**Version shown on the banner must match `pyproject.toml` (currently 4.10.0).**
 
 This is the marketing and in-browser verify surface. It is **not** a substitute for the technical docs in this folder. Sign-in on the site is **EPI Cloud** (`cloud.epilabs.org`), not the old Render portal.
 
@@ -15,7 +15,8 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 | `/verify/` | In-browser verify (no upload in the default path) |
 | `/how-it-works`, `/trust`, `/use-cases`, `/enterprise` | Explanatory pages |
 | `/decision-record` | The category page: what a Decision Record is, why not a log, ten-question checklist, real CLI output |
-| `/plans` | Pricing: open source free; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud (USD): free workspace (1 customer relationship, 50 files/year, 30 days), Startup $500/month or $5,000/year, Growth $2,000/month or $20,000/year (upgraded in the dashboard), Enterprise from $40,000/year |
+| `/blog/` | Articles generated from `blog/posts/*.md` into `website/blog/`; rebuilt by `scripts/build_blog.py` on every Cloudflare build |
+| `/plans` | Pricing: open source free under Apache-2.0 from 4.10.0; AI vendor review engagement (EUR 4,500 readiness assessment, EUR 9,500 founding / EUR 15,000 full engagement); EPI Cloud (USD): free workspace (1 customer relationship, 10 files/year, 30 days, 7-day share links), Startup $500/month or $5,000/year, Growth $2,000/month or $20,000/year (upgraded in the dashboard), Enterprise from $40,000/year. Team gateway, framework adapters and guardrails are paid |
 | `/login`, `/account` | Redirect / front door into EPI Cloud |
 | `/status` | Health of EPI Cloud (not Render login) |
 | `/standards` | EU AI Act Annex IV, AIUC-1, SCITT: evidence input, not a certificate |
@@ -53,5 +54,16 @@ Match these or the page is wrong:
 - Cloud is priced per **customer relationship**, not per agent. Agents are fair use. The paid limits are customer relationships, Evidence Room files per year, retention and share links. Usage is not metered or blocked. Retention lasts while subscribed, and after cancelling the customer has 90 days to export everything.
 - The seal proves integrity **after sealing**, not completeness of capture.
 - Accounts live on EPI Cloud.
+- Seals are numbered. A customer's witness audit reports a seal that exists but
+  was not reported to them (`MISSING #n`), using heartbeats for the latest
+  seals; burned numbers are listed separately, not counted as clean.
+- A decision can be tied to a signed, approved release. `epi verify --release`
+  reports **MATCHES**, **DRIFT**, **UNDECLARED**, or **APPROVED AFTER USE**
+  (and the other release statuses) for the components EPI observed.
+- A pre-action approval is a pinned person signing the exact action before it
+  runs. With the customer's witness log, the order is proven on the customer's
+  clock (`APPROVED BEFORE ACTION`), not the vendor's hash chain.
+- Never claim completeness of capture, "compliant", "tamper-proof", or that
+  unobserved components were checked.
 
 Details next to the HTML: [`website/README.md`](../website/README.md).

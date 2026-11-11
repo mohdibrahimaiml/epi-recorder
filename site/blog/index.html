@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blog - EPI Labs</title>
+<meta name="description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<link rel="canonical" href="https://epilabs.org/blog/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="EPI Labs">
+<meta property="og:title" content="Blog - EPI Labs">
+<meta property="og:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<meta property="og:url" content="https://epilabs.org/blog/">
+<meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Blog - EPI Labs">
+<meta name="twitter:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
+<meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/blog.css?v=1">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<!-- ═══ SITE NAV ═══ -->
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/blog/">Blog</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/blog/">Blog</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+
+<main id="main">
+<div class="page blog-index">
+<span class="tag">Blog</span>
+<h1>Evidence someone else can check</h1>
+<p class="lede">Technical notes on AI decision evidence, cryptographic provenance, release control, and the difference between a promise and a record a third party can verify.</p>
+<div class="blog-list">
+<article class="blog-card">
+  <time class="blog-date" datetime="2026-11-01">
+    November 2026
+  </time>
+  <h2>
+    <a href="/blog/posts/verifiable-not-just-immutable.html">Verifiable, Not Just Immutable</a>
+  </h2>
+  <p>&quot;Immutable&quot; tells you what a vendor promises about its own system. &quot;Verifiable&quot; means you can check it without trusting them.</p>
+  <a class="blog-more" href="/blog/posts/verifiable-not-just-immutable.html">
+    Read the article &rarr;
+  </a>
+</article>
+<article class="blog-card">
+  <time class="blog-date" datetime="2026-06-22">
+    June 22, 2026
+  </time>
+  <h2>
+    <a href="/blog/posts/scitt-for-agentic-ai.html">SCITT for Agentic AI</a>
+  </h2>
+  <p>COSE Sign1 statements, Merkle proofs, and transparency receipts for AI.</p>
+  <a class="blog-more" href="/blog/posts/scitt-for-agentic-ai.html">
+    Read the article &rarr;
+  </a>
+</article>
+<article class="blog-card">
+  <time class="blog-date" datetime="2026-06-22">
+    June 22, 2026
+  </time>
+  <h2>
+    <a href="/blog/posts/what-is-ai-evidence-provenance.html">What Is AI Evidence Provenance</a>
+  </h2>
+  <p>Make AI execution trails cryptographic and independently verifiable.</p>
+  <a class="blog-more" href="/blog/posts/what-is-ai-evidence-provenance.html">
+    Read the article &rarr;
+  </a>
+</article>
+</div>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; v4.10.0</span>
+    <span>
+      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
+         target="_blank" rel="noopener"
+         style="color:var(--mut)">GitHub</a>
+    </span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
+  <a href="/about" style="color:inherit">About</a> &middot;
+  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
+  <a href="/terms" style="color:inherit">Terms</a> &middot;
+  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
+</p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

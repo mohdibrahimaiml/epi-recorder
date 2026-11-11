@@ -813,6 +813,258 @@ def _members_match_manifest(epi_file: Path) -> bool:
         return False
 
 
+def _sealed_tsa_time(epi_path: Path, manifest) -> str | None:
+    """Earliest validated RFC 3161 gen_time for this artifact, or None."""
+    try:
+        block = _build_timestamps_block(Path(epi_path), manifest, [])
+    except Exception:
+        return None
+    times = [
+        str(entry.get("gen_time"))
+        for entry in block.get("seal") or []
+        if entry.get("status") == "valid" and entry.get("gen_time")
+    ]
+    return min(times) if times else None
+
+
+def _check_release_report(
+    epi_file: Path,
+    manifest,
+    *,
+    release: Path | None,
+    release_dir: Path | None,
+    min_approvals: int | None,
+    witness_log: Path | None,
+) -> dict:
+    """Compare a decision with its release. Never raises."""
+    from epi_core.release import check_decision_release, resolve_release
+
+    entries: list[dict] = []
+    if witness_log:
+        try:
+            from epi_cli.witness import _load_witness_entries
+
+            entries, _error = _load_witness_entries(
+                Path(witness_log), include_heartbeats=True
+            )
+        except Exception:
+            entries = []
+
+    release_tsa = None
+    try:
+        resolved = resolve_release(
+            getattr(manifest, "release_ref", None),
+            release_path=release,
+            release_dir=release_dir,
+            decision_path=epi_file,
+        )
+        if resolved.get("status") == "found":
+            release_tsa = _sealed_tsa_time(resolved["path"], resolved["manifest"])
+    except Exception:
+        pass
+
+    return check_decision_release(
+        decision_manifest=manifest,
+        release_path=release,
+        release_dir=release_dir,
+        decision_path=epi_file,
+        min_approvals=min_approvals,
+        witness_entries=entries,
+        decision_tsa_time=_sealed_tsa_time(epi_file, manifest),
+        release_tsa_time=release_tsa,
+    )
+
+
+_RELEASE_FAIL_STATUSES = {
+    "drift",
+    "undeclared",
+    "unapproved",
+    "ambiguous",
+    "dirty",
+    "verification_failed",
+}
+_RELEASE_NEUTRAL_STATUSES = {"not_declared", "not_found"}
+_RELEASE_WARN_STATUSES = {
+    "not_observed",
+    "approved_after_use",
+    "release_after_decision",
+}
+
+
+def _format_release_lines(info: dict) -> list[str]:
+    if not info or info.get("status") == "not_declared":
+        return [
+            "  [dim]- Release:      not declared (this decision has no release_ref)[/dim]"
+        ]
+    status = str(info.get("status") or "")
+    approvals = info.get("approvals") or {}
+    label = f"{info.get('name') or info.get('release_id') or 'release'} {info.get('version') or ''}".strip()
+    text = {
+        "match": "MATCHES",
+        "drift": "DRIFT",
+        "undeclared": "UNDECLARED",
+        "unapproved": "UNAPPROVED RELEASE",
+        "approver_not_pinned": "APPROVER NOT PINNED",
+        "not_found": "RELEASE DECLARED - NOT SUPPLIED",
+        "ambiguous": "AMBIGUOUS RELEASE",
+        "dirty": "DIRTY RELEASE",
+        "approved_after_use": "APPROVED AFTER USE",
+        "release_after_decision": "RELEASE SEALED AFTER DECISION",
+        "not_observed": "NOT FULLY OBSERVED",
+        "verification_failed": "RELEASE DOES NOT VERIFY",
+    }.get(status, status.upper() or "UNKNOWN")
+    color = (
+        "green"
+        if status == "match"
+        else ("dim" if status in _RELEASE_NEUTRAL_STATUSES else ("red" if status in _RELEASE_FAIL_STATUSES else "yellow"))
+    )
+    detail = str(info.get("detail") or "")
+    line = f"  [{color}]- Release:      {label}  {text}[/{color}]"
+    if info.get("release_discovery") == "next_to_decision" and info.get("path"):
+        line += (
+            "\n  [dim]                using release file next to the decision: "
+            f"{Path(str(info['path'])).name}[/dim]"
+        )
+    if int(info.get("release_duplicates_skipped") or 0) > 0:
+        line += (
+            "\n  [dim]                ignored "
+            f"{int(info['release_duplicates_skipped'])} identical copy(ies) of the release file[/dim]"
+        )
+    if status == "not_found":
+        line += (
+            "\n  [dim]                the release file was not supplied (not a tamper "
+            "finding). Add --release-dir <dir> (or --release <file>) to check it.[/dim]"
+        )
+    # No release was chosen for these, so an "approved by 0/0" count would be
+    # misleading. Show the approval count only once a release was resolved.
+    if status not in (
+        "ambiguous",
+        "not_found",
+        "verification_failed",
+        "approver_not_pinned",
+    ) and int(approvals.get("required") or 0) > 0:
+        line += (
+            f"\n  [dim]                approved by "
+            f"{approvals.get('have', 0)}/{approvals.get('required', 0)}[/dim]"
+        )
+    if detail and status != "match":
+        line += f"\n  [dim]                {detail}[/dim]"
+    if status == "dirty" and not detail:
+        line += "\n  [dim]                built from uncommitted code[/dim]"
+    order = info.get("order") or {}
+    if order:
+        basis = order.get("basis") or "vendor clock"
+        independent = "" if order.get("independent") else ", not independent"
+        line += (
+            f"\n  [dim]- Order:        {str(order.get('status') or '').replace('_', ' ')} "
+            f"(basis: {basis}{independent})[/dim]"
+        )
+    return [line]
+
+
+def _check_pre_action_approval(
+    epi_file: Path, manifest, witness_log: Path | None
+) -> dict:
+    """Verify pre-action approvals. Never raises."""
+    from epi_core.approvers import ApproverRegistry
+    from epi_core.container import EPIContainer
+    from epi_core.pre_action import analyze
+
+    steps = EPIContainer.read_steps(epi_file)
+    entries = None
+    if witness_log:
+        try:
+            from epi_cli.witness import _load_witness_entries
+
+            entries, _error = _load_witness_entries(
+                Path(witness_log), include_heartbeats=True
+            )
+        except Exception:
+            entries = []
+    return analyze(
+        steps,
+        entries,
+        registry=ApproverRegistry(),
+        sealing_key=getattr(manifest, "public_key", None),
+    )
+
+
+_PRE_ACTION_LABELS = {
+    "approved_before_action": "APPROVED BEFORE ACTION",
+    "action_before_approval": "ACTION BEFORE APPROVAL",
+    "action_without_approval": "ACTION WITHOUT APPROVAL",
+    "denied_but_executed": "DENIED BUT EXECUTED",
+    "args_changed_after_approval": "ARGS CHANGED AFTER APPROVAL",
+    "approval_expired": "APPROVAL EXPIRED",
+    "approval_reused": "APPROVAL REUSED",
+    "signed_by_sealing_key": "SIGNED BY SEALING KEY",
+    "unknown_approver": "APPROVER NOT PINNED",
+    "auto_approved": "AUTO-APPROVED (NOT HUMAN)",
+    "execution_not_witnessed": "EXECUTION NOT WITNESSED",
+    "not_used": "not used",
+}
+
+
+def _format_pre_action_lines(info: dict) -> list[str]:
+    if not info or info.get("status") == "not_used":
+        return ["  [dim]- Pre-action:  not used[/dim]"]
+    lines: list[str] = []
+    for item in info.get("requests") or []:
+        status = str(item.get("status") or "")
+        label = _PRE_ACTION_LABELS.get(status, status.upper() or "UNKNOWN")
+        if status == "approved_before_action" and item.get("approver_key_colocated"):
+            label = "APPROVED BEFORE ACTION (approver key on agent host — not independent)"
+        color = (
+            "green"
+            if status == "approved_before_action"
+            and item.get("independent")
+            and not item.get("approver_key_colocated")
+            else ("red" if status not in ("approved_before_action", "not_used") else "yellow")
+        )
+        approver = item.get("approver") or "an unknown approver"
+        if status == "unknown_approver":
+            lines.append(
+                f"  [{color}]- Pre-action:  signed by {approver} - APPROVER NOT PINNED[/{color}]"
+            )
+            lines.append(
+                "  [dim]                signature is valid; pin the approver to count it: "
+                "epi approvers add <their-key-file> --name '"
+                f"{approver}'[/dim]"
+            )
+        else:
+            lines.append(
+                f"  [{color}]- Pre-action:  {label} ({approver})[/{color}]"
+            )
+        lines.append(
+            f"  [dim]                basis: {item.get('basis')}[/dim]"
+        )
+        for finding in item.get("findings") or []:
+            lines.append(f"  [dim]                {finding}[/dim]")
+    return lines
+
+
+def _format_sequence_line(info: dict) -> str:
+    """One display line for the seal's chain position (never a verdict)."""
+    if not info or not info.get("present"):
+        return "  [dim]- Sequence:     not present (sealed before seal sequence numbers)[/dim]"
+    seq = info.get("seq")
+    chain = str(info.get("ledger_id") or "")[:4]
+    if not info.get("in_log"):
+        return (
+            f"  [yellow]- Sequence:     #{seq} of chain {chain}… — this seal is "
+            "not in the log[/yellow]"
+        )
+    if info.get("contiguous"):
+        return (
+            f"  [green]- Sequence:     #{seq} of chain {chain}…, log contiguous "
+            f"{info.get('range')}[/green]"
+        )
+    return (
+        f"  [yellow]- Sequence:     #{seq} — log has gaps "
+        "(see epi witness audit)[/yellow]"
+    )
+
+
 def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: str | None = None) -> dict:
     """Compare the sealed file against the customer's witness log.
 
@@ -926,6 +1178,62 @@ def _check_witness_log(epi_file: Path, manifest, witness_log, witness_pubkey: st
             )
             return result
         _reports_count = len(_reports) + len(signed_items)
+    # --- Seal-chain position (display/inspection only; NEVER changes the
+    # verdict). Files sealed before sequence numbers simply have no chain.
+    try:
+        from epi_core.seal_ledger import analyze
+
+        _seq_records: list[dict] = list(legacy_entries)
+        _seq_records += [
+            item["inner"]
+            for item in signed_items
+            if isinstance(item.get("inner"), dict)
+        ]
+        _sequence: dict = {"present": False}
+        _seal_chain = getattr(manifest, "seal_chain", None)
+        if _seal_chain is not None:
+            _chain = (
+                _seal_chain.model_dump()
+                if hasattr(_seal_chain, "model_dump")
+                else dict(_seal_chain)
+            )
+            _sequence = {
+                "present": True,
+                "seq": _chain.get("seq"),
+                "ledger_id": _chain.get("ledger_id"),
+                "key_fingerprint": _chain.get("key_fingerprint"),
+                "contiguous": None,
+                "in_log": False,
+                "range": None,
+            }
+            _group = next(
+                (
+                    chain
+                    for chain in analyze(_seq_records).get("chains") or []
+                    if chain.get("ledger_id") == _sequence["ledger_id"]
+                ),
+                None,
+            )
+            if _group:
+                _sequence["range"] = (
+                    f"{_group['first_seq']}..{_group['last_seq']}"
+                )
+                _sequence["contiguous"] = bool(
+                    not _group["missing_all"]
+                    and not _group["forks"]
+                    and not _group["chain_breaks"]
+                )
+            _workflow = str(getattr(manifest, "workflow_id", "") or "")
+            _sequence["in_log"] = any(
+                str(entry.get("workflow_id") or "") == _workflow
+                and str(entry.get("seal_seq")) == str(_sequence.get("seq"))
+                for entry in _seq_records
+                if entry.get("seal_seq") is not None
+            )
+        result["sequence"] = _sequence
+    except Exception:
+        result["sequence"] = {"present": getattr(manifest, "seal_chain", None) is not None}
+
     # --- Trusted keys: --witness-pubkey flag > EPI_WITNESS_PUBKEY env >
     # package-pinned keys (epi_core/witness_keys.py). The witness_pubkey
     # shipped INSIDE the file (witness.json) is NEVER trust: a forger
@@ -1533,6 +1841,11 @@ def verify_command(
     tsa_root: list[Path] | None = None,
     require_timestamp: bool = False,
     require_human_approval: bool = False,
+    release: Path | None = None,
+    release_dir: Path | None = None,
+    min_approvals: int | None = None,
+    require_release: bool = False,
+    require_pre_action_approval: bool = False,
 ) -> None:
     """
     Verify .epi file integrity and authenticity.
@@ -2204,6 +2517,45 @@ def verify_command(
         except Exception:
             pass
 
+        # ========== STEP 4.96: SIGNED RELEASE RECORD ==========
+        # Compare the decision with the release it names. Display/JSON only
+        # unless --require-release turns a mismatch into a failure.
+        try:
+            report["release"] = _check_release_report(
+                epi_file,
+                manifest,
+                release=release,
+                release_dir=release_dir,
+                min_approvals=min_approvals,
+                witness_log=witness_log,
+            )
+            report["release"]["requested"] = bool(
+                release or release_dir or require_release
+            )
+        except Exception as _rel_err:
+            report["release"] = {
+                "status": "verification_failed",
+                "present": True,
+                "detail": f"release check crashed: {_rel_err}",
+            }
+
+        # ========== STEP 4.97: PRE-ACTION APPROVAL ==========
+        try:
+            report["pre_action_approval"] = _check_pre_action_approval(
+                epi_file, manifest, witness_log
+            )
+            report["pre_action_approval"]["requested"] = bool(
+                require_pre_action_approval
+            )
+        except Exception as _pre_err:
+            report["pre_action_approval"] = {
+                "status": "error",
+                "requests": [],
+                "problems": 0,
+                "detail": f"pre-action check crashed: {_pre_err}",
+                "requested": bool(require_pre_action_approval),
+            }
+
         # Apply the selected governance policy
         active_policy = VerificationPolicy.STRICT if strict else policy
         apply_policy(report, active_policy)
@@ -2225,6 +2577,73 @@ def verify_command(
                 _cc_first = _cc_messages[0] if _cc_messages else "capture checkpoint verification failed"
                 if _cc_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cc_first}".strip()
+            except Exception:
+                pass
+        # Signed release: MATCHES never changes a verdict. A mismatch is a
+        # warning by default and a FAIL with --require-release (one consistent
+        # exit-code rule for drift, undeclared, unapproved, after-use, etc.).
+        _rel_status = str((report.get("release") or {}).get("status") or "")
+        if _rel_status and _rel_status != "match":
+            try:
+                if _rel_status == "not_declared":
+                    if require_release:
+                        report["decision"]["status"] = "FAIL"
+                        report["decision"]["reason"] = (
+                            "no signed release was declared for this decision "
+                            "(--require-release)"
+                        )
+                elif require_release:
+                    report["decision"]["status"] = "FAIL"
+                    report["decision"]["reason"] = (
+                        f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
+                    )
+                elif report["decision"].get("status") == "PASS":
+                    report["decision"]["status"] = "WARN"
+                    report["decision"]["reason"] = (
+                        f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
+                    )
+            except Exception:
+                pass
+        # Pre-action approval: only an independent, non-colocated approval that
+        # precedes the action is clean. Default WARN; FAIL with the flag.
+        _pre = report.get("pre_action_approval") or {}
+        _pre_requests = _pre.get("requests") or []
+        _pre_bad = [
+            item
+            for item in _pre_requests
+            if item.get("status") != "approved_before_action"
+        ]
+        _pre_colocated = [
+            item for item in _pre_requests if item.get("approver_key_colocated")
+        ]
+        _pre_chain_only = [
+            item
+            for item in _pre_requests
+            if item.get("status") == "approved_before_action"
+            and not item.get("independent")
+        ]
+        if _pre_bad or _pre_colocated or _pre_chain_only:
+            try:
+                if require_pre_action_approval:
+                    report["decision"]["status"] = "FAIL"
+                    first = (_pre_bad or _pre_colocated or _pre_chain_only)[0]
+                    report["decision"]["reason"] = (
+                        "pre-action approval: "
+                        + (
+                            "; ".join(first.get("findings") or [])
+                            or first.get("status")
+                        )
+                    )
+                elif report["decision"].get("status") == "PASS":
+                    report["decision"]["status"] = "WARN"
+                    first = (_pre_bad or _pre_colocated or _pre_chain_only)[0]
+                    report["decision"]["reason"] = (
+                        "pre-action approval: "
+                        + (
+                            "; ".join(first.get("findings") or [])
+                            or first.get("status")
+                        )
+                    )
             except Exception:
                 pass
         # A new-scheme seal token that fails validation means tampering: FAIL
@@ -3015,6 +3434,27 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             f"  [red]- Witness:      DIFFERENT VERSION — {_wit.get('detail')}[/red]"
         )
+
+    # Seal-chain position, only when a witness log was checked (or attempted).
+    _wit_sequence = _wit.get("sequence")
+    if _wit_sequence is not None:
+        content_lines.append(_format_sequence_line(_wit_sequence))
+
+    # Signed release record, when the decision declares one (or the caller
+    # asked for the check).
+    _release_block = report.get("release")
+    if isinstance(_release_block, dict) and (
+        _release_block.get("requested")
+        or _release_block.get("status") not in (None, "not_declared")
+    ):
+        content_lines.extend(_format_release_lines(_release_block))
+
+    # Pre-action approvals, when the run recorded any (or the caller asked).
+    _pre_block = report.get("pre_action_approval")
+    if isinstance(_pre_block, dict) and (
+        _pre_block.get("requested") or _pre_block.get("requests")
+    ):
+        content_lines.extend(_format_pre_action_lines(_pre_block))
 
     # Human approval (step 3a). One line, and only when the run carries reviews
     # or approval steps, or the operator asked with --require-human-approval.

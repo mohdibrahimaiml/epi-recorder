@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>What Is AI Evidence Provenance - EPI Labs</title>
+<meta name="description" content="AI evidence provenance explained">
+<link rel="canonical" href="https://epilabs.org/blog/posts/what-is-ai-evidence-provenance.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="EPI Labs">
+<meta property="og:title" content="What Is AI Evidence Provenance - EPI Labs">
+<meta property="og:description" content="AI evidence provenance explained">
+<meta property="og:url" content="https://epilabs.org/blog/posts/what-is-ai-evidence-provenance.html">
+<meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta property="article:published_time" content="2026-06-22">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Is AI Evidence Provenance - EPI Labs">
+<meta name="twitter:description" content="AI evidence provenance explained">
+<meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/blog.css?v=1">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "What Is AI Evidence Provenance", "description": "AI evidence provenance explained", "datePublished": "2026-06-22", "dateModified": "2026-06-22", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://epilabs.org/blog/posts/what-is-ai-evidence-provenance.html"}, "image": ["https://epilabs.org/assets/epi-walkthrough-og.jpg"], "author": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org"}, "publisher": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org", "logo": {"@type": "ImageObject", "url": "https://epilabs.org/assets/logo.png"}}}</script>
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<!-- ═══ SITE NAV ═══ -->
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/blog/">Blog</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/blog/">Blog</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+
+<main id="main">
+<div class="page blog-post">
+<a class="blog-back" href="/blog/">&larr; All posts</a>
+<span class="tag"><span class="n">June 22, 2026</span></span>
+<h1>What Is AI Evidence Provenance</h1>
+<p class="lede">AI evidence provenance explained</p>
+<div class="blog-body">
+<p>Every time your application calls an LLM, a trail is generated. Most of it vanishes in milliseconds.</p>
+<p>If nothing goes wrong, that is fine. But if a regulator asks what your AI agent did, or a customer disputes a decision, that vanished trail is the difference between proving what happened and saying "I don not know."</p>
+<h2>The Problem With Logging</h2>
+<p>Traditional logging has limitations:</p>
+<ul><li><strong>Logs are mutable.</strong> Anyone with write access can modify or delete entries.</li><li><strong>Logs are not portable.</strong> CloudWatch logs don not help without AWS access.</li><li><strong>Logs are not structured for review.</strong> A regulator needs to trace a decision.</li><li><strong>Logs lack chain-of-custody.</strong> No proof entries haven not been reordered.</li></ul>
+<h2>What Evidence Provenance Means</h2>
+<p>Evidence provenance captures AI execution as a <strong>cryptographically sealed, self-contained artifact</strong> verifiable by anyone, anywhere, without access to the original runtime.</p>
+<p>An artifact answers: What ran? What was the outcome? Who witnessed it? Has it been tampered with?</p>
+<h2>How It Works</h2>
+<p>During execution, every event is recorded as a structured step with a hash link to the previous step. When complete, all steps are sealed into a signed manifest. The result is a single file that:</p>
+<ul><li>Is also a valid HTML page (double-click to view)</li><li>Carries SHA-256 hashes and an Ed25519 signature</li><li>Includes an offline embedded viewer</li><li>Verifies on any machine with zero dependencies</li></ul>
+<h2>Why This Matters Now</h2>
+<p>Regulatory frameworks like the EU AI Act, OMB M-24-10, and AIUC-1 assume you can produce a faithful record of what your AI system did. Evidence provenance makes that possible.</p>
+</div>
+<div class="blog-cta">
+  <p><strong>Check a record yourself.</strong> Verification runs on your machine, needs no account, and is never charged.</p>
+  <p><a class="btn btn-pri" href="/verify/">Verify a .epi file</a> <a class="btn btn-sec" href="/decision-record">What is a Decision Record?</a></p>
+</div>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; v4.10.0</span>
+    <span>
+      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
+         target="_blank" rel="noopener"
+         style="color:var(--mut)">GitHub</a>
+    </span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
+  <a href="/about" style="color:inherit">About</a> &middot;
+  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
+  <a href="/terms" style="color:inherit">Terms</a> &middot;
+  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
+</p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Human approval
 
-**Product version:** 4.9.0. Product map: [README.md](./README.md).
+**Product version:** 4.10.0. Product map: [README.md](./README.md).
 
 A sealed `.epi` can prove **"a specific, known person approved this exact
 decision"** — with a signature from *that person's own key*. This page says
@@ -187,15 +187,89 @@ a human decision.
 
 ---
 
+## Verifying a release approval
+
+A release record uses the same approver keys and registry, with one difference:
+the signed review content includes the release digest.
+
+```bash
+epi release approve releases/credit-policy-3.2.epi --as alice@bank.com
+epi verify claim.epi --release releases/credit-policy-3.2.epi
+```
+
+An approval for one version cannot satisfy another: the digest changes, so the
+signature no longer matches. As with a run approval, the verifier decides
+against **its own** approver registry; a key that is not pinned is reported as
+unpinned and does not count toward the threshold. The verifier's
+`--min-approvals` wins when higher than the release's `required_approvals`.
+
+Approvals are still added **after** the release is sealed, because the
+signature covers the sealed bytes. `epi verify` therefore checks *when* the
+approval happened using independent evidence where it exists (the approval's
+own RFC 3161 token, or the `received_at` of its `epi.release_approval` witness
+report) and reports `APPROVED AFTER USE` when the threshold was only reached
+after the decision was sealed. It never calls that a clean match.
+
+---
+
+## Pre-action approvals (before the action runs)
+
+The review approval above is a **post-seal sign-off**: a named person reviewed
+the record after it was sealed. A **pre-action approval** is different: a risky
+tool call waits until a pinned approver signs *that exact call*, and the gate
+refuses to run it otherwise.
+
+```bash
+# The agent's gate writes a request; the approver signs it on their machine.
+epi approval list
+epi approval export <request_id> --out request.json
+epi approval sign request.json --as alice@bank.com --out response.json
+epi approval import response.json
+
+epi verify run.epi --witness-log received.jsonl --require-pre-action-approval
+```
+
+- The signed request binds the tool, the canonical arguments (`args_digest`), a
+  nonce, the expiry and the redacted argument display. Changing the arguments
+  after approval blocks the call and records `approval.args_mismatch`; one
+  approval runs once.
+- The approver key must not live on the agent host. If the key's private half is
+  readable from the agent's approver keys directory, the gate records
+  `approver_key_colocated: true`; verification labels the result *approver key
+  on agent host — not independent* and it does **not** satisfy
+  `--require-pre-action-approval`.
+- Order is anchored by the customer's witness: the gate reports
+  `epi.approval_executed` before the tool runs, so the customer holds request,
+  response and execution receipts on their own clock. With `--witness-log`,
+  `APPROVED BEFORE ACTION` requires the received order request < response <
+  executed and prints `basis: witness received_at (independent)`. Without it,
+  the same status is labelled `basis: hash chain only (vendor-written, not
+  independent)`, and the strict flag fails it.
+- Statuses: `ACTION BEFORE APPROVAL`, `ACTION WITHOUT APPROVAL`,
+  `DENIED BUT EXECUTED`, `ARGS CHANGED AFTER APPROVAL`, `APPROVAL EXPIRED`,
+  `APPROVAL REUSED`, `SIGNED BY SEALING KEY`, `UNKNOWN APPROVER`,
+  `AUTO-APPROVED (NOT HUMAN)`, `EXECUTION NOT WITNESSED`.
+
+---
+
 ## What an approval does NOT prove
 
-- **Not that the approval came *before* the action.** A signed approval is added
-  **after** the run is sealed — that is the only order the format allows, because
-  the signature covers the sealed bytes. So it evidences "a named person reviewed
-  this record and signed off on it", not "a person approved the payment before it
-  left". The verify line says `signed off by pinned approvers after sealing` for
-  exactly this reason. If a control requires pre-action approval, that must come
-  from the workflow that gated the action, not from the `.epi`.
+- **A post-seal approval does not prove the approval came *before* the
+  action.** It is added **after** the run is sealed — that is the only order
+  that format allows, because the signature covers the sealed bytes. It
+  evidences "a named person reviewed this record and signed off on it", not
+  "a person approved the payment before it left". Use a **pre-action approval**
+  (above) when the control requires approval before the action; it is the only
+  path whose order is checked.
+- **A pre-action approval proves what the gate saw, not what the process did.**
+  Only actions routed through the interceptor are gated. Code that calls the
+  underlying tool without the interceptor is not covered.
+- **The approver approves `args_display`, not the raw values.** Secret fields
+  are redacted and listed under `redacted_fields`; those fields are approved
+  blind. A free-text `vendor_description` is labelled as a vendor claim, never
+  as the approved arguments.
+- **The approver's clock is not independent** unless the approval is witnessed
+  or carries an RFC 3161 timestamp; verification prints the basis it used.
 - **Not that the person saw the truth.** It proves they signed *this* artifact's
   decision; the run's contents are still whatever the recorder wrote.
 - **Not identity beyond the pin.** It says "the key you pinned as

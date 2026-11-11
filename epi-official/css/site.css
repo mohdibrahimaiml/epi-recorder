@@ -74,6 +74,8 @@
 html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased;font-size:16px;scroll-padding-top:calc(var(--navh) + 20px)}
 body{font-family:var(--sans);background:var(--bg);color:var(--body);line-height:1.68;font-size:16px;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
+/* Content links inside prose must not rely on colour alone (WCAG 1.4.1). */
+main p a, main li a, main td a{text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;display:block}
 button{font-family:inherit;cursor:pointer}
 ::selection{background:var(--acc-bg);color:var(--ink)}
@@ -122,6 +124,9 @@ code.k{
   font-family:var(--mono);font-size:.82em;background:var(--bg);
   border:1px solid var(--edge);padding:1px 6px;color:var(--acc-hi);white-space:nowrap;
 }
+code.k.badge-pass{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+code.k.badge-warn{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+code.k.badge-fail{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
 [data-theme="dark"] code.k{background:var(--well)}
 
 /* Black section-label chip — straight from the viewer */
@@ -533,6 +538,25 @@ footer{border-top:1px solid var(--edge);padding:56px 0 36px;background:var(--bg)
 .page table{width:100%;border-collapse:collapse;font-size:.87rem;margin:16px 0}
 .page th{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.12em;color:var(--mut);text-align:left;padding:11px 14px;border-bottom:1.5px solid var(--ink)}
 .page td{padding:12px 14px;border-bottom:1px solid var(--edge);color:var(--body);vertical-align:top}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:16px 0}
+.table-wrap table{min-width:36rem;margin:0}
+@media(min-width:640px){.table-wrap table{min-width:0}}
+
+/* On a phone these answer tables stack: badge, meaning, exit code. */
+@media(max-width:639px){
+  .table-wrap{overflow:visible}
+  .table-wrap table{display:block;min-width:0;font-size:.9rem}
+  .table-wrap thead{display:none}
+  .table-wrap tbody,.table-wrap tr,.table-wrap td{display:block;width:100%}
+  .table-wrap tr{padding:14px 0;border-bottom:1px solid var(--edge)}
+  .table-wrap td{border:0;padding:2px 0}
+  .table-wrap td:first-child{font-family:var(--mono);font-size:.78rem;color:var(--ink);word-break:break-word}
+  .table-wrap td:nth-child(2){margin-top:6px}
+  .table-wrap td:nth-child(3){margin-top:4px;font-family:var(--mono);font-size:.72rem;color:var(--mut)}
+  .table-wrap td:nth-child(3)::before{content:"Exit: ";text-transform:uppercase;letter-spacing:.08em}
+}
+.page h3{font-family:var(--serif);font-size:1.05rem;margin:34px 0 12px;color:var(--ink)}
+.page p.note{margin:14px 0 32px}
 
 /* ── Reveal motion — handled by AOS (see css/aos.css) ──────────── */
 /* Hero content entrance — kept as a subtle non-AOS intro */

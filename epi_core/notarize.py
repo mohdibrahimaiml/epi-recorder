@@ -88,7 +88,16 @@ class NotarizationResult:
 # ---------------------------------------------------------------------------
 
 IMPRINT_SCHEME = "epi-tsa-imprint/v1"
-_IMPRINT_EXCLUDED_EXACT = {"viewer.html", "VERIFY.txt", "manifest.json", "mimetype"}
+_IMPRINT_EXCLUDED_EXACT = {
+    "viewer.html",
+    "VERIFY.txt",
+    "manifest.json",
+    "mimetype",
+    # NOTE: the 4.10 member-backed bookkeeping files must stay IN the imprint.
+    # 4.9.0 verifiers do not know them, so excluding them here makes the
+    # recomputed digest differ from the stamped one and a genuine file reads
+    # as "Timestamp INVALID". Compatibility with the installed verifier wins.
+}
 _IMPRINT_EXCLUDED_PREFIXES = (
     "artifacts/notarization/",
     "artifacts/scitt/",

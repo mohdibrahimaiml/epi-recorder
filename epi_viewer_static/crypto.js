@@ -604,9 +604,13 @@ function prepareManifestCopy(manifest) {
     if (copy.producer_version === null || copy.producer_version === undefined) {
         delete copy.producer_version;
     }
-    if (copy.case_id === null || copy.case_id === undefined) {
-        delete copy.case_id;
-    }
+    // Member-backed fields: always absent from the signed top level from 4.10.
+    delete copy.case_id;
+    delete copy.seal_chain;
+    delete copy.record_kind;
+    delete copy.release;
+    delete copy.release_ref;
+    delete copy.runtime_components;
     return copy;
 }
 
@@ -716,7 +720,12 @@ async function verifyManifestSignature(manifest, rawManifestText) {
             if (parsed.content_truncated === null || parsed.content_truncated === undefined) delete parsed.content_truncated;
             if (parsed.policy_load_status === null || parsed.policy_load_status === undefined) delete parsed.policy_load_status;
             if (parsed.producer_version === null || parsed.producer_version === undefined) delete parsed.producer_version;
-        if (parsed.case_id === null || parsed.case_id === undefined) delete parsed.case_id;
+            delete parsed.case_id;
+            delete parsed.record_kind;
+            delete parsed.release;
+            delete parsed.release_ref;
+            delete parsed.runtime_components;
+            delete parsed.seal_chain;
             // normalize datetimes
             _normalizeDatetimeRec(parsed);
             // sorted JSON preserving __num raw text

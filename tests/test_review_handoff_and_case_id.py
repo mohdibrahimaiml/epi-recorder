@@ -110,8 +110,13 @@ def test_case_id_is_sealed_and_round_trips(tmp_path: Path):
         notarize=False,
         embed_viewer=False,
     )
-    manifest = json.loads(zipfile.ZipFile(out).read("manifest.json"))
-    assert manifest["case_id"] == "ORD-9001"
+    with zipfile.ZipFile(out) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        case = json.loads(zf.read("artifacts/case_id.json"))
+    # 4.10 keeps case_id out of the manifest top level for 4.9.0 verifiers.
+    assert "case_id" not in manifest
+    assert case["case_id"] == "ORD-9001"
+    assert EPIContainer.read_manifest(out).case_id == "ORD-9001"
 
 
 def test_case_id_is_absent_when_not_given(tmp_path: Path):
@@ -131,7 +136,10 @@ def test_case_id_is_absent_when_not_given(tmp_path: Path):
         notarize=False,
         embed_viewer=False,
     )
-    manifest = json.loads(zipfile.ZipFile(out).read("manifest.json"))
+    with zipfile.ZipFile(out) as zf:
+        manifest = json.loads(zf.read("manifest.json"))
+        names = zf.namelist()
     assert manifest.get("case_id") in (None, ""), (
         "records without a case number must stay byte-identical to older ones"
     )
+    assert "artifacts/case_id.json" not in names
