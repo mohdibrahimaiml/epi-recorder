@@ -13,6 +13,7 @@ import json
 import socket
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from epi_cli.main import app as cli_app
@@ -432,10 +433,11 @@ def test_witness_flush_without_secret_says_no_secret(monkeypatch, tmp_path: Path
 
 
 def test_gateway_export_reuses_serve_settings(tmp_path: Path) -> None:
-    from epi_cli.gateway import _load_serve_settings, _save_serve_settings
+    # The gateway is part of EPI Enterprise; skip on a free install.
+    gw = pytest.importorskip("epi_enterprise.cli_gateway")
 
-    _save_serve_settings(tmp_path, "did:web:vendor.example", "http://127.0.0.1:1/")
-    assert _load_serve_settings(tmp_path) == {
+    gw._save_serve_settings(tmp_path, "did:web:vendor.example", "http://127.0.0.1:1/")
+    assert gw._load_serve_settings(tmp_path) == {
         "did": "did:web:vendor.example", "witness_url": "http://127.0.0.1:1/"
     }
     assert "secret" not in (tmp_path / "gateway-settings.json").read_text()
@@ -538,8 +540,11 @@ def test_strict_reason_matches_not_a_key_you_trust_headline() -> None:
 def test_gateway_restart_without_flags_keeps_saved_settings(tmp_path: Path, monkeypatch) -> None:
     import uvicorn
 
-    from epi_cli.gateway import _load_serve_settings, _save_serve_settings
-    from epi_cli.gateway import app as gw_app
+    # The gateway is part of EPI Enterprise; skip on a free install.
+    gw = pytest.importorskip("epi_enterprise.cli_gateway")
+    _load_serve_settings = gw._load_serve_settings
+    _save_serve_settings = gw._save_serve_settings
+    gw_app = gw.app
 
     _save_serve_settings(tmp_path, "did:web:vendor.example", "http://127.0.0.1:1/")
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)

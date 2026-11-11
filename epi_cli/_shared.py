@@ -31,7 +31,7 @@ def report_witness_for_cli(epi_path: Path | str) -> str | None:
     one-line status, or None when no witness is configured.
     """
     try:
-        from epi_cli.gateway import _short_reason
+        from epi_core.webhook import short_reason as _short_reason
         from epi_core.webhook import read_outbox, report_seal, split_witness_urls
     except Exception:
         return None

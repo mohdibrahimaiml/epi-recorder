@@ -167,25 +167,23 @@ def test_fresh_venv_help_for_every_command(fresh_venv: tuple[Path, Path], args: 
 
 
 @pytest.mark.slow
-def test_fresh_venv_gateway_serve_shows_missing_extra(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi gateway serve` on a base install prints a friendly missing-extra error."""
+def test_fresh_venv_gateway_serve_names_the_paid_plan(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi gateway` on a base install says where it lives instead of failing cryptically."""
     result = _run_in_fresh_venv(fresh_venv, ["gateway", "serve"])
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "gateway" in combined.lower()
-    assert "extra" in combined.lower()
-    assert "pip install epi-recorder[gateway]" in combined
+    assert result.returncode == 2
+    assert "EPI Enterprise" in combined
+    assert "https://epilabs.org/plans" in combined
 
 
 @pytest.mark.slow
-def test_fresh_venv_connect_open_shows_missing_extra(fresh_venv: tuple[Path, Path]) -> None:
-    """`epi connect open` on a base install prints a friendly missing-extra error."""
+def test_fresh_venv_connect_open_names_the_paid_plan(fresh_venv: tuple[Path, Path]) -> None:
+    """`epi connect` on a base install says where it lives instead of failing cryptically."""
     result = _run_in_fresh_venv(fresh_venv, ["connect", "open", "--no-browser"])
     combined = result.stdout + result.stderr
-    assert result.returncode == 1
-    assert "gateway" in combined.lower()
-    assert "extra" in combined.lower()
-    assert "pip install epi-recorder[gateway]" in combined
+    assert result.returncode == 2
+    assert "EPI Enterprise" in combined
+    assert "https://epilabs.org/plans" in combined
 
 
 @pytest.mark.slow

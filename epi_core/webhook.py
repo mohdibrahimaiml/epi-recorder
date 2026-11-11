@@ -816,3 +816,25 @@ def report_seal(
     except Exception as exc:
         logger.warning("Witness report failed: %s", exc)
         return entry
+
+
+def short_reason(error: object, urls: list[str] | None = None) -> str:
+    """Turn a delivery error into one short line a CLI can print.
+
+    ``http://x: <urlopen error [Errno 111] Connection refused>`` becomes
+    ``Connection refused``. Lives here, in the free core, because both the
+    public CLI and the paid gateway report witness delivery the same way.
+    """
+    import re
+
+    reason = str(error or "delivery timed out")
+    for url in urls or []:
+        reason = reason.removeprefix(f"{url}: ")
+    reason = re.sub(r"^<urlopen error (.*)>$", lambda m: m.group(1), reason.strip())
+    # Windows words socket errors differently; normalise the common ones.
+    if "10061" in reason or "actively refused" in reason:
+        return "Connection refused"
+    if "10060" in reason or "timed out" in reason.lower():
+        return "Connection timed out"
+    reason = re.sub(r"^\[(?:Errno|WinError) -?\d+\]\s*", "", reason)
+    return reason[:80] or "delivery failed"
