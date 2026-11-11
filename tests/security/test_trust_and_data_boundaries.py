@@ -15,8 +15,6 @@ from epi_core import telemetry
 from epi_core.container import EPIContainer
 from epi_core.redactor import REDACTION_PLACEHOLDER, Redactor
 from epi_core.trust import verify_embedded_manifest_signature
-from epi_gateway.main import GatewayRuntimeSettings, create_app
-from epi_gateway.worker import EvidenceWorker
 from tests.helpers.artifacts import (
     make_decision_epi,
     read_legacy_member_json,
@@ -183,6 +181,10 @@ def test_declared_secrets_reach_sealed_artifact(tmp_path: Path):
 
 
 def test_gateway_capture_redacts_remote_prompt_bodies_by_default(tmp_path: Path):
+    pytest.importorskip("epi_enterprise.gateway.main")
+    from epi_enterprise.gateway.main import GatewayRuntimeSettings, create_app
+    from epi_enterprise.gateway.worker import EvidenceWorker
+
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     gateway = create_app(
         worker=worker,

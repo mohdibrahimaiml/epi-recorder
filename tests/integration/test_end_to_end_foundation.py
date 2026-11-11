@@ -14,8 +14,6 @@ from typer.testing import CliRunner
 from epi_cli.main import app as cli_app
 from epi_core.container import EPIContainer
 from epi_core.trust import verify_embedded_manifest_signature
-from epi_gateway.main import GatewayRuntimeSettings, create_app
-from epi_gateway.worker import EvidenceWorker
 from epi_recorder.integrations.agt import export_agt_to_epi
 from tests.helpers.artifacts import make_decision_epi
 
@@ -25,7 +23,9 @@ runner = CliRunner()
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _share_settings(tmp_path: Path) -> GatewayRuntimeSettings:
+def _share_settings(tmp_path: Path):
+    from epi_enterprise.gateway.main import GatewayRuntimeSettings
+
     return GatewayRuntimeSettings(
         storage_dir=str(tmp_path),
         share_enabled=True,
@@ -54,6 +54,10 @@ def test_artifact_full_flow_capture_verify_view_export_share_download_offline(tm
     assert export.exit_code == 0, export.output
     assert (extract_dir / "viewer.html").exists()
     assert "EPI Decision Record" in summary_path.read_text(encoding="utf-8")
+
+    pytest.importorskip("epi_enterprise.gateway.main")
+    from epi_enterprise.gateway.main import create_app
+    from epi_enterprise.gateway.worker import EvidenceWorker
 
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     gateway = create_app(worker=worker, settings=_share_settings(tmp_path / "share"))
@@ -198,6 +202,10 @@ def test_agt_to_epi_to_regulator_round_trip(tmp_path: Path):
 
 def test_share_link_expiry_returns_gone(tmp_path: Path):
     artifact, _ = make_decision_epi(tmp_path, name="expiry.epi", signed=True)
+    pytest.importorskip("epi_enterprise.gateway.main")
+    from epi_enterprise.gateway.main import create_app
+    from epi_enterprise.gateway.worker import EvidenceWorker
+
     worker = EvidenceWorker(storage_dir=tmp_path / "worker", batch_size=1, batch_timeout=0.1)
     gateway = create_app(worker=worker, settings=_share_settings(tmp_path / "share"))
 
