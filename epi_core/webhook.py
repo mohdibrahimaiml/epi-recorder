@@ -878,6 +878,12 @@ def stage_seal_report(
                     continue
                 if str((existing["payload"] or {}).get("file_sha256") or "") != str(file_sha256):
                     continue
+                if str((existing["payload"] or {}).get("type") or "") != "epi.sealed":
+                    continue
+                if str((existing["payload"] or {}).get("audience") or "") != str(
+                    (payload or {}).get("audience") or ""
+                ):
+                    continue
                 if set(existing.get("pending") or []) == set(targets):
                     return existing
         except Exception:
@@ -1010,6 +1016,8 @@ def build_release_payload(
     ledger_id: str | None = None,
     prev_seq: int | None = None,
     prev_content_digest: str | None = None,
+    audience: str | None = None,
+    nonce: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema": WITNESS_SCHEMA,
@@ -1033,6 +1041,10 @@ def build_release_payload(
         payload["prev_seq"] = int(prev_seq)
     if prev_content_digest is not None:
         payload["prev_content_digest"] = prev_content_digest
+    if audience is not None:
+        payload["audience"] = str(audience)
+    if nonce is not None:
+        payload["nonce"] = str(nonce)
     return payload
 
 
