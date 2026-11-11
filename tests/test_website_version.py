@@ -21,7 +21,7 @@ STALE_MARKERS = ("v4.5.0",)
 # branch may be version-bumped before the PyPI upload finishes; in that state the
 # banner says "PyPI pending" instead of claiming the wheel is already live.
 STAMP_PATTERNS = (
-    r"MIT License · v\d+\.\d+\.\d+",
+    r"Apache-2.0 · v\d+\.\d+\.\d+",
     r"v\d+\.\d+\.\d+ (?:on PyPI|· PyPI publish pending)",
     r"v\d+\.\d+\.\d+ · envelope-v2",
 )

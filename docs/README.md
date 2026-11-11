@@ -1,6 +1,6 @@
 # EPI documentation
 
-**Product version in this repo: 4.9.0** (see `pyproject.toml`).  
+**Product version in this repo: 4.10.0** (see `pyproject.toml`).  
 PyPI can lag the git tag — confirm with `pip index versions epi-recorder` or `epi --version`.
 
 **License:** Apache-2.0 from 4.10.0; versions up to 4.9.0 are MIT (root `LICENSE`, `NOTICE`).  

@@ -1,6 +1,6 @@
 # EPI Codebase Walkthrough
 
-**Version:** 4.9.0. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
+**Version:** 4.10.0. Product map: [README.md](./README.md). Architecture: [../ARCHITECTURE.md](../ARCHITECTURE.md).
 
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:

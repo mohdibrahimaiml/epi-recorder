@@ -1,4 +1,4 @@
-# EPI - enterprise briefing (v4.9.0)
+# EPI - enterprise briefing (v4.10.0)
 
 **Product:** `epi-recorder` (open source) + optional **EPI Cloud** (free beta) + public site **epilabs.org**.  
 **Container:** EPI Evidence Format (see [spec/EPI-SPEC.md](./spec/EPI-SPEC.md)).  

@@ -4,6 +4,8 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-11-11
+
 ### Licensing
 
 - **The public tool is Apache-2.0 from 4.10.0.** Every adopter now gets an
@@ -34,19 +36,30 @@ All notable changes to EPI Recorder are documented here.
 
 - **EPI Cloud has one access model: a free, self-serve workspace.** Signing in
   creates it; there is no approval step and no "request beta access". Free is
-  1 customer, 1 share link, 50 stored runs and 30 days. Team, Business and
-  Enterprise are arranged directly and are not sold through a public checkout.
+  1 customer relationship, 10 Evidence Room files a year, 30 days of storage
+  and one 7-day share link. Startup and Growth are self-serve upgrades in the
+  dashboard; Design Partner and Enterprise are invoiced directly.
   The Cloud onboarding is now a skippable checklist, not a gate: it can create
   a personal workspace, use a test customer, and leave sharing optional.
 - **A file is still the product.** The Cloud landing page shows
   `pip install epi-recorder` / `epi demo` / `epi verify` before asking anyone to
   sign in, and the dashboard names the signed-in account so separate GitHub and
   Google identities are not a silent surprise.
-- **Open-core split.** The hosted service (`cloud/`) and the commercial
-  billing/entitlement tooling moved to a separate private repository. Nothing
-  that was already published is removed from the license grant: the recorder,
-  the verifier, the `.epi` format, the gateway, the customer-side witness
-  receiver and every offline proof check remain MIT and stay here.
+- **Open core, final split.** The operational layer moved to the paid
+  `epi-enterprise` package: the team gateway and `epi connect`, the framework
+  adapters (LangChain, LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry,
+  Guardrails) and the guardrails runtime, plus `epi integrate`.
+  What stays free is the whole produce-and-check path: recording, sealing,
+  release and approval records, analysis, oversight, the customer-side witness,
+  AGT/TRACE conversion, reviewer tooling and `epi verify`.
+  Moved commands print one line - "X is part of EPI Enterprise and above.
+  See https://epilabs.org/plans" - and exit 2 instead of failing with a parse
+  error. The free wheel still ships a stub for each moved import path.
+- **Why the line sits there.** Analysis and the record writers stay free
+  because they are what an individual does to produce evidence a third party
+  checks; the paid layer is what an organisation needs to operate it: a gateway,
+  stack-wide instrumentation, policy enforcement at the proxy, hosted retention
+  and enterprise reporting.
 - **`epi share` now targets EPI Cloud** (`https://cloud.epilabs.org`) and falls
   back to the legacy Render portal when Cloud does not serve the upload route
   yet. A pinned `--api-base-url` or `EPI_SHARE_API_URL` never falls back.

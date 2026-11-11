@@ -1,6 +1,8 @@
 # Known Limitations
 
-**Product version:** 4.9.0. Docs map: [README.md](./README.md).
+**Current release line:** **4.10.0** (prepared; publish pending).
+**Published on PyPI:** **4.9.0**.
+Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
 reasonably expect. Each entry names the gap honestly, not as a bug report but as

@@ -1,6 +1,6 @@
 # Data retention and deletion (EPI Cloud)
 
-**Product version:** 4.9.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
+**Product version:** 4.10.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DPA](./DPA.md), [CLOUD](./CLOUD.md). Plan entitlements are enforced by the
 hosted service, which is not in this repository; the table below states them in
 product words.

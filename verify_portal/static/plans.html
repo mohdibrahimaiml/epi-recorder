@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing &amp; Pilot | EPI Labs</title>
-  <meta name="description" content="Open-source recording, sealing and verification stay free forever under MIT. A readiness assessment is €4,500; the full 30-day AI vendor review engagement is €9,500 for the first 3 customers (standard €15,000). EPI Cloud has a free workspace (1 customer relationship, 10 files a year, 30 days, 7-day share links); Startup is $500/month and Growth $2,000/month, upgraded in your dashboard.">
+  <meta name="description" content="Open-source recording, sealing and verification stay free forever under Apache-2.0. A readiness assessment is €4,500; the full 30-day AI vendor review engagement is €9,500 for the first 3 customers (standard €15,000). EPI Cloud has a free workspace (1 customer relationship, 10 files a year, 30 days, 7-day share links); Startup is $500/month and Growth $2,000/month, upgraded in your dashboard.">
   <link rel="canonical" href="https://epilabs.org/plans">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="stylesheet" href="/css/zenjin-epi.css">
@@ -77,7 +77,7 @@
           </div>
           <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
             <p class="z-body">
-              Open source stays free: the recorder, sealing, <code style="font-family:var(--font-mono)">.epi</code> files, the viewer, the gateway and <code style="font-family:var(--font-mono)">epi verify</code> are MIT-licensed, and checking a file is never metered or charged.
+              Open source stays free: the recorder, sealing, <code style="font-family:var(--font-mono)">.epi</code> files, the viewer, release and approval records, analysis and <code style="font-family:var(--font-mono)">epi verify</code> are Apache-2.0 from 4.10.0, and checking a file is never metered or charged. The team gateway, framework adapters and the guardrails runtime ship with EPI Enterprise.
             </p>
             <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
               EPI Cloud (hosted witness and share links) has a free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year, 30 days. No approval step. Startup and Growth upgrade in your dashboard; Enterprise is invoiced directly.
@@ -146,8 +146,8 @@
         <!-- 3-Tier Architectural Grid -->
         <div class="z-tri-grid">
           <div class="z-tri-card">
-            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-envelope)">Tier 01 · MIT Open Source</div>
-            <h2 class="z-h3-card" style="margin-top:0.5rem">Open Source (€0, always)</h2>
+            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-envelope)">Tier 01 · Apache-2.0 core</div>
+            <h2 class="z-h3-card" style="margin-top:0.5rem">Open source (€0, always)</h2>
             <p class="z-body" style="margin-top:0.75rem">
               Everything required to record, seal, view, and verify offline without EPI Labs.
             </p>
@@ -157,12 +157,12 @@
             <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
               <li>&#10003; Python SDK, CLI, Envelope v2, embedded viewer</li>
               <li>&#10003; Ed25519 + SHA-256 + <code style="font-family:var(--font-mono)">--policy strict</code></li>
-              <li>&#10003; Self-hosted <code style="font-family:var(--font-mono)">epi gateway serve</code></li>
+              <li>&#10003; Release records, approvals, oversight and analysis</li>
             </ul>
             <div style="margin-top:2rem">
               <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-btn-ghost">pip install epi-recorder</a>
             </div>
-            <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Not included: hosting, support, or a signed review.</p>
+            <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Not included: the team gateway, framework adapters, guardrails, hosting or support.</p>
           </div>
 
           <div class="z-tri-card" style="background:rgba(16,185,129,0.03)">
@@ -338,7 +338,7 @@
     <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
     <footer class="z-center z-footer" aria-label="Site footer">
       <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
-        <div>&copy; 2026 EPI LABS · MIT License · v4.9.0</div>
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.10.0</div>
         <div style="display:flex;gap:1.25rem">
           <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
           <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>

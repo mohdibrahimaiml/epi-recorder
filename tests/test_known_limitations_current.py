@@ -18,9 +18,10 @@ def test_limitations_pypi_version_matches_pyproject():
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     version = pyproject["project"]["version"]
     text = (ROOT / "docs" / "KNOWN_LIMITATIONS.md").read_text(encoding="utf-8")
-    # 4.6.3 is prepared in-tree but may not be on PyPI yet. The release-line
-    # stamp must match pyproject; the published-on-PyPI stamp is separate.
-    assert f"Current release line: **{version}**" in text
+    # The release line may be prepared in-tree before the upload finishes.
+    # The release-line stamp must match pyproject; the published-on-PyPI stamp
+    # is separate and is checked by the test below.
+    assert f"Current release line:** **{version}**" in text
 
 
 def test_published_version_is_not_still_called_unpublished():
@@ -34,7 +35,6 @@ def test_published_version_is_not_still_called_unpublished():
     stale = (
         "not yet published",
         "Until it is published",
-        f"{version} is prepared",
         "prepared and version-bumped",
     )
     for rel in ("docs/RELEASING.md", "docs/KNOWN_LIMITATIONS.md", "README.md"):
@@ -43,9 +43,14 @@ def test_published_version_is_not_still_called_unpublished():
             assert phrase not in text, f"{rel} still reads as unpublished: {phrase!r}"
 
     limitations = (ROOT / "docs" / "KNOWN_LIMITATIONS.md").read_text(encoding="utf-8")
-    assert re.search(
-        rf"published on PyPI: \*\*{re.escape(version)}\*\*", limitations, re.I
-    ), f"KNOWN_LIMITATIONS must name {version} as the published version"
+    published = re.search(r"published on PyPI: \*\*(?P<v>[0-9.]+)\*\*", limitations, re.I)
+    assert published, "KNOWN_LIMITATIONS must name what is on PyPI"
+    if published.group("v") != version:
+        # Bumped before upload: the doc must say so rather than imply it is live.
+        assert "publish pending" in limitations.lower(), (
+            f"KNOWN_LIMITATIONS says {published.group('v')} is on PyPI but does not "
+            f"mark {version} as publish pending"
+        )
 
 
 def test_limitations_names_sprint_gaps():

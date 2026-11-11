@@ -1,5 +1,13 @@
 # Releasing epi-recorder
 
+**4.10.0 status (11 Nov 2026): prepared on `release/4.10.0-prep`, upload
+pending.** The version, changelog, site copy and sample artifacts are ready;
+the wheel is built and audited locally (`epi_recorder-4.10.0`, `audit_wheel.py`
+passes). Nothing has been tagged or uploaded, so `pip install epi-recorder`
+still serves 4.9.0 under MIT. To publish, run the same Trusted Publishing path
+as 4.9.0, then tag `v4.10.0` with the maintainer key - the workflow and the tag
+must agree (`tests/test_publish_workflow.py` enforces the workflow side).
+
 Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
