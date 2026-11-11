@@ -57,3 +57,18 @@ def test_the_gateway_package_is_gone_from_the_public_tree():
     import importlib.util
 
     assert importlib.util.find_spec("epi_gateway") is None, "epi_gateway still importable from the public install"
+
+
+def test_framework_adapters_ship_as_stubs_only():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "epi_recorder" / "integrations"
+    for name in ("langchain", "langgraph", "litellm", "openai_agents", "opentelemetry", "guardrails"):
+        text = (root / f"{name}.py").read_text(encoding="utf-8")
+        assert "raise ImportError" in text, f"{name} no longer explains the move"
+        assert len(text) < 1500, f"{name} looks like real adapter code ({len(text)} bytes)"
+    # Readers and converters stay in the free core.
+    for free in ("agt", "agt_adapter"):
+        assert (root / free / "__init__.py").exists(), f"{free} must stay free"
+    assert (root / "trace_exporter.py").stat().st_size > 1000
+

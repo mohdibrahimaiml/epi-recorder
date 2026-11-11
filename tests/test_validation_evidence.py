@@ -261,7 +261,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_initialization(self):
         """GuardrailsRecorder initializes with session"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -272,7 +275,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_log_pass(self):
         """GuardrailsRecorder maps pass outcome correctly"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -293,7 +299,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_log_fail(self):
         """GuardrailsRecorder maps fail outcome correctly"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -315,7 +324,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_log_corrected(self):
         """GuardrailsRecorder maps corrected outcome correctly"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -336,7 +348,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_score_inference(self):
         """GuardrailsRecorder infers score from errors"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -357,7 +372,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_truncates_corrected_value(self):
         """GuardrailsRecorder truncates long corrected_value for safety"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -378,7 +396,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_unknown_outcome(self):
         """GuardrailsRecorder defaults unknown outcome to warning"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -398,7 +419,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_lazy_get_current_session(self):
         """GuardrailsRecorder uses get_current_session when not provided"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         with TemporaryDirectory() as tmpdir:
             artifact_path = Path(tmpdir) / "test.epi"
@@ -419,7 +443,10 @@ class TestGuardrailsIntegration(TestCase):
 
     def test_guardrails_recorder_silently_skips_outside_context(self):
         """GuardrailsRecorder silently skips when no session active"""
-        from epi_recorder.integrations.guardrails import GuardrailsRecorder
+        try:
+            from epi_enterprise.integrations.guardrails import GuardrailsRecorder
+        except ImportError:
+            self.skipTest("guardrails integration is part of EPI Enterprise")
 
         # Outside of record() context
         recorder = GuardrailsRecorder()  # No session

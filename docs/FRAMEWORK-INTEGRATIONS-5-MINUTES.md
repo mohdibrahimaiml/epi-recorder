@@ -1,10 +1,10 @@
 # Framework Integrations in 5 Minutes
 
-**Product version:** 4.9.0. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
+**Product version:** 4.10.0. Framework adapters are part of EPI Enterprise. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
-Install only the extras you need, for example `pip install "epi-recorder[litellm]"`, `pip install "epi-recorder[langchain]"`, or `pip install "epi-recorder[opentelemetry]"`.
+Framework adapters ship with **EPI Enterprise** (EPI Cloud Startup and above): `pip install "epi-enterprise[litellm]"`, `pip install "epi-enterprise[langchain]"`, or `pip install "epi-enterprise[opentelemetry]"`. The free `epi-recorder` install records, seals and verifies; it does not include these adapters.
 
 ## Fast comparison
 
@@ -58,7 +58,7 @@ Use this when Claude is already in your stack and you want the same capture flow
 ```python
 import litellm
 from epi_recorder import record
-from epi_recorder.integrations.litellm import enable_epi
+from epi_enterprise.integrations.litellm import enable_epi
 
 enable_epi()
 
@@ -82,7 +82,7 @@ The `langchain` extra installs only `langchain-core`. The example below also
 needs the provider package, so install it explicitly:
 
 ```bash
-pip install "epi-recorder[langchain]" langchain-openai
+pip install "epi-enterprise[langchain]" langchain-openai
 ```
 
 ```python
@@ -125,7 +125,7 @@ Use this when you want chain, retriever, tool, and agent callback events in the 
 ## LangGraph
 
 ```python
-from epi_recorder.integrations.langgraph import record_langgraph
+from epi_enterprise.integrations.langgraph import record_langgraph
 
 
 async def run_graph(graph, input_data):
@@ -143,7 +143,7 @@ Use this when graph state and checkpoint history matter as much as the final ans
 
 ```python
 from opentelemetry import trace
-from epi_recorder.integrations.opentelemetry import setup_epi_tracing
+from epi_enterprise.integrations.opentelemetry import setup_epi_tracing
 
 exporter = setup_epi_tracing(
     output_dir="./epi-recordings",

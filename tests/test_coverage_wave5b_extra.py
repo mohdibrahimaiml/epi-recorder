@@ -98,7 +98,7 @@ def test_review_helpers(tmp_path):
 
 def test_litellm_import_and_stub():
     try:
-        import epi_recorder.integrations.litellm as ll
+        ll = pytest.importorskip("epi_enterprise.integrations.litellm")
     except Exception:
         pytest.skip("litellm module import failed")
     # exercise module-level constants / helpers if any
@@ -114,7 +114,8 @@ def test_litellm_import_and_stub():
 
 def test_langchain_callback_construct():
     try:
-        from epi_recorder.integrations.langchain import EPICallbackHandler
+        pytest.importorskip("epi_enterprise.integrations.langchain")
+        from epi_enterprise.integrations.langchain import EPICallbackHandler
     except Exception:
         pytest.skip("langchain not available")
     h = EPICallbackHandler()

@@ -68,7 +68,7 @@ def setup(
     # ---- LiteLLM ----
     if litellm is not False:
         try:
-            from epi_recorder.integrations.litellm import enable_epi
+            from epi_enterprise.integrations.litellm import enable_epi
             enable_epi()
             results["litellm"] = True
         except ImportError:
@@ -91,7 +91,7 @@ def setup(
     if langchain is not False:
         try:
             import langchain  # noqa: F401 — probe only
-            from epi_recorder.integrations.langchain import EPICallbackHandler  # noqa: F401
+            from epi_enterprise.integrations.langchain import EPICallbackHandler  # noqa: F401
             results["langchain"] = True
             if not _quiet:
                 print(
@@ -116,7 +116,7 @@ def setup(
     # ---- OpenTelemetry ----
     if opentelemetry is not False:
         try:
-            from epi_recorder.integrations.opentelemetry import setup_epi_tracing
+            from epi_enterprise.integrations.opentelemetry import setup_epi_tracing
             setup_epi_tracing()
             results["opentelemetry"] = True
         except ImportError:

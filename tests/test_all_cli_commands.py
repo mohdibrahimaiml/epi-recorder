@@ -43,7 +43,8 @@ def _run_cli(args: list[str], *, cwd: Path, epi_home: Path) -> subprocess.Comple
         (["version"], "EPI"),
         (["keys", "list"], "EPI"),
         (["ls"], "recordings"),
-        (["integrate", "pytest", "--dry-run"], "DRY-RUN"),
+        # `integrate` is part of EPI Enterprise; the paid-message path is
+        # covered by tests/test_paid_commands.py.
         (["telemetry", "status"], "Enabled: no"),
     ],
 )
