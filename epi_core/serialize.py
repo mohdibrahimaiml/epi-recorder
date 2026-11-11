@@ -14,6 +14,7 @@ import cbor2
 from pydantic import BaseModel
 
 from epi_core._version import JCS_INTRODUCED_TUPLE
+from epi_core.manifest_members import MANIFEST_MEMBER_FIELDS
 
 CanonicalFormat = Literal["cbor", "legacy", "jcs"]
 
@@ -23,7 +24,18 @@ CanonicalFormat = Literal["cbor", "legacy", "jcs"]
 # Any new Optional field that is absent from tests/goldens/legacy-spec-4.3.0.epi
 # must be listed here — test_legacy_preimage.py enforces it.
 MANIFEST_OMIT_NONE_FROM_HASH: frozenset[str] = frozenset(
-    {"content_truncated", "policy_load_status", "producer_version", "case_id"}
+    {
+        "content_truncated",
+        "policy_load_status",
+        "producer_version",
+        "case_id",
+        "seal_chain",
+        "seal_chains",
+        "record_kind",
+        "release",
+        "release_ref",
+        "runtime_components",
+    }
 )
 
 
@@ -37,6 +49,10 @@ def omit_absent_optional_hash_fields(model_dict: dict[str, Any], class_name: str
     for key in MANIFEST_OMIT_NONE_FROM_HASH:
         if model_dict.get(key) is None:
             model_dict.pop(key, None)
+    # Member-backed and unknown to pre-4.10 verifiers. It must never enter the
+    # preimage: 4.9.0 drops it before re-hashing and would call a genuine file
+    # tampered. The member is already bound through file_manifest.
+    model_dict.pop("seal_chains", None)
 
 
 def canonical_format_for(spec_version: str | None) -> CanonicalFormat:
@@ -111,6 +127,13 @@ def model_dict_for_hash(model: BaseModel) -> dict[str, Any]:
     if model.__class__.__name__ == "StepModel":
         model_dict.pop("source_type", None)
         model_dict.pop("verification_class", None)
+
+    # Member-backed fields are not stored at the manifest top level. Drop them
+    # unconditionally (not just when None) so the sign path and the verifier
+    # hash the bytes that are actually in manifest.json. See manifest_members.
+    if model.__class__.__name__ == "ManifestModel":
+        for key in MANIFEST_MEMBER_FIELDS:
+            model_dict.pop(key, None)
 
     omit_absent_optional_hash_fields(model_dict, model.__class__.__name__)
     return normalize_model_dict(model_dict)

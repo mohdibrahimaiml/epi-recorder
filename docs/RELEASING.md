@@ -12,6 +12,14 @@ Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
 The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
 anything here.
 
+**4.10.0 status (8 Nov 2026): prepared in-tree; the PyPI upload is pending.**
+`pyproject.toml`, the docs stamps, the installer and the site banner say 4.10.0,
+and the homepage badge reads `v4.10.0 · PyPI publish pending`. Cut the signed
+`v4.10.0` tag and publish the GitHub release when you are ready to upload; the
+workflow refuses a tag/version mismatch. It adds seal sequence numbers and gap
+detection, signed release records, signed pre-action approvals anchored by the
+customer's witness, the DORA evidence guide, and the blog on `epilabs.org`.
+
 **4.9.0 status (1 Nov 2026): cut, tagged `v4.9.0`, and uploaded through Trusted
 Publishing** — the same path as 4.8.0, so both files carry PEP 740 attestations.
 The tag is signed by the maintainer (`git tag -v v4.9.0`). It adds

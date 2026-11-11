@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SCITT for Agentic AI - EPI Labs</title>
+<meta name="description" content="How IETF SCITT transparency receipts work for AI agent evidence.">
+<link rel="canonical" href="https://epilabs.org/blog/posts/scitt-for-agentic-ai.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="EPI Labs">
+<meta property="og:title" content="SCITT for Agentic AI - EPI Labs">
+<meta property="og:description" content="How IETF SCITT transparency receipts work for AI agent evidence.">
+<meta property="og:url" content="https://epilabs.org/blog/posts/scitt-for-agentic-ai.html">
+<meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta property="article:published_time" content="2026-06-22">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SCITT for Agentic AI - EPI Labs">
+<meta name="twitter:description" content="How IETF SCITT transparency receipts work for AI agent evidence.">
+<meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/blog.css?v=1">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "SCITT for Agentic AI", "description": "How IETF SCITT transparency receipts work for AI agent evidence.", "datePublished": "2026-06-22", "dateModified": "2026-06-22", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://epilabs.org/blog/posts/scitt-for-agentic-ai.html"}, "image": ["https://epilabs.org/assets/epi-walkthrough-og.jpg"], "author": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org"}, "publisher": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org", "logo": {"@type": "ImageObject", "url": "https://epilabs.org/assets/logo.png"}}}</script>
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<!-- ═══ SITE NAV ═══ -->
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/blog/">Blog</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/blog/">Blog</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+
+<main id="main">
+<div class="page blog-post">
+<a class="blog-back" href="/blog/">&larr; All posts</a>
+<span class="tag"><span class="n">June 22, 2026</span></span>
+<h1>SCITT for Agentic AI</h1>
+<p class="lede">How IETF SCITT transparency receipts work for AI agent evidence.</p>
+<div class="blog-body">
+<p>The IETF SCITT framework was designed to prove that a software artifact existed, was produced by a known identity, and has not been tampered with. This maps directly onto proving what an AI agent did after the fact.</p>
+<h2>Core Concepts</h2>
+<p>SCITT defines three concepts:</p>
+<ul><li><strong>Statement.</strong> A COSE Sign1 envelope with a payload and signature. Says: "This content existed, signed by this key."</li><li><strong>Transparency Service.</strong> An append-only log that assigns each statement a sequence number.</li><li><strong>Receipt.</strong> A signed proof of log inclusion with a Merkle proof for independent verification.</li></ul>
+<h2>Mapping to AI Evidence</h2>
+<p>An AI agent execution produces a sequence of events. Each event can be wrapped in a COSE Sign1 statement. The hash is anchored in a transparency log. The log returns a receipt proving inclusion at a specific time.</p>
+<p>The result: proof that an AI decision existed at a specific time, signed by a known key, independently verifiable without trusting the log operator.</p>
+<h2>Practical Implementation</h2>
+<p>EPI implements a local SCITT transparency service using a SQLite-backed append-only log. When an <code class="k">.epi</code> artifact is produced, the manifest is wrapped in COSE Sign1, registered in the log, and the receipt is embedded in the artifact.</p>
+<p>Verification is two-phase:</p>
+<ol><li>Integrity and signature checks</li><li>SCITT receipt verification using the Merkle inclusion proof</li></ol>
+<p>Receipt verification requires no network access when the service key is known -- the proof is self-contained.</p>
+<h2>Why This Matters</h2>
+<p>SCITT moves an artifact from "this looks valid" to "this was provably produced by a known identity at a known time."</p>
+</div>
+<div class="blog-cta">
+  <p><strong>Check a record yourself.</strong> Verification runs on your machine, needs no account, and is never charged.</p>
+  <p><a class="btn btn-pri" href="/verify/">Verify a .epi file</a> <a class="btn btn-sec" href="/decision-record">What is a Decision Record?</a></p>
+</div>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; v4.10.0</span>
+    <span>
+      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
+         target="_blank" rel="noopener"
+         style="color:var(--mut)">GitHub</a>
+    </span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
+  <a href="/about" style="color:inherit">About</a> &middot;
+  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
+  <a href="/terms" style="color:inherit">Terms</a> &middot;
+  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
+</p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

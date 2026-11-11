@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Verifiable, Not Just Immutable - EPI Labs</title>
+<meta name="description" content="Why &quot;our audit trail is immutable&quot; is a promise, not evidence, and what evidence about AI decisions has to look like when someone else needs to rely on it.">
+<link rel="canonical" href="https://epilabs.org/blog/posts/verifiable-not-just-immutable.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="EPI Labs">
+<meta property="og:title" content="Verifiable, Not Just Immutable - EPI Labs">
+<meta property="og:description" content="Why &quot;our audit trail is immutable&quot; is a promise, not evidence, and what evidence about AI decisions has to look like when someone else needs to rely on it.">
+<meta property="og:url" content="https://epilabs.org/blog/posts/verifiable-not-just-immutable.html">
+<meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta property="article:published_time" content="2026-11-01">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Verifiable, Not Just Immutable - EPI Labs">
+<meta name="twitter:description" content="Why &quot;our audit trail is immutable&quot; is a promise, not evidence, and what evidence about AI decisions has to look like when someone else needs to rely on it.">
+<meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<link rel="stylesheet" href="/css/blog.css?v=1">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Verifiable, Not Just Immutable", "description": "Why \"our audit trail is immutable\" is a promise, not evidence, and what evidence about AI decisions has to look like when someone else needs to rely on it.", "datePublished": "2026-11-01", "dateModified": "2026-11-01", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://epilabs.org/blog/posts/verifiable-not-just-immutable.html"}, "image": ["https://epilabs.org/assets/epi-walkthrough-og.jpg"], "author": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org"}, "publisher": {"@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org", "logo": {"@type": "ImageObject", "url": "https://epilabs.org/assets/logo.png"}}}</script>
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<!-- ═══ SITE NAV ═══ -->
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/blog/">Blog</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/blog/">Blog</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+
+<main id="main">
+<div class="page blog-post">
+<a class="blog-back" href="/blog/">&larr; All posts</a>
+<span class="tag"><span class="n">November 2026</span></span>
+<h1>Verifiable, Not Just Immutable</h1>
+<p class="lede">Why &quot;our audit trail is immutable&quot; is a promise, not evidence, and what evidence about AI decisions has to look like when someone else needs to rely on it.</p>
+<div class="blog-body">
+<p>Almost every AI decisioning product now has a page that says something like <em>"decision history that cannot be tampered with or altered, by anyone."</em></p>
+<p>It's a reasonable thing to want. But read it as an auditor would and ask one question: <strong>who can check that?</strong></p>
+<p>If the answer is "the vendor's own system says so", what you have is a promise, not evidence. That is fine while the vendor's interests and yours line up. It stops being fine the moment they don't.</p>
+<h2>When "immutable" is enough, and when it isn't</h2>
+<p>Inside one company, a well-run log with access controls and a SOC 2 report is usually enough. The team relying on the log also controls it, or trusts whoever does.</p>
+<p>The trouble starts when evidence <strong>crosses a boundary</strong>: one party produces it and a different party, with different interests, has to rely on it.</p>
+<ul><li>An AI vendor tells a bank its model followed the approved policy. The bank's third-party risk team has to rely on the vendor's logs.</li><li>A lender denies an application and the applicant disputes it. The lender's records are now evidence in a dispute against the lender.</li><li>An insurer rejects a claim using an AI agent. An ombudsman asks what the agent saw and why it decided.</li><li>A regulator asks whether the logic that ran last March was the logic that was approved.</li></ul>
+<p>In each case, the party holding the records has a reason to prefer one version of events. "Our system says it wasn't changed" asks the other side to trust the very party whose conduct is in question.</p>
+<h2>Three things "immutable" doesn't answer</h2>
+<p>Even an honest, genuinely append-only log leaves three questions open for an outsider.</p>
+<p><strong>1. Was anything left out?</strong> Immutability protects records that exist. It says nothing about records that were never written, or written and never shared. If a vendor sealed 100 decisions and shows you 97, every one of those 97 can be perfectly intact.</p>
+<p><strong>2. Is this the logic that was approved?</strong> A record of what was decided isn't a record of <em>which version of the rules, prompts and models</em> decided it, or whether that version was approved before it was used.</p>
+<p><strong>3. When did things actually happen?</strong> Timestamps written by the system under review come from that system's clock. Backdating an approval after a decision has been challenged is the oldest trick in the book.</p>
+<h2>What verifiable evidence needs</h2>
+<p>Evidence is verifiable when a third party can check it <strong>without access to the producer's systems and without trusting the producer</strong>. In practice that takes five properties:</p>
+<ol><li><strong>Portable.</strong> The record travels as a file that can be handed to an auditor, a court or a customer. It doesn't live behind someone's login.</li><li><strong>Signed.</strong> Integrity is checked with public-key cryptography, offline, by anyone. Not by asking the vendor's API.</li><li><strong>Witnessed.</strong> At the moment of sealing, a small hash-only receipt goes to a system <strong>the other party</strong> controls. The producer can't edit that copy afterwards.</li><li><strong>Gap-evident.</strong> Records are numbered, so a missing one shows up as a hole, not as silence.</li><li><strong>Bound to an approved release.</strong> Each decision points to a signed release of its logic, and the check confirms that what ran matches what was approved, and that the approval came first.</li></ol>
+<h2>What this looks like in EPI</h2>
+<p><a href="https://github.com/mohdibrahimaiml/epi-recorder">EPI</a> is an open-core recorder that produces signed <code class="k">.epi</code> evidence files. Here is how each property maps to commands you can run today.</p>
+<h3>Gaps show up as numbers</h3>
+<p>Every seal made with a signing key carries a sequence number and a link to the previous seal, inside the signed manifest. The same numbers go to the customer's witness. The customer audits their own log:</p>
+<pre><code class="language-bash">epi witness audit received.jsonl</code></pre>
+<p>If seal #2 was never reported, the audit says <code class="k">MISSING #2</code> and exits with code 1. It also reports <strong>forks</strong> (two different seals claiming the same number), <strong>chain breaks</strong>, and <strong>tail gaps</strong> (fewer seals reported than the vendor's signed heartbeat says exist):</p>
+<pre><code class="language-bash">epi witness heartbeat</code></pre>
+<p>Numbers the vendor declares as "burned" (a seal that started and never finished) are shown as their own finding. They never quietly count as clean, because "it was burned" is exactly what you'd say about a seal you wanted to hide.</p>
+<h3>Decisions are tied to an approved release</h3>
+<p>A release pins the exact policy file, prompt templates, model identifiers, tool schemas and code commit:</p>
+<pre><code class="language-bash">epi release create --name credit-policy --version 3.2 \
+  --policy credit=policies/credit.yaml --prompt system=prompts/system.txt \
+  --model anthropic:claude-x --git-commit auto --require-approvals 2 \
+  --out releases/credit-policy-3.2.epi</code></pre>
+<p>Approvers sign it with their own keys (run this once per approver), and each approval is reported to the witness when it happens:</p>
+<pre><code class="language-bash">epi release approve releases/credit-policy-3.2.epi --as alice@bank.com</code></pre>
+<p>Then anyone can check a decision against it:</p>
+<pre><code class="language-bash">epi verify decision.epi --release-dir releases/ --witness-log received.jsonl --require-release</code></pre>
+<p>You get one of a small set of plain answers:</p>
+<ul><li><code class="k">MATCHES</code>: the release is approved, was sealed before the decision, and every component EPI observed at runtime matches what was pinned.</li><li><code class="k">APPROVED AFTER USE</code>: the approvals exist but were made after the decision. Retroactive sign-off never looks clean.</li><li><code class="k">DRIFT</code>: something that ran differs from the release, for example a prompt changed mid-run.</li><li><code class="k">UNDECLARED</code>: something ran that the release never mentioned, such as a second model.</li><li><code class="k">AMBIGUOUS RELEASE</code>: two different release files claim the same id, so EPI refuses to pick one.</li></ul>
+<p>The verifier sets the bar, not the vendor: <code class="k">--min-approvals 2</code> requires two approvals even if the release itself only asked for one.</p>
+<h3>Time comes from someone other than the producer</h3>
+<p>When EPI decides whether a release or approval came <em>before</em> a decision, it uses the most independent clock available and tells you which one:</p>
+<ol><li>an RFC 3161 timestamp from a timestamp authority,</li><li>the time <strong>the customer's witness</strong> received the report,</li><li>the seal sequence on the same ledger,</li><li>the producer's own clock, labelled "not independent".</li></ol>
+<h2>What this does not prove</h2>
+<p>Overclaiming is the fastest way to lose an auditor's trust, so here are the limits.</p>
+<ul><li><strong>A decision that was never recorded at all is invisible.</strong> Sequence numbers reveal seals that were withheld, not decisions that never went through the recorder. Capture at a chokepoint (such as EPI's gateway) narrows that gap; it doesn't close it.</li><li><strong>Tail gaps need heartbeats.</strong> A vendor that never sends heartbeats can hide its most recent seals.</li><li><strong>EPI compares only what it observes.</strong> Code that runs outside the instrumented path can differ from the release without EPI seeing it. The release check reports unobserved components as <code class="k">NOT FULLY OBSERVED</code>, never as a match.</li><li><strong>A signature proves a record wasn't altered, not that the decision was right.</strong></li></ul>
+<h2>The question to ask</h2>
+<p>Next time a product page says its audit trail is immutable, ask it the outsider's questions:</p>
+<ul><li>Can I verify a record <strong>without your system</strong> and without trusting you?</li><li>If you withheld one record, <strong>how would I know</strong>?</li><li>Can I prove which <strong>approved version</strong> made this decision, and that it was approved <strong>before</strong> it ran?</li><li>Whose <strong>clock</strong> says when?</li></ul>
+<p>If the answers all point back to the vendor, the trail may well be immutable. It just isn't evidence yet.</p>
+</div>
+<div class="blog-cta">
+  <p><strong>Check a record yourself.</strong> Verification runs on your machine, needs no account, and is never charged.</p>
+  <p><a class="btn btn-pri" href="/verify/">Verify a .epi file</a> <a class="btn btn-sec" href="/decision-record">What is a Decision Record?</a></p>
+</div>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; v4.10.0</span>
+    <span>
+      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
+      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
+         target="_blank" rel="noopener"
+         style="color:var(--mut)">GitHub</a>
+    </span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
+  <a href="/about" style="color:inherit">About</a> &middot;
+  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
+  <a href="/terms" style="color:inherit">Terms</a> &middot;
+  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
+</p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

@@ -4,6 +4,8 @@ Every seal (with EPI_WITNESS_URL or witness_url= set) appends a hash-only
 payload to the outbox and delivers it from a daemon thread. `flush` retries
 whatever is undelivered; `status` lists pending, delivered and failed entries;
 `drop` removes entries that can never be delivered (e.g. a wrong URL).
+`heartbeat` reports the last committed seal number so a withheld tail shows
+up, and `audit` finds gaps, forks and broken links in a received log.
 
 `serve` is the customer side: a small receiver that checks the HMAC and
 appends each report to the log that `epi verify --witness-log` reads.
@@ -86,12 +88,17 @@ def flush(
     from epi_core.webhook import read_outbox as _read_outbox
 
     _url_to_id: dict[str, str] = {}
+    _url_to_kind: dict[str, str] = {}
     try:
         for _e in _read_outbox(outbox_path()):
             for _u in _e.get("pending") or []:
                 _url_to_id.setdefault(str(_u), str(_e.get("id")))
+                _url_to_kind.setdefault(
+                    str(_u), str((_e.get("payload") or {}).get("type") or "")
+                )
     except Exception:
         _url_to_id = {}
+        _url_to_kind = {}
     import re as _re
 
     _saved_urls_for_hint: set[str] = set()
@@ -133,7 +140,12 @@ def flush(
                 "with: epi witness drop <id>"
             )
             continue
-        info = describe_witness_failure(error, cloud_login=_cloud, customer=_saved_customer)
+        info = describe_witness_failure(
+            error,
+            cloud_login=_cloud,
+            customer=_saved_customer,
+            kind=_url_to_kind.get(url) or None,
+        )
         _plain(f"  Not delivered: {info['reason']} — {info['fix']}")
         if info["status"] == 410:
             _summaries.append("Not retried: a closed customer can't receive reports.")
@@ -179,11 +191,16 @@ def status() -> None:
     table.add_column("last error", overflow="fold", ratio=1)
     for entry in entries:
         payload = entry.get("payload") or {}
+        is_heartbeat = str(payload.get("type") or "") == "epi.heartbeat"
         table.add_row(
             str(entry.get("id", ""))[:8],
             str(entry.get("created_at", ""))[5:19].replace("T", " "),
-            str(payload.get("workflow_id", ""))[:8],
-            str(payload.get("case_id") or ("sha " + str(payload.get("file_sha256") or "")[:8])),
+            "heartbeat" if is_heartbeat else str(payload.get("workflow_id", ""))[:8],
+            (
+                "chain " + str(payload.get("ledger_id") or "")[:8]
+                if is_heartbeat
+                else str(payload.get("case_id") or ("sha " + str(payload.get("file_sha256") or "")[:8]))
+            ),
             str(len(entry.get("pending") or [])),
             str(len(entry.get("delivered") or {})),
             str(entry.get("last_error") or "")[:160],
@@ -191,6 +208,18 @@ def status() -> None:
     console.print(table)
     pending = sum(len(e.get("pending") or []) for e in entries)
     console.print(f"[dim]{len(entries)} entries, {pending} URLs pending.[/dim]")
+    try:
+        from epi_core.webhook import (
+            format_witness_capabilities,
+            witness_capabilities,
+        )
+
+        console.print(
+            "[dim]This witness accepts: "
+            f"{format_witness_capabilities(witness_capabilities(entries))}[/dim]"
+        )
+    except Exception:
+        pass
     if pending:
         console.print(
             "[dim]Retry with `epi witness flush`; remove an undeliverable entry with "
@@ -208,12 +237,16 @@ def _print_entry(verb: str, entry: dict) -> None:
     )
 
 
-def _load_witness_entries(log_path: Path) -> tuple[list[dict], str | None]:
+def _load_witness_entries(
+    log_path: Path, *, include_heartbeats: bool = False
+) -> tuple[list[dict], str | None]:
     """Every seal report in a witness log, newest shape or legacy JSONL.
 
     Returns ``(entries, error)``. Each entry is the report payload plus the
     ``received_at`` the receiver stamped. Signed docs (``witness.json`` with a
     ``lines`` array) and plain JSONL (``epi witness serve --out``) both work.
+    Heartbeats are skipped unless ``include_heartbeats`` (the auditor needs
+    them; the report/matching paths must not treat one as a seal).
     """
     import json as _json
 
@@ -221,6 +254,16 @@ def _load_witness_entries(log_path: Path) -> tuple[list[dict], str | None]:
         raw = log_path.read_text(encoding="utf-8")
     except Exception as exc:  # noqa: BLE001 - reported, never raised
         return [], f"{log_path} could not be read ({exc})"
+
+    def _is_heartbeat(item: dict) -> bool:
+        return str(item.get("type") or "") in (
+            "epi.heartbeat",
+            "epi.release",
+            "epi.release_approval",
+            "epi.approval_request",
+            "epi.approval_response",
+            "epi.approval_executed",
+        )
 
     def _from_item(item: dict) -> dict | None:
         payload_raw = item.get("payload_raw")
@@ -232,12 +275,16 @@ def _load_witness_entries(log_path: Path) -> tuple[list[dict], str | None]:
                 return None
             if not isinstance(inner, dict):
                 return None
+            if _is_heartbeat(inner) and not include_heartbeats:
+                return None
             inner = dict(inner)
             inner.setdefault(
                 "received_at",
                 receipt.get("received_at") or item.get("received_at"),
             )
             return inner
+        if _is_heartbeat(item):
+            return item if include_heartbeats else None
         return item if item.get("workflow_id") else None
 
     items: list[dict] = []
@@ -1020,3 +1067,327 @@ def check(
             _plain(f"FAIL: {failure}")
         raise typer.Exit(1)
     _plain("OK: hosted witness audited — signatures, chain and anchoring all check out.")
+
+
+def _short(value: object, width: int = 8) -> str:
+    text = str(value or "")
+    return text[:width] if text else "?"
+
+
+def _render_audit(log_path: Path, result: dict) -> None:
+    _plain(f"Witness log: {log_path}")
+    _plain(
+        f"{result['reports']} seal report(s), {result['heartbeats']} heartbeat(s), "
+        f"{len(result['chains'])} chain(s)."
+    )
+    for chain in result.get("chains") or []:
+        ledger = _short(chain.get("ledger_id"))
+        key = _short(chain.get("key_fingerprint"))
+        span = f"#{chain['first_seq']}..#{chain['last_seq']}"
+        shape = "contiguous" if chain.get("contiguous") else "has gaps"
+        _plain(
+            f"\nChain {ledger} (key {key}): {chain['count']} seal(s), "
+            f"{span} — {shape}"
+        )
+        empty = True
+        missing = chain.get("missing") or []
+        if missing:
+            empty = False
+            shown = ", ".join(f"#{s}" for s in missing[:20])
+            more = f" (+{len(missing) - 20} more)" if len(missing) > 20 else ""
+            _plain(f"  MISSING {shown}{more}")
+        for fork in chain.get("forks") or []:
+            empty = False
+            _plain(
+                f"  FORK at #{fork['seq']}: "
+                f"{max(2, len(fork.get('digests') or []) or 2)} different seals "
+                "reported with the same number"
+            )
+        for broken in chain.get("chain_breaks") or []:
+            empty = False
+            _plain(
+                f"  CHAIN BREAK at #{broken['seq']}: prev_content_digest does not "
+                f"match #{broken['prev_seq']}"
+            )
+        gap = chain.get("tail_gap")
+        if gap:
+            empty = False
+            _plain(
+                f"  TAIL GAP: heartbeat says sealed through #{gap['heartbeat_last_seq']}, "
+                f"log ends at #{gap['received_last_seq']} "
+                f"({gap['missing_count']} not reported)"
+            )
+        for seq in chain.get("burned") or []:
+            empty = False
+            _plain(f"  BURNED #{seq} (vendor-declared, not verifiable)")
+        if chain.get("burned"):
+            _plain(
+                f"  Burn rate: {len(chain['burned'])}/{chain.get('denominator') or 1} "
+                f"({(chain.get('burn_rate') or 0) * 100:.1f}%) — a high or rising "
+                "burn rate is something to ask the vendor about"
+            )
+        if chain.get("new_chain"):
+            _plain(
+                f"  WARNING NEW CHAIN: key {key} also has this chain starting at "
+                f"#{chain['first_seq']} — ledger reset, restored state, or a second machine?"
+            )
+        for seq in chain.get("burn_conflicts") or []:
+            _plain(
+                f"  WARNING: heartbeat calls #{seq} burned, but a seal for it was received"
+            )
+        if chain.get("unverified_links"):
+            _plain(
+                f"  NOTE: {chain['unverified_links']} link(s) could not be checked "
+                "(the number they link to was not received)"
+            )
+        if empty:
+            _plain("  clean")
+
+    unsequenced = int(result.get("unsequenced") or 0)
+    if result.get("reports") and not result.get("heartbeats"):
+        _plain(
+            "\nTail-gap check not available on this receiver: no heartbeat reports "
+            "in this log. The seal numbers above are still checked."
+        )
+    reuse = result.get("approval_reuse") or []
+    for item in reuse:
+        _plain(
+            f"\nAPPROVAL REUSED: request {item.get('request_id')} was executed "
+            f"{item.get('count')} times in this log"
+        )
+    if unsequenced:
+        _plain(
+            f"\nUnsequenced: {unsequenced} report(s) from before sequence numbers "
+            "(or from a browser seal) — not an error."
+        )
+
+    problems = result.get("problems") or {}
+    warnings = result.get("warnings") or {}
+    if result.get("ok"):
+        _plain("\nOK: every seal the vendor reported links up.")
+    else:
+        _plain(
+            "\nProblems found: "
+            f"{problems.get('missing', 0)} missing, {problems.get('forks', 0)} fork(s), "
+            f"{problems.get('chain_breaks', 0)} chain break(s), "
+            f"{problems.get('tail_gaps', 0)} tail gap(s), "
+            f"{problems.get('approval_reuse', 0)} approval reuse."
+        )
+    if any(warnings.values()):
+        _plain(
+            f"Warnings: {warnings.get('burned', 0)} vendor-declared burn(s), "
+            f"{warnings.get('new_chains', 0)} new chain(s), "
+            f"{warnings.get('unverified_links', 0)} unchecked link(s)."
+        )
+
+
+@app.command(name="audit")
+def audit(
+    log: Path = typer.Argument(..., help="The witness log to audit (received.jsonl)."),
+    as_json: bool = typer.Option(False, "--json", help="Machine-readable output."),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit 1 for vendor-declared burns and new chains too (they are warnings by default).",
+    ),
+) -> None:
+    """Find seals the vendor never reported: gaps, forks, broken links, tail gaps.
+
+    Reads the customer's own log, groups by (key fingerprint, ledger id) and
+    reports a missing number, two different seals with the same number, a link
+    that does not point at the seal it claims, and a heartbeat that says more
+    seals exist than were received. A vendor-declared burn is shown as its own
+    finding, never as clean: withholding seal #57 and calling it burned must
+    still be visible. Entries from before sequence numbers are "unsequenced",
+    never errors.
+    """
+    import json as _json
+
+    from epi_core.seal_ledger import analyze
+
+    entries, error = _load_witness_entries(log, include_heartbeats=True)
+    if error:
+        _plain(error)
+        raise typer.Exit(2)
+    result = analyze(entries)
+    result["heartbeat_check"] = (
+        "present"
+        if result.get("heartbeats")
+        else ("not_available" if result.get("reports") else "no_seals")
+    )
+
+    if as_json:
+        payload = {"log": str(log), **result}
+        console.print_json(_json.dumps(payload))
+        raise typer.Exit(_audit_exit_code(result, strict))
+
+    _render_audit(log, result)
+    raise typer.Exit(_audit_exit_code(result, strict))
+
+
+def _audit_exit_code(result: dict, strict: bool) -> int:
+    if not result.get("ok"):
+        return 1
+    warnings = result.get("warnings") or {}
+    if strict and any(warnings.values()):
+        return 1
+    return 0
+
+
+def _resolve_witness_targets(
+    url: str | None, secret: str | None
+) -> tuple[list[str], str | None]:
+    """Explicit --url/--secret > env > the settings saved by `epi cloud login`."""
+    from epi_core.webhook import split_witness_urls
+
+    explicit_secret = secret if secret is not None else _secret()
+    if url:
+        return split_witness_urls(url), explicit_secret
+    env_url = os.environ.get("EPI_WITNESS_URL")
+    if env_url:
+        return split_witness_urls(env_url), explicit_secret
+    try:
+        from epi_cli.cloud import saved_customer
+
+        preset = saved_customer() or {}
+        urls = split_witness_urls(preset.get("witness_url"))
+        if urls:
+            return urls, (secret if secret is not None else preset.get("witness_secret"))
+    except Exception:
+        pass
+    return [], None
+
+
+def _key_name_for_fingerprint(km, fingerprint: str) -> str | None:
+    from epi_core.keys import key_fingerprint
+
+    for item in km.list_keys():
+        if not item.get("has_private"):
+            continue
+        try:
+            public_hex = km.load_public_key(item["name"]).hex()
+        except Exception:
+            continue
+        if key_fingerprint(public_hex, grouped=False) == fingerprint:
+            return str(item["name"])
+    return None
+
+
+@app.command(name="heartbeat")
+def heartbeat(
+    key: str = typer.Option(
+        "default", "--key", help="Signing key whose seal chain to report."
+    ),
+    all_ledgers: bool = typer.Option(
+        False, "--all", help="Report every ledger whose private key is on this machine."
+    ),
+    url: str | None = typer.Option(
+        None, "--url", envvar="EPI_WITNESS_URL", help="Customer witness URL."
+    ),
+    secret: str | None = typer.Option(
+        None, "--secret", envvar="EPI_WITNESS_SECRET", help="Shared HMAC secret."
+    ),
+    timeout: int = typer.Option(10, "--timeout", help="Per-request timeout in seconds."),
+) -> None:
+    """Send a signed "I have sealed up to #N" report through the witness outbox.
+
+    Run it hourly from cron so a vendor cannot withhold the last few seals
+    without the customer seeing a tail gap:
+
+      EPI_WITNESS_URL=https://witness.customer.example/ \\
+      EPI_WITNESS_SECRET=... epi witness heartbeat --key default
+    """
+    from epi_core import seal_ledger
+    from epi_core.keys import KeyManager, key_fingerprint
+    from epi_core.webhook import describe_witness_failure, report_heartbeat
+
+    km = KeyManager()
+    targets: list[tuple[str, dict]] = []
+    if all_ledgers:
+        for state in seal_ledger.all_states():
+            name = _key_name_for_fingerprint(km, str(state.get("key_fingerprint") or ""))
+            if name:
+                targets.append((name, state))
+        if not targets:
+            _plain("No seal ledgers with a local private key — nothing to report.")
+            return
+    else:
+        if not km.has_key(key):
+            _plain(f"No key named {key!r}. Generate one with: epi keys generate --name {key}")
+            raise typer.Exit(2)
+        fingerprint = key_fingerprint(km.load_public_key(key).hex(), grouped=False)
+        states = [
+            st
+            for st in seal_ledger.all_states()
+            if str(st.get("key_fingerprint") or "") == fingerprint
+            and int(st.get("last_committed_seq") or 0)
+        ]
+        if not states:
+            _plain("No sealed runs recorded for this key yet - nothing to report.")
+            return
+        for st in states:
+            targets.append((key, st))
+
+    urls, effective_secret = _resolve_witness_targets(url, secret)
+    if not urls:
+        _plain(
+            "No witness URL configured. Set EPI_WITNESS_URL, pass --url, or run: "
+            "epi cloud login"
+        )
+        raise typer.Exit(2)
+
+    failed = False
+    from epi_core.audience import urls_for_audience
+
+    for key_name, state in targets:
+        audience_urls = (
+            urls
+            if (url and str(url).strip())
+            else urls_for_audience(str(state.get("audience") or ""), urls)
+        )
+        if not audience_urls:
+            _plain(
+                f"{key_name}: no witness URL for audience {state.get('audience') or 'unknown'}; skipped"
+            )
+            continue
+        fields = seal_ledger.heartbeat_fields(state)
+        try:
+            signer = km.load_private_key(key_name)
+            public_hex = km.load_public_key(key_name).hex()
+        except Exception as exc:  # noqa: BLE001
+            _plain(f"{key_name}: cannot load the signing key ({exc})")
+            failed = True
+            continue
+        entry = report_heartbeat(
+            urls=audience_urls,
+            ledger_id=fields["ledger_id"],
+            audience=state.get("audience"),
+            key_fingerprint=fields["key_fingerprint"],
+            last_seq=fields["last_seq"],
+            last_content_digest=fields.get("last_content_digest"),
+            burned_seqs=fields.get("burned_seqs"),
+            public_key=public_hex,
+            key_name=key_name,
+            signer=signer,
+            secret=effective_secret,
+            timeout_seconds=timeout,
+        )
+        outcome = (entry or {}).get("_outcome") or {}
+        if outcome.get("delivered") and not outcome.get("failed"):
+            _plain(
+                f"Heartbeat delivered: chain {_short(fields['ledger_id'])} "
+                f"sealed through #{fields['last_seq']} ({key_name})."
+            )
+            continue
+        failed = True
+        error = next(iter((outcome.get("failed") or {}).values()), None) or outcome.get("error")
+        if error:
+            info = describe_witness_failure(error, kind="epi.heartbeat")
+            _plain(f"{key_name}: not delivered — {info['reason']}. {info['fix']}")
+        else:
+            _plain(
+                f"{key_name}: heartbeat queued; run `epi witness flush` when the "
+                "receiver is reachable."
+            )
+    if failed:
+        raise typer.Exit(1)

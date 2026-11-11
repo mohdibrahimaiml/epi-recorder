@@ -115,14 +115,17 @@ html[data-theme="light"] {
   --cta-fg: #fafafa;
   --cta-hover: #27272a;
 
-  --acc-envelope: #059669;
-  --acc-trust: #d97706;
+  --acc-envelope: #047857;
+  --acc-trust: #b45309;
   --acc-capture: #7c3aed;
   --acc-witness: #0891b2;
   --acc-policy: #e11d48;
   --acc-audit: #4f46e5;
 
-  --verified: #059669;
+  --acc: #047857;
+  --acc-hi: #059669;
+  --ok: #047857;
+  --verified: #047857;
   --verified-bg: rgba(5, 150, 105, 0.08);
   --warn: #b45309;
   --warn-bg: rgba(180, 83, 9, 0.08);
@@ -866,6 +869,13 @@ html[data-theme="light"] .z-brand__img--light {
   text-wrap: pretty;
 }
 
+/* Links inside body text must not rely on colour alone (WCAG 1.4.1). */
+.z-body a:not(.z-btn-primary):not(.z-btn-ghost):not(.z-footer-col__link) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
 @media (min-width: 40rem) {
   .z-body {
     font-size: 1rem;          /* 16px sm:text-base sm:leading-7 */
@@ -1440,6 +1450,45 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
   }
 }
 
+/* Four-card variant used by the reviewer-questions section (2x2 on desktop). */
+.z-quad-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 64rem) {
+  .z-quad-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .z-quad-grid .z-tri-card {
+    border-right: 1px solid var(--border-grid);
+  }
+  .z-quad-grid .z-tri-card:nth-child(2n) {
+    border-right: 0;
+  }
+  .z-answers-cta {
+    grid-column: span 2;
+  }
+}
+
+/* In-card body copy needs the same gutter as the cards on narrow screens. */
+.section-link {
+  margin-top: 2rem;
+  padding: 0 1.5rem;
+}
+
+@media (min-width: 40rem) {
+  .section-link {
+    padding: 0 2.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .section-link {
+    padding: 0 3rem;
+  }
+}
+
 .z-tri-card {
   border-bottom: 1px solid var(--border-grid);
   padding: 2.75rem 1.5rem;
@@ -1795,6 +1844,12 @@ html[data-theme="light"] .z-stage__pill {
   color: var(--foreground);
 }
 
+.drop .drop-title {
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
 .drop p {
   margin-top: 0.375rem;
   font-family: var(--font-mono);
@@ -1990,6 +2045,62 @@ html[data-theme="light"] .z-stage__pill {
   color: var(--foreground);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+}
+
+/* Five-column comparison: scroll on mobile, keep the property column visible. */
+@media (max-width: 40rem) {
+  .z-table--compare {
+    min-width: 64rem;
+    table-layout: fixed;
+  }
+  .z-table--compare th,
+  .z-table--compare td {
+    min-width: 9rem;
+  }
+  .z-table--compare th:first-child,
+  .z-table--compare td:first-child {
+    width: 9rem;
+    max-width: 9rem;
+    overflow-wrap: anywhere;
+  }
+  .z-table--compare th:not(:first-child),
+  .z-table--compare td:not(:first-child) {
+    padding-left: 1.25rem;
+  }
+  .z-table--compare th:first-child,
+  .z-table--compare td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--stage);
+    border-right: 1px solid var(--border-grid);
+    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18), 22px 0 0 var(--stage);
+  }
+  .z-table--compare td:first-child {
+    background: var(--background);
+    box-shadow: 3px 0 4px rgba(0, 0, 0, 0.18), 22px 0 0 var(--background);
+  }
+  .z-table--compare th:first-child::after,
+  .z-table--compare td:first-child::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -22px;
+    width: 22px;
+    background: var(--stage);
+    pointer-events: none;
+  }
+  .z-table--compare td:first-child::after {
+    background: var(--background);
+  }
+  .z-table--compare th:last-child,
+  .z-table--compare td:last-child {
+    min-width: 13rem;
+    width: 13rem;
+    max-width: 15rem;
+    padding-right: 1rem;
+  }
 }
 
 /* ── FAQ Accordion (Matches Zenjin 12-Col Layout) ────────────────── */

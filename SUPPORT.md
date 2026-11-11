@@ -1,6 +1,6 @@
 # EPI support and service levels
 
-**Product version:** 4.9.0. Cloud service status: [docs/CLOUD.md](./docs/CLOUD.md).
+**Product version:** 4.10.0. Cloud service status: [docs/CLOUD.md](./docs/CLOUD.md).
 
 This page says what is supported, how to get help, and what to expect. It is
 not a legal SLA with penalties — EPI Cloud is a free beta and there is no

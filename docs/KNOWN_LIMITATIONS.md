@@ -1,7 +1,7 @@
 # Known Limitations
 
-**Current release line:** **4.10.0** (prepared; publish pending).
-**Published on PyPI:** **4.9.0**.
+Current release line: **4.10.0** (prepared; publish pending).
+Published on PyPI: **4.9.0**.
 Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
@@ -357,18 +357,21 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.9.0**, published on PyPI: **4.9.0**. It goes up through
-**Trusted Publishing** after the signed tag, as 4.8.0 did, so both files carry
-**PEP 740 attestations** — check with
-`https://pypi.org/integrity/epi-recorder/4.9.0/<file>/provenance`
-(HTTP 200). The **4.6.3** wheel has **no PEP 740 attestations** because it was
-uploaded with the project API token; its provenance endpoint returns HTTP 404. It
-added signed display-layer verification, the viewer fail-closed fix (#141/#143),
-and the pack-time viewer / prohibition-guard fix (#145). The published
-**4.6.2** wheel does **not** include the 4.6.3 verifier fixes. **4.4.1** remains
-on PyPI (not yanked) and still truncates sealed strings at 2000 characters.
-**4.4.2** never reached PyPI. **4.4.3+** seals full payloads
-(`content_truncated=false`; verify FAILs when `true`, WARNs when absent).
+Current release line: **4.10.0**, published on PyPI: **4.9.0** — 4.10.0 is
+prepared and its upload is pending. Once it goes up through **Trusted
+Publishing** after the signed tag (the same path as 4.9.0), both files carry
+**PEP 740 attestations**; check with
+`https://pypi.org/integrity/epi-recorder/4.10.0/<file>/provenance`
+(HTTP 200). Until then, `pip install epi-recorder` still installs 4.9.0, so the
+site must not claim 4.10.0 commands are available. The **4.6.3** wheel has **no
+PEP 740 attestations** because it was uploaded with the project API token; its
+provenance endpoint returns HTTP 404. It added signed display-layer
+verification, the viewer fail-closed fix (#141/#143), and the pack-time viewer
+/ prohibition-guard fix (#145). The published **4.6.2** wheel does **not**
+include the 4.6.3 verifier fixes. **4.4.1** remains on PyPI (not yanked) and
+still truncates sealed strings at 2000 characters. **4.4.2** never reached
+PyPI. **4.4.3+** seals full payloads (`content_truncated=false`; verify FAILs
+when `true`, WARNs when absent).
 
 ---
 
@@ -481,12 +484,86 @@ Recording gaps that survive this rule (no silent completeness claim):
 ## Customer witness limits
 
 With `EPI_WITNESS_URL` (or `witness_url=`) configured, every seal is reported
-at seal time to endpoint(s) the customer controls (`docs/WITNESS.md`). The
-witness only proves **what was sent**: the vendor can choose not to send a
-seal, and a seal covers only what was recorded. A missing witness entry for
-a case the customer knows happened is itself evidence — ask the vendor why.
+at seal time to endpoint(s) the customer controls (`docs/WITNESS.md`). Every
+seal also carries a signed sequence number and a link to the previous seal, so
+`epi witness audit received.jsonl` can show a missing number, a fork (two
+different seals with one number), a broken link, or a tail gap against a
+signed heartbeat.
+
+What this still does **not** prove:
+
+- A decision that was **never sealed at all** is invisible, except through the
+  heartbeat's count and what the customer already knows happened.
+- A vendor who **never runs `epi witness heartbeat`** can hide the final seals
+  of a chain; the middle of a chain is still visible.
+- A **vendor-declared burn** ("number 57 was allocated but never sealed") is
+  not verifiable. `epi witness audit` reports it as a warning, never as clean,
+  and `--strict` fails it; a high or rising burn rate is a question for the
+  vendor, not a proof.
+- A key used on a second machine (or a wiped ledger) starts a **new chain**.
+  That is shown as a warning, not hidden — but two chains are not merged into
+  one history.
+- Seals made in the **browser** ("Sign & seal") have no local ledger and are
+  **unsequenced**; they are listed as such, never as errors.
+
+The witness still only proves **what was sent**: the vendor can choose not to
+send a seal, and a seal covers only what was recorded. A missing witness entry
+for a case the customer knows happened is itself evidence — ask the vendor why.
 The payload is hashes and counts only (no content); the goal is included
 only with `witness_include_goal=True`.
+
+## Pre-action approval limits
+
+A signed pre-action approval (`docs/HUMAN-APPROVAL.md`) proves that a pinned
+approver signed one exact tool call, and — with `--witness-log` — that the
+customer received the request, approval and execution receipts in that order.
+
+What it does **not** prove:
+
+- **Only gated actions are covered.** The gate only sees calls routed through the
+  interceptor. Code that calls the tool directly, or a tool wrapped without a
+  gate, is invisible. Gating at a chokepoint narrows this; it does not close it.
+- **The approver approves `args_display`.** Secret fields are redacted and listed
+  under `redacted_fields`; their exact values are approved blind. A free-text
+  `vendor_description` is a vendor claim, labelled as such, never the approved
+  arguments.
+- **The gate proves what the gate saw.** Arguments passed to the underlying
+  function by code outside the interceptor are not covered; the approval binds
+  the normalized arguments the gate evaluated.
+- **A colocated key is flagged, not prevented.** If the approver's private key is
+  readable from the agent host, verification labels the result "approver key on
+  agent host — not independent" and `--require-pre-action-approval` fails it.
+  A dishonest vendor could hide that flag in its own steps; signing on a host the
+  agent cannot read is the real separation.
+- **`EPI_AUTO_APPROVE=1` is not a person.** It is recorded as
+  `auto (not a person)` and never satisfies human verification.
+- **The approver's clock is not independent** unless the response is witnessed
+  or carries an RFC 3161 timestamp; verification prints the basis.
+
+## Signed release limits
+
+A signed release record (`docs/RELEASES.md`) pins the components a decision
+may use and `epi verify --release` compares what EPI observed. It does not
+prove the decision was correct, and it cannot see everything:
+
+- **Only observed components are compared.** Code that runs outside the
+  instrumented path, an unobserved prompt, retrieval data, a feature flag or a
+  model alias can differ from the release without being noticed. Anything EPI
+  did not see is shown as "not observed (declared only)", never as a match.
+- The runtime **`policy` component is the `epi_policy.json` EPI loaded**, not
+  the vendor's business logic, weights or prompts unless they are passed in.
+- A matching **model id** is a label, not proof the provider served the same
+  weights or that the same model answered every call.
+- **Ordering** uses an RFC 3161 time, the customer witness `received_at`, the
+  seal sequence, then the vendor clock, in that order, and prints which one it
+  used. Only the first two are independent of the vendor.
+- An **approval** proves a pinned key signed this exact release digest; it
+  does not prove the person saw the truth. Approvals are added after sealing,
+  so a decision whose threshold was only met later is reported as `APPROVED
+  AFTER USE`, never as a clean match.
+- A **dirty** release (uncommitted code) can never match. A release is not a
+  deployment record: it does not prove the matching build is what production
+  actually runs.
 
 ---
 
@@ -502,3 +579,8 @@ only with `witness_include_goal=True`.
 
 2026-08-01 — residual fix-before-PyPI: hosted plan key, dual-mode verify,
 browser Ed25519 honesty, contact route de-dup, product-first home, release hold.
+
+- **Seal numbers are per customer.** A gap means a seal was withheld from
+  that customer's log; it says nothing about another customer's sequence.
+  Old files sealed before the audience split carry one chain and are audited
+  exactly as they were.

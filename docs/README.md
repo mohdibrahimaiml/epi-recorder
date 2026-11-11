@@ -19,7 +19,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 
 | Kind | What it is | How to treat it |
 |------------------|-----------------|-----------------|
-| **Product docs** | Recorder, Cloud, website — kept at 4.9.0 | Canonical |
+| **Product docs** | Recorder, Cloud, website — kept at 4.10.0 | Canonical |
 | **How-to** | pytest, local review, AGT, identity | Canonical if linked below |
 | **Legacy hosted** | ChatGPT / Claude / MCP on Render | Real leftover services, **not** EPI Cloud |
 | **Spec / RFC / design** | Wire format, frozen RFCs, design notes | Not a user guide; version in the file may be historical |
@@ -76,6 +76,8 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 |-----|---------|
 | [USER-GUIDE.md](./USER-GUIDE.md) | What it does, where to use it, how to record / verify / share (includes the command cheat sheet) |
 | [DECISION-RECORD.md](./DECISION-RECORD.md) | The category: what a Decision Record is, why not a log, ten-question checklist |
+| [RELEASES.md](./RELEASES.md) | Signed release records: pin the logic version, approve it, verify a decision against it |
+| [DORA-VENDOR-EVIDENCE.md](./DORA-VENDOR-EVIDENCE.md) | DORA Art. 28/30 evidence an AI vendor can hand an EU bank, with a draft contract schedule |
 | Root [README.md](../README.md) | 60-second path |
 | [CLI.md](./CLI.md) | Command reference (includes `epi cloud`) |
 | [POLICY.md](./POLICY.md) | Policy schema and authoring |
@@ -125,7 +127,7 @@ Seal, identity, and policy are three different checks. Details: [VERIFICATION_CO
 | [TELEMETRY-PRIVACY.md](./TELEMETRY-PRIVACY.md) | Opt-in telemetry (off by default) |
 | [RELEASING.md](./RELEASING.md) | How a PyPI release is published (signed tags required) |
 | [ROADMAP.md](./ROADMAP.md) | Committed vs considering vs out of scope (no dates) |
-| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.9.0 |
+| [MIGRATION.md](./MIGRATION.md) | What old `.epi` files and old recorders do under 4.10.0 |
 | [GOVERNANCE.md](./GOVERNANCE.md) | Who decides, how releases work, commercial terms map |
 | [EPI_MASTER_DOCUMENTATION.md](./EPI_MASTER_DOCUMENTATION.md) | Bank / procurement briefing |
 | [EPI-CODEBASE-WALKTHROUGH.md](./EPI-CODEBASE-WALKTHROUGH.md) | Engineers mapping the repo |
@@ -177,7 +179,7 @@ Still running for ChatGPT / Claude connectors. Optional. Not required to record 
 
 1. Edit the **canonical** file for that topic (linked from this index).
 2. Do not invent paid features or claim certification. Check [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md) and [website/plans.html](../website/plans.html).
-3. Keep product-doc version numbers at **4.9.0**, matching `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
+3. Keep product-doc version numbers at **4.10.0**, matching `pyproject.toml`. Frozen RFCs may keep their original version; label them frozen.
 4. Customer docs must not contain admin keys or Cloudflare wrangler secrets, and
    must never link into the internal tree.
 5. After structural changes, update this index.

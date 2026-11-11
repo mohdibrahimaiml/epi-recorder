@@ -1,6 +1,6 @@
 # EPI Threat Model
 
-**Product version:** 4.9.0. Product map: [README.md](./README.md).
+**Product version:** 4.10.0. Product map: [README.md](./README.md).
 
 ## What This Document Is
 
@@ -74,9 +74,20 @@ EPI's security guarantees depend on these assumptions being true:
 
 **Prevention (only with a customer witness configured):** every seal is reported at seal time to an endpoint the customer controls (`epi-witness/v1`: workflow id, manifest and file hashes). `epi verify --witness-log` compares the handed-over file against the customer's independent record: a re-sealed copy that reuses a reported workflow id reports `DIFFERENT VERSION` and FAILs; one that was never reported shows `NOT IN WITNESS LOG` (WARN, FAIL under `--policy strict`).
 
-**Limitation:** the witness only proves what was sent — the vendor can choose not to send a seal. A missing entry for a case the customer knows happened is itself evidence.
+**Limitation:** the witness only proves what was sent. Sequence numbers close
+part of that: every seal carries a signed number and a link to the previous
+seal, so a **withheld middle seal** shows up as a missing number, a renumbering
+or two different seals with one number shows up as a fork, and a signed
+heartbeat (`epi witness heartbeat`, hourly from cron) makes a **withheld tail**
+visible. Still not detected: decisions that were never sealed at all (they are
+invisible except through the heartbeat's count and what the customer knows
+happened), a vendor who never runs the heartbeat, and a vendor-declared
+"burn" — a number called allocated-but-not-sealed — which `epi witness audit`
+reports as an unverifiable warning and `--strict` fails.
 
-**Test:** `tests/test_seal_witness.py` (altered + re-signed file → `MISMATCH` → FAIL).
+**Test:** `tests/test_seal_witness.py` (altered + re-signed file → `MISMATCH`
+→ FAIL), `tests/test_seal_ledger.py` (missing/fork/chain break/tail gap,
+concurrent seals across processes).
 
 ---
 
@@ -155,6 +166,26 @@ when a logged-in user made the click — and 3a never classifies either as
 **Residual:** a link click is still *unauthenticated* — it records that someone
 clicked, which is why it is labelled an unsigned link click and never a signed
 approval. A person who forwards their link hands over that click.
+
+### 10c. Action executed without the approval it required (mitigated when gated)
+
+**Attack:** run a risky tool first and obtain the approval afterwards, then write
+the steps in the "right" order before sealing. The vendor's own hash chain cannot
+distinguish that from an honest run.
+
+**Defence:** a pre-action gate signs the exact tool call (tool, canonical args
+digest, nonce, expiry, redacted display), verifies a pinned approver's signature
+before running, and reports `epi.approval_executed` to the **customer's** witness
+at release. `epi verify --witness-log --require-pre-action-approval` requires the
+customer's received order request < response < executed, so a vendor-written
+chain that claims the right order is caught as `ACTION BEFORE APPROVAL`. The gate
+also blocks deny, timeout, expiry, argument changes, a reused nonce, the sealing
+key, and an unpinned approver.
+
+**Residual:** only actions routed through the interceptor are gated; code that
+calls the tool directly is not covered. An approver key readable from the agent
+host is flagged but not prevented. Redacted argument fields are approved blind.
+See [HUMAN-APPROVAL.md](./HUMAN-APPROVAL.md).
 
 ### 11. Step Reordering / Timeline Tampering
 **Attack:** A producer (or a re-signing attacker) reorders the recorded steps,
@@ -246,7 +277,7 @@ DID at all (strict is local-only). Two further notes:
 ### 4. Algorithm Degradation
 **Attack:** In 20 years, quantum computers break Ed25519. Old artifacts can no longer be trusted.
 
-**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.9.0 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
+**Why EPI cannot prevent this:** All cryptographic systems have a shelf life. EPI 4.10.0 uses Ed25519 and SHA-256, which are industry-standard algorithms that are secure today.
 
 **Mitigation:** Re-sign important artifacts with newer algorithms as standards evolve.
 
@@ -298,7 +329,7 @@ seal a plausible file and sign it with their own key.
   header copy. The signed display binding shipped in 4.6.3; 4.6.2's #141/#143
   fixed only envelope tamper and still trusted the unsigned header copy for the
   viewer. The viewer itself refuses to paint a verdict it cannot support.
-- **The shipped viewer makes no network calls.** Scanned the current 4.9.0
+- **The shipped viewer makes no network calls.** Scanned the current 4.10.0
   artifact (`docs/assets/demo-banking-aml.epi`): zero external scripts, fetches,
   or sockets in the outer or inner viewer; every library is inlined. Reproduce it
   with the script in [FILE-SAFETY.md](./FILE-SAFETY.md) §2. Honest boundary:
@@ -437,11 +468,15 @@ session-only seed, passphrase wrapping) are tracked in
 | Post-seal timestamp tampering | Yes | Signed `created_at` (pre-seal honesty NOT covered — see item 4) |
 | Backdating / fabrication after the fact | Yes, when a valid RFC 3161 token is present | Offline TSA validation against pinned roots |
 | Silent re-seal after the fact | Yes, with customer witness configured | Independent witness log + `--witness-log` |
+| Withheld middle seal / reordered chain | Yes, with sequence numbers | Signed `seal_chain` + `epi witness audit` |
+| Withheld tail of the chain | Yes, when `epi witness heartbeat` runs | Signed heartbeat vs. received log |
+| Decision logic drifted from what was approved | Yes, for observed components | Signed release record + `epi verify --release` |
 | Private key leak into artifact | Yes | Public key only in artifact (browser seed rest is weaker — see R4) |
 | Secret leakage | Partial | Regex redaction |
 | Revoked key reuse | Yes | Revocation list |
 | Agent self-approval | Yes | Approver registry (`epi approvers add`) + sealing-key rule + `--require-human-approval` |
 | Forged / replayed gateway approval link | Yes | Single-use expiring token (hash-only) + GET records nothing + POST-only + no query-string reviewer (10b) |
+| Action executed without its required approval | Yes, for gated actions | Signed pre-action request/response + customer witness execution receipt (`--require-pre-action-approval`) |
 | Compromised key | No | Out of scope |
 | Malicious signer | No | Out of scope |
 | DID server compromise | Partial | Local fallback |
@@ -451,3 +486,15 @@ session-only seed, passphrase wrapping) are tracked in
 | Viewer stored-XSS (receiver) | Partial | Output escaping; no CSP, no pen-test (R2) |
 | Decompression bomb (receiver) | Partial — expansion budget enforced, caps are operator-overridable | Central-directory expansion guard (R3) |
 | Browser seed theft (receiver) | No | localStorage is plain text (R4) |
+
+
+## Cross-customer seal inference
+
+A seal chain is scoped to an audience (the customer witness it is reported
+to), never to the signing key. A vendor that serves two customers with one
+key keeps two independent number sequences. A file handed to one customer
+stores only salted commitments for the other audiences, and each witness
+report carries only its own entry, so one customer cannot learn another
+customer's seal count, number, or audience id from the file or the reports.
+A seal made before any witness exists lands on its own local chain and can
+never create a hole in a customer's chain.

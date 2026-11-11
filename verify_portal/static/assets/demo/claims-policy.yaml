@@ -1,0 +1,8 @@
+{
+  "policy_format_version": "2.0",
+  "policy_id": "claims-release",
+  "system_name": "claims",
+  "system_version": "1.0",
+  "policy_version": "1.4",
+  "rules": []
+}

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPI Decision Record - decision-example</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f1ea;
+    --paper: #fffdf8;
+    --ink: #1f2430;
+    --muted: #5a6170;
+    --line: #d7cdbf;
+    --approved: #dff1e8;
+    --approved-ink: #0d5b3f;
+    --warning: #fff0cf;
+    --warning-ink: #8a5b00;
+    --rejected: #f8dfd9;
+    --rejected-ink: #8b2414;
+    --neutral: #edf0f5;
+    --neutral-ink: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Aptos", "Segoe UI", sans-serif;
+    line-height: 1.55;
+  }
+  .page {
+    width: min(1080px, calc(100% - 48px));
+    margin: 0 auto;
+    padding: 28px 0 48px;
+  }
+  .record-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 18px 40px rgba(44, 37, 20, 0.06);
+  }
+  .cover {
+    display: grid;
+    gap: 16px;
+  }
+  .cover-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: start;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  h1, h2, h3 {
+    margin: 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", serif;
+    letter-spacing: -0.02em;
+  }
+  h1 { font-size: 2.6rem; }
+  h2 { font-size: 1.6rem; margin-bottom: 14px; }
+  p { margin: 0; }
+  .cover-copy {
+    color: var(--muted);
+    max-width: 760px;
+    font-size: 1rem;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    border: 1px solid transparent;
+  }
+  .tone-approved { background: var(--approved); color: var(--approved-ink); }
+  .tone-warning { background: var(--warning); color: var(--warning-ink); }
+  .tone-rejected { background: var(--rejected); color: var(--rejected-ink); }
+  .tone-neutral { background: var(--neutral); color: var(--neutral-ink); }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .summary-tile {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px;
+    background: #fffaf3;
+  }
+  .summary-tile strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1.05rem;
+  }
+  .section-copy {
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 12px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .timeline-item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: #fffaf3;
+    margin-bottom: 12px;
+  }
+  .timeline-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .detail-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px;
+  }
+  .detail-row {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .detail-row dt {
+    color: var(--muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
+  }
+  .detail-row dd {
+    margin: 0;
+    font-weight: 600;
+  }
+  details {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 14px 16px;
+    background: #fffaf3;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: 700;
+  }
+  pre {
+    margin: 14px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f6f1e9;
+    border-radius: 14px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 0.88rem;
+  }
+  .proof-list {
+    display: grid;
+    gap: 12px;
+  }
+  .footnote {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  @media print {
+    body { background: white; }
+    .page { width: auto; margin: 0; padding: 0; }
+    .record-card {
+      box-shadow: none;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      page-break-inside: avoid;
+    }
+    details { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <section class="record-card cover">
+      <div class="cover-top">
+        <div>
+          <p class="eyebrow">EPI Decision Record</p>
+          <h1>Denied</h1>
+          <p class="cover-copy">
+            This document summarizes one sealed AI decision record in plain business language.
+            It includes the outcome, the controls that were evaluated, the human review trail,
+            and the cryptographic proof needed to verify the record later.
+          </p>
+        </div>
+        <span class="status-pill tone-rejected">Denied</span>
+      </div>
+
+      <div class="summary-grid">
+        <article class="summary-tile">
+          <p class="eyebrow">Workflow</p>
+          <strong>b87185ac-a123-479f-b897-e1496a8b25cc</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Created</p>
+          <strong>2026-11-09 13:04 UTC</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Analysis</p>
+          <strong>complete</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Trust</p>
+          <strong>Record has not been modified</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="record-card">
+      <h2>Case Overview</h2>
+      <p class="section-copy">A short business summary of the case and the result that was sealed into the artifact.</p>
+      <div class="detail-list">
+        <div class="detail-row"><dt>Goal</dt><dd>Adjudicate claim CLM-1001</dd></div>
+        <div class="detail-row"><dt>Notes</dt><dd>SIMULATED DEMO - the model response is scripted; the record format, hashes, signature, release and approvals are real.</dd></div>
+        <div class="detail-row"><dt>Decision</dt><dd>Denied</dd></div>
+        <div class="detail-row"><dt>Headline</dt><dd>P4 (Context Drop) triggered at step 10.</dd></div>
+      </div>
+    </section>
+
+    <section class="record-card">
+      <h2>Decision and Reasons</h2>
+      <p class="section-copy">What the AI decided, the principal reasons it gave, and the data and rules it relied on. This is the part a customer, regulator or affected person reads.</p>
+      <div class="summary-grid" style="margin-top: 0; margin-bottom: 18px;">
+        <article class="summary-tile">
+          <p class="eyebrow">Outcome</p>
+          <strong><span class="status-pill tone-rejected">Denied</span></strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Model</p>
+          <strong>gpt-4o-2024-08-06 (requested gpt-4o)</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Decision action</p>
+          <strong>deny_claim({&quot;claim_id&quot;: &quot;CLM-1001&quot;, &quot;decision&quot;: &quot;deny&quot;, &quot;reason&quot;: &quot;Water damage exclusion HO3-4.2 applies to this per...</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Human approval</p>
+          <strong>Signed approval by DEMO KEY (pinned)</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Release</p>
+          <strong>claims-policy 1.4 &middot; MATCHES</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Pre-action approval</p>
+          <strong>DEMO APPROVER &middot; before the action</strong>
+        </article>
+      </div>
+      <div class="detail-list">
+        <div class="detail-row"><dt>Principal reasons</dt><dd>Water damage exclusion HO3-4.2 applies to this peril.</dd></div>
+        <div class="detail-row"><dt>Data and rules relied on</dt><dd>policy=HO3-4.2; data=claim:CLM-1001, policy:HO3-4.2#exclusion, peril:water damage</dd></div>
+        <div class="detail-row"><dt>Release</dt><dd>claims-policy 1.4 &middot; MATCHES</dd></div>
+        <div class="detail-row"><dt>Pre-action approval</dt><dd>DEMO APPROVER &middot; approved before the action</dd></div>
+      </div>
+    </section>
+
+    <section class="record-card">
+      <h2>Policy Compliance Summary</h2>
+      <p class="section-copy">These are the control results embedded in the artifact at the time it was sealed.</p>
+      <div class="summary-grid" style="margin-top: 0; margin-bottom: 18px;">
+        <article class="summary-tile">
+          <p class="eyebrow">Policy</p>
+          <strong>cap-inspection-line-3</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Controls Evaluated</p>
+          <strong>1</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Controls Failed</p>
+          <strong>0</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Human Review Needed</p>
+          <strong>No</strong>
+        </article>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Rule</th>
+            <th>Name</th>
+            <th>Business Label</th>
+            <th>Status</th>
+            <th>What It Means</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td>cap_position</td>
+              <td></td>
+              <td>High-value approval rule</td>
+              <td><span class="status-pill tone-approved">Passed</span></td>
+              <td>No violation detected for rule cap_position (Reject above cap-position threshold).</td>
+            </tr>
+            
+        </tbody>
+      </table>
+    </section>
+
+    <section class="record-card">
+      <h2>Key Decision Steps</h2>
+      <p class="section-copy">Only the material steps are shown here so a reviewer can follow the decision path quickly.</p>
+      
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Business check started: Lookup claim.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>tool.call</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Business check result: Success.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>tool.response</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Business check started: Check policy.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>tool.call</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Business check result: Success.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>tool.response</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>AI was consulted for a recommendation.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>llm.request</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>AI recommendation recorded.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>llm.response</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Final decision recorded: Denied.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>agent.decision</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Human approval requested for Issue denial notice.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>agent.approval.request</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Workflow completed.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>agent.run.end</p>
+        </article>
+        
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <strong>Workflow completed.</strong>
+            <span>2026-11-09 13:04 UTC</span>
+          </div>
+          <p>agent.run.end</p>
+        </article>
+        
+    </section>
+
+    <section class="record-card">
+      <h2>Human Review and Approval</h2>
+      <p class="section-copy">This section records the human approval and any later attached review notes.</p>
+      <div class="detail-list">
+        <div class="detail-row"><dt>Human approval</dt><dd>Signed approval by DEMO KEY (pinned)</dd></div>
+        <div class="detail-row"><dt>Approver</dt><dd>DEMO KEY</dd></div>
+        <div class="detail-row"><dt>Approver key fingerprint</dt><dd>71926c38f452feee</dd></div>
+        <div class="detail-row"><dt>Signed at</dt><dd>2026-11-09T13:04:49.148842+00:00</dd></div>
+        <div class="detail-row"><dt>Independent time</dt><dd>verified 2026-11-09T13:04:53Z</dd></div>
+        <div class="detail-row"><dt>Agent-reported step</dt><dd>None</dd></div>
+        <div class="detail-row"><dt>Review outcome</dt><dd>No final human review outcome recorded</dd></div>
+        <div class="detail-row"><dt>Reviewer</dt><dd>DEMO KEY - Claims Adjuster (not a real person)</dd></div>
+        <div class="detail-row"><dt>Review notes</dt><dd>Not recorded</dd></div>
+      </div>
+    </section>
+
+    <section class="record-card">
+      <h2>Cryptographic Proof and Verification</h2>
+      <p class="section-copy">Anyone can verify this record later and detect whether it was changed after the decision was made.</p>
+      <div class="proof-list">
+        <div class="detail-row"><dt>Integrity</dt><dd><span class="status-pill tone-approved">Record has not been modified</span></dd></div>
+        <div class="detail-row"><dt>Signature</dt><dd>Verified signature - 094da55fa3fd0844</dd></div>
+        <div class="detail-row"><dt>Archive SHA-256</dt><dd><code>5ab0e41389b66bbf9b591e869abcb5b1c4c490a6577c6bf8e278cb03297daaa3</code></dd></div>
+        <div class="detail-row"><dt>Verify locally</dt><dd>epi verify decision-example.epi --release claims-policy-1.4.epi --witness-log witness.jsonl --require-release --min-approvals 1 --require-pre-action-approval</dd></div>
+        <div class="detail-row"><dt>Verify in browser</dt><dd>https://epilabs.org/verify</dd></div>
+        <div class="detail-row"><dt>Approver key to pin</dt><dd>71926c38f452feee</dd></div>
+      </div>
+      <p class="footnote">The raw execution record in <code>steps.jsonl</code> remains the ground truth. This Decision Record is a readable summary of the sealed artifact.</p>
+    </section>
+
+    <section class="record-card">
+      <h2>Appendix</h2>
+      <p class="section-copy">Technical detail for engineering, audit, or legal review when deeper inspection is needed.</p>
+      <div class="detail-list">
+        <div class="detail-row"><dt>Workflow ID</dt><dd>b87185ac-a123-479f-b897-e1496a8b25cc</dd></div><div class="detail-row"><dt>Created at</dt><dd>2026-11-09 13:04 UTC</dd></div><div class="detail-row"><dt>Signer</dt><dd>094da55fa3fd0844</dd></div><div class="detail-row"><dt>Analysis status</dt><dd>complete</dd></div><div class="detail-row"><dt>Analysis error</dt><dd>None</dd></div><div class="detail-row"><dt>Files sealed in manifest</dt><dd>10</dd></div><div class="detail-row"><dt>Policy profile</dt><dd>custom.guided</dd></div><div class="detail-row"><dt>Rule count</dt><dd>1</dd></div><div class="detail-row"><dt>Primary finding</dt><dd>P4 (Context Drop) triggered at step 10.</dd></div>
+      </div>
+      <details>
+        <summary>Open technical payload</summary>
+        <pre>{
+  &quot;manifest&quot;: {
+    &quot;spec_version&quot;: &quot;4.10.0&quot;,
+    &quot;producer_version&quot;: &quot;4.10.0&quot;,
+    &quot;case_id&quot;: &quot;CLM-1001&quot;,
+    &quot;seal_chain&quot;: {
+      &quot;ledger_id&quot;: &quot;a3bec938-83f1-4d38-ba29-7cd463a11bc0&quot;,
+      &quot;key_fingerprint&quot;: &quot;094da55fa3fd0844&quot;,
+      &quot;seq&quot;: 2,
+      &quot;prev_seq&quot;: 1,
+      &quot;prev_content_digest&quot;: &quot;d2c8b436f4da4d151a08e70098c552141960667931bcb2fc197752d68e8410df&quot;
+    },
+    &quot;record_kind&quot;: null,
+    &quot;release&quot;: null,
+    &quot;release_ref&quot;: {
+      &quot;release_id&quot;: &quot;rel_5acea31c7277ffb6&quot;,
+      &quot;release_digest&quot;: &quot;5acea31c7277ffb6cd22c2145c2214497fcd41cee8857fd99220d054e168ab9f&quot;
+    },
+    &quot;runtime_components&quot;: [
+      {
+        &quot;type&quot;: &quot;policy&quot;,
+        &quot;name&quot;: &quot;claims&quot;,
+        &quot;observed&quot;: true,
+        &quot;path&quot;: &quot;C:\\Users\\dell\\epi-recorder\\website\\assets\\demo\\claims-policy.yaml&quot;,
+        &quot;sha256&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;,
+        &quot;sha256_at_start&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;,
+        &quot;sha256_at_seal&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;
+      },
+      {
+        &quot;type&quot;: &quot;model&quot;,
+        &quot;name&quot;: &quot;openai:gpt-4o&quot;,
+        &quot;identifier&quot;: &quot;openai:gpt-4o&quot;,
+        &quot;observed&quot;: true
+      }
+    ],
+    &quot;workflow_id&quot;: &quot;b87185ac-a123-479f-b897-e1496a8b25cc&quot;,
+    &quot;created_at&quot;: &quot;2026-11-09T13:04:47.539711Z&quot;,
+    &quot;cli_command&quot;: null,
+    &quot;env_snapshot_hash&quot;: null,
+    &quot;file_manifest&quot;: {
+      &quot;analysis.json&quot;: &quot;e2f67790b531ff253bac766f33a4d6b303de79fc014384ab6d13b7173f59c24f&quot;,
+      &quot;artifacts/case_id.json&quot;: &quot;3a5d10d5ffd731a8c5394b0f58d97bd88a5a207354c863bd81c35151a9f49c05&quot;,
+      &quot;artifacts/manifest.json&quot;: &quot;f553fb949dbeaba2daac4356b51f7289ae17f7750371bd4c9cd7773325d36b38&quot;,
+      &quot;artifacts/release_ref.json&quot;: &quot;b9b1862120d22fdc4d7e91ee88467638a056a6ad0a717692ecd6bdec60a00569&quot;,
+      &quot;artifacts/seal_chain.json&quot;: &quot;2f57d077e7659f8e043e9d16f1c13c85c6c98a13d23a8284c8055564516c6772&quot;,
+      &quot;environment.json&quot;: &quot;fdb8845ab107b8461dbf258f73d05383613018c7f5966d69c37ddcaad7006e1d&quot;,
+      &quot;policy.json&quot;: &quot;e4bb67707534956003c5357e7d20fd67344a5794859991d5a92bdd22333809af&quot;,
+      &quot;policy_evaluation.json&quot;: &quot;055508156e7febcdc063617e3e4ba8e465eaff9bf1de53890e05df0c942ba6cd&quot;,
+      &quot;steps.jsonl&quot;: &quot;5efe91d520f1da863670743a603f4d0b3a89ee164396c5022ed551ce386b3923&quot;,
+      &quot;VERIFY.txt&quot;: &quot;1180109b3b34ca6f5897424d6fe66ca89b6e7d2acbe377868d694129f985d1ab&quot;
+    },
+    &quot;public_key&quot;: &quot;45451c6135c977a540b9aa4e402bf78d4945eb9eb2ec8cc283cbee75a6f67dad&quot;,
+    &quot;signature&quot;: &quot;ed25519:094da55fa3fd0844:48ae78afb4e19961d4d7bcc4a732164f75d6b5b5aa5e6ff91c6a7f87030eef2adc964603de9d04954877317a2587d9f133c27ae875efde6629da72f76cce4007&quot;,
+    &quot;container_format&quot;: &quot;legacy-zip&quot;,
+    &quot;analysis_status&quot;: &quot;complete&quot;,
+    &quot;analysis_error&quot;: null,
+    &quot;content_truncated&quot;: false,
+    &quot;policy_load_status&quot;: &quot;loaded&quot;,
+    &quot;goal&quot;: &quot;Adjudicate claim CLM-1001&quot;,
+    &quot;notes&quot;: &quot;SIMULATED DEMO - the model response is scripted; the record format, hashes, signature, release and approvals are real.&quot;,
+    &quot;metrics&quot;: null,
+    &quot;source&quot;: null,
+    &quot;total_steps&quot;: 18,
+    &quot;total_validators&quot;: null,
+    &quot;total_llm_calls&quot;: null,
+    &quot;passed&quot;: null,
+    &quot;failed&quot;: null,
+    &quot;corrected&quot;: null,
+    &quot;trust&quot;: {
+      &quot;payload_hash&quot;: &quot;c480b02194d33694942aa91ab90e8e8b5580aafdfa8f2ae67e3090f94273851e&quot;,
+      &quot;artifact_uuid&quot;: &quot;b87185ac-a123-479f-b897-e1496a8b25cc&quot;,
+      &quot;mimetype&quot;: &quot;application/vnd.epi+zip&quot;,
+      &quot;envelope_version&quot;: 2
+    },
+    &quot;approved_by&quot;: null,
+    &quot;tags&quot;: null,
+    &quot;governance&quot;: null,
+    &quot;viewer_version&quot;: &quot;minimal&quot;,
+    &quot;policy&quot;: {
+      &quot;policy_id&quot;: &quot;cap-inspection-line-3&quot;,
+      &quot;version&quot;: &quot;2026-09-25&quot;,
+      &quot;status&quot;: &quot;compliant&quot;,
+      &quot;rules&quot;: [
+        &quot;cap_position&quot;
+      ],
+      &quot;violation_count&quot;: 0,
+      &quot;remediation&quot;: null
+    }
+  },
+  &quot;analysis_summary&quot;: {
+    &quot;headline&quot;: &quot;P4 (Context Drop) triggered at step 10.&quot;,
+    &quot;primary_category&quot;: &quot;heuristic_observation&quot;,
+    &quot;primary_step&quot;: 10,
+    &quot;secondary_count&quot;: 1
+  },
+  &quot;policy_evaluation&quot;: {
+    &quot;controls_evaluated&quot;: 1,
+    &quot;controls_failed&quot;: 0,
+    &quot;artifact_review_required&quot;: false
+  },
+  &quot;latest_review&quot;: {
+    &quot;entry_type&quot;: &quot;approval&quot;,
+    &quot;approval_version&quot;: &quot;1.1.0&quot;,
+    &quot;approval_id&quot;: &quot;denial-CLM-1001&quot;,
+    &quot;case_level&quot;: false,
+    &quot;decision&quot;: &quot;approve&quot;,
+    &quot;action&quot;: &quot;issue denial notice&quot;,
+    &quot;reason&quot;: &quot;Checked against policy HO3-4.2; the exclusion applies.&quot;,
+    &quot;signed_at&quot;: &quot;2026-11-09T13:04:49.148842+00:00&quot;,
+    &quot;approver&quot;: {
+      &quot;name&quot;: &quot;DEMO KEY - Claims Adjuster (not a real person)&quot;,
+      &quot;key_fingerprint&quot;: &quot;71926c38f452feee&quot;
+    },
+    &quot;demo_key&quot;: true
+  },
+  &quot;decision&quot;: {
+    &quot;agent_name&quot;: &quot;claims-agent&quot;,
+    &quot;agent_type&quot;: &quot;agent&quot;,
+    &quot;session_id&quot;: &quot;e62e9482-168f-4109-b7b7-7417946e3196&quot;,
+    &quot;task_id&quot;: &quot;91668252-3cbd-499c-8bd4-4b6566cd0841&quot;,
+    &quot;run_id&quot;: &quot;5e3649eb-96bb-424f-9d61-6f8f11f789a5&quot;,
+    &quot;attempt&quot;: 1,
+    &quot;timestamp&quot;: &quot;2026-11-09T13:04:47.694030+00:00&quot;,
+    &quot;decision&quot;: &quot;deny_claim&quot;,
+    &quot;output&quot;: {
+      &quot;claim_id&quot;: &quot;CLM-1001&quot;,
+      &quot;payable_usd&quot;: 0
+    },
+    &quot;confidence&quot;: 0.93,
+    &quot;rationale&quot;: &quot;Water damage exclusion HO3-4.2 applies to this peril.&quot;,
+    &quot;basis&quot;: {
+      &quot;policy&quot;: &quot;HO3-4.2&quot;,
+      &quot;data&quot;: [
+        &quot;claim:CLM-1001&quot;,
+        &quot;policy:HO3-4.2#exclusion&quot;,
+        &quot;peril:water damage&quot;
+      ]
+    },
+    &quot;_epi_capture&quot;: {
+      &quot;capture_path&quot;: &quot;sdk_wrapper&quot;,
+      &quot;gateway_enforcement&quot;: &quot;not_applicable&quot;,
+      &quot;streaming&quot;: false
+    }
+  }
+}</pre>
+      </details>
+    </section>
+  </div>
+</body>
+</html>

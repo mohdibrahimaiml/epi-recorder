@@ -14,7 +14,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
-from epi_core.schemas import ManifestModel
+from epi_core.schemas import ManifestModel, SealChainModel
 from epi_core.serialize import get_canonical_hash
 
 
@@ -37,6 +37,53 @@ class VerificationError(Exception):
     """Raised when signature verification fails."""
 
     pass
+
+
+def _attach_seal_chain(
+    original: ManifestModel, copy: ManifestModel, public_key_hex: str
+) -> None:
+    """Give a first seal its ledger position, *before* the signature preimage.
+
+    Rules:
+      * already carries a chain for THIS key -> reuse it (calls 2 and 3 of one
+        pack, viewer refresh, re-sign after a transparency receipt)
+      * carries a chain for a DIFFERENT key -> allocate on the new key
+      * no chain and no signature -> first seal: allocate
+      * no chain but already signed -> sealed before sequence numbers existed;
+        leave it untouched so its signature and verdict are unchanged
+    """
+    try:
+        from epi_core.keys import key_fingerprint
+        from epi_core.seal_ledger import allocate
+
+        fingerprint = key_fingerprint(public_key_hex, grouped=False)
+    except Exception:
+        return
+
+    existing = getattr(original, "seal_chain", None)
+    existing_fingerprint = None
+    if existing is not None:
+        existing_fingerprint = (
+            existing.get("key_fingerprint")
+            if isinstance(existing, dict)
+            else getattr(existing, "key_fingerprint", None)
+        )
+    if existing is not None and str(existing_fingerprint or "").lower() == fingerprint:
+        return
+    if existing is None and getattr(original, "signature", None):
+        return
+
+    if existing is not None:
+        # Signing key changed: never carry the old key's chain into this
+        # signature. A failed allocation leaves the seal unsequenced, which is
+        # honest, rather than pointing at a chain on another key.
+        copy.seal_chain = None
+    try:
+        chain = allocate(fingerprint)
+        if chain:
+            copy.seal_chain = SealChainModel(**chain)
+    except Exception:
+        pass
 
 
 def sign_manifest(
@@ -72,6 +119,8 @@ def sign_manifest(
         # We must update the manifest BEFORE hashing so the public key is signed
         manifest_copy = manifest.model_copy(deep=True)
         manifest_copy.public_key = public_key_hex
+
+        _attach_seal_chain(manifest, manifest_copy, public_key_hex)
 
         # Compute canonical hash (excluding signature field)
         manifest_hash = get_canonical_hash(manifest_copy, exclude_fields={"signature"})
@@ -870,6 +919,24 @@ def create_verification_report(
             "matches": 0,
             "detail": "no witness log supplied (--witness-log)",
         },
+    )
+    # Signed release surface: verify_command overwrites this with the real
+    # comparison; direct factory consumers get an honest "not declared" default.
+    report.setdefault(
+        "release",
+        {
+            "status": "not_declared",
+            "present": False,
+            "detail": "this decision declares no release (`release=` was not used)",
+            "components": [],
+            "undeclared": [],
+            "approvals": {"have": 0, "required": 0, "approvers": []},
+        },
+    )
+    # Pre-action approval surface: verify_command overwrites this.
+    report.setdefault(
+        "pre_action_approval",
+        {"status": "not_used", "requests": [], "problems": 0},
     )
     # Timestamp surface: verify_command overwrites this with validated data;
     # direct factory consumers get an honest "not evaluated" default so the

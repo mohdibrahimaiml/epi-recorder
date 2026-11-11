@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>For reviewers — EPI Labs</title>
+<meta name="description" content="You received an AI Decision Record from a vendor. Check it yourself: free, offline, no account.">
+<link rel="canonical" href="https://epilabs.org/reviewers">
+<meta property="og:title" content="For reviewers — EPI Labs">
+<meta property="og:description" content="You received an AI Decision Record from a vendor. Check it yourself: free, offline, no account.">
+<meta name="theme-color" content="#F7F5F0">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+<link rel="stylesheet" href="/css/aos.css">
+<link rel="stylesheet" href="/css/site.css?v=15">
+<script>
+(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
+</script>
+</head>
+<body class="canvas">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" id="nav">
+  <div class="nav-in">
+    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
+    <ul class="nlinks">
+      <li><a href="/verify/">Verify</a></li>
+      <li class="nlinks__menu"><details>
+        <summary>Architecture</summary>
+        <div class="nlinks__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+        </div>
+      </details></li>
+      <li><a href="/trust">Trust model</a></li>
+      <li><a href="/use-cases">Use cases</a></li>
+      <li><a href="/reviewers">For reviewers</a></li>
+      <li><a href="/plans">Pricing</a></li>
+      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
+      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
+      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
+    </ul>
+    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+<div class="mmenu" id="mmenu">
+  <a href="/verify/">Verify a file</a>
+  <details class="mmenu__group">
+    <summary>Architecture</summary>
+    <a href="/how-it-works">How it works</a>
+    <a href="/decision-record">Decision Record</a>
+  </details>
+  <a href="/trust">Trust model</a>
+  <a href="/use-cases">Use cases</a>
+  <a href="/reviewers">For reviewers</a>
+  <a href="/plans">Pricing</a>
+  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
+  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
+  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
+</div>
+<main id="main">
+<div class="page in" data-aos="fade-up">
+<span class="tag">For reviewers</span>
+<h1>You received an AI Decision Record.<br>Check it yourself.</h1>
+<p class="lede">For the bank, insurer or lender whose AI vendor sends <code class="k">.epi</code> Decision Records. Checking one is free, runs on your own machine, and needs no account with EPI or with the vendor.</p>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:44px">
+<a class="btn btn-pri" href="/verify/">Check a file in your browser</a>
+<a class="btn btn-sec" href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" target="_blank" rel="noopener">One-page reviewer brief</a>
+</div>
+
+<h2>What you receive</h2>
+<ul>
+<li><strong>One file per case.</strong> What the AI decided, the principal reasons, the rules and data it relied on, which model answered, and who approved it.</li>
+<li><strong>Your own witness log.</strong> When the vendor seals each case, a short fingerprint of it arrives in a log that you keep. It holds no prompts and no personal data, and the vendor cannot change your copy.</li>
+</ul>
+
+<h2>Check one file &mdash; in a browser</h2>
+<p>Open <a href="/verify/" style="color:var(--acc)">epilabs.org/verify</a> and drop the <code class="k">.epi</code> file, plus your witness log (<code class="k">received.jsonl</code>) if you have one. Nothing is uploaded. You will see whether the file has changed since it was sealed and, with the log, whether it is the version you were told about on the day &mdash; a rewritten and re-signed file reads &ldquo;This is not the version your witness recorded.&rdquo;</p>
+
+<h2>Check it properly &mdash; on your machine</h2>
+<p>The vendor sends you their public key, and each approver sends theirs. Confirm the fingerprints by phone, not by email, then:</p>
+<pre>$ pip install -U "epi-recorder&gt;=4.9.0"
+$ epi keys trust vendor.pub --name vendor --fingerprint &lt;from the vendor&gt;
+$ epi approvers add approver.pub --name alice@bank.com --fingerprint &lt;from the approver&gt;
+$ epi verify case.epi --policy strict --require-human-approval --witness-log received.jsonl</pre>
+<p class="small" style="color:var(--dim);font-size:0.8rem">Needs epi-recorder 4.9.0 or newer; check with <code class="k">epi --version</code>. Recording, verification and the commands above need no account and no licence.</p>
+<p><code class="k">DECISION: PASS</code> means the file is unchanged, it was sealed by the vendor key you pinned, a person you pinned signed off, and it matches your log. Anything else tells you exactly what is missing. Details: <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" style="color:var(--acc)" target="_blank" rel="noopener">reviewer brief</a>.</p>
+
+<h2>The periodic review</h2>
+<p>For a quarter&rsquo;s worth of cases, <code class="k">epi oversight report</code> reads the files and your own log and writes one page: decisions by outcome, every model version that answered, who approved what, and the gaps &mdash; cases reported to you but never delivered, cases you expected that were never recorded, and files that don&rsquo;t match your log. Available from epi-recorder 4.9 (<a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/OVERSIGHT.md" style="color:var(--acc)" target="_blank" rel="noopener">how it works</a>).</p>
+<pre>$ epi oversight report --cases ./received --log received.jsonl \
+    --since 2026-07-01 --until 2026-09-30 --out oversight-q3.html</pre>
+
+<h2 id="what-each-answer-means">What each answer means</h2>
+<p>From epi-recorder 4.10, three more checks answer the questions a bank or insurer asks about an AI vendor. Each runs offline, on your machine, against your own witness log.</p>
+
+<h3>1. Was anything held back?</h3>
+<pre>epi witness audit received.jsonl</pre>
+<div class="table-wrap"><table>
+<thead><tr><th>Answer</th><th>Means</th><th>Exit</th></tr></thead>
+<tbody>
+<tr><td><code class="k badge-pass">clean</code></td><td>Every numbered record in your chain, up to the latest heartbeat, was reported. Numbering is per customer: another customer's log is a different sequence. Without a heartbeat, only the delivered records are checked.</td><td>0</td></tr>
+<tr><td><code class="k badge-fail">MISSING #N</code></td><td>Record N was sealed but never reported to you, in your chain. Ask why.</td><td>1</td></tr>
+<tr><td><code class="k badge-fail">FORK</code></td><td>Two different records claim the same number.</td><td>1</td></tr>
+<tr><td><code class="k badge-fail">CHAIN BREAK</code></td><td>A record doesn&rsquo;t link to the one before it.</td><td>1</td></tr>
+<tr><td><code class="k badge-fail">TAIL GAP</code></td><td>The vendor&rsquo;s heartbeat says more records exist than you received.</td><td>1</td></tr>
+<tr><td><code class="k badge-fail">APPROVAL REUSED</code></td><td>One approval was used for more than one action.</td><td>1</td></tr>
+<tr><td><code class="k badge-warn">BURNED #N</code></td><td>The vendor says record N failed while sealing. Not verifiable; worth asking about if it grows.</td><td>0 (1 with <code class="k">--strict</code>)</td></tr>
+<tr><td><code class="k badge-warn">NEW CHAIN</code></td><td>A new numbering started for a known key (new machine or reset).</td><td>0</td></tr>
+</tbody>
+</table></div>
+<p style="margin-top:1rem;font-size:0.9rem;color:var(--text-muted)">Numbers are per customer. A gap in one customer&rsquo;s log is not a gap in another&rsquo;s.</p>
+
+<h3>2. Did an approved version make this decision?</h3>
+<pre>epi verify decision.epi --witness-log received.jsonl --release-dir releases/ --require-release --min-approvals 2</pre>
+<div class="table-wrap"><table>
+<thead><tr><th>Answer</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code class="k badge-pass">MATCHES</code></td><td>Approved release, sealed first, approved before use, and every observed component matches.</td></tr>
+<tr><td><code class="k badge-fail">DRIFT</code></td><td>Something that ran differs from the release.</td></tr>
+<tr><td><code class="k badge-fail">UNDECLARED</code></td><td>Something ran that the release doesn&rsquo;t list (for example a second model).</td></tr>
+<tr><td><code class="k badge-warn">NOT FULLY OBSERVED</code></td><td>Declared in the release but EPI couldn&rsquo;t see it at runtime. Never counted as a match.</td></tr>
+<tr><td><code class="k badge-fail">APPROVED AFTER USE</code></td><td>Approvals exist, but were made after this decision.</td></tr>
+<tr><td><code class="k badge-fail">UNAPPROVED RELEASE</code></td><td>Not enough approvals. Your <code class="k">--min-approvals</code> wins over the vendor&rsquo;s number.</td></tr>
+<tr><td><code class="k badge-fail">RELEASE SEALED AFTER DECISION</code></td><td>The release was created after the decision.</td></tr>
+<tr><td><code class="k badge-fail">DIRTY RELEASE</code></td><td>Built from uncommitted code.</td></tr>
+<tr><td><code class="k badge-fail">AMBIGUOUS RELEASE</code></td><td>Two release files claim the same id. EPI won&rsquo;t pick one.</td></tr>
+</tbody>
+</table></div>
+<p class="note">Default: warnings. With <code class="k">--require-release</code>: any answer other than <code class="k badge-pass">MATCHES</code> fails.</p>
+
+<h3>3. Did a person approve before it ran?</h3>
+<pre>epi verify decision.epi --witness-log received.jsonl --require-pre-action-approval</pre>
+<div class="table-wrap"><table>
+<thead><tr><th>Answer</th><th>Means</th></tr></thead>
+<tbody>
+<tr><td><code class="k badge-pass">APPROVED BEFORE ACTION</code></td><td>A pinned person signed this exact action, and your log received the approval before the execution.</td></tr>
+<tr><td><code class="k badge-fail">ACTION BEFORE APPROVAL</code></td><td>Your log received the execution first.</td></tr>
+<tr><td><code class="k badge-fail">ACTION WITHOUT APPROVAL</code></td><td>The action needed approval and has none.</td></tr>
+<tr><td><code class="k badge-fail">DENIED BUT EXECUTED</code></td><td>The approver said no; it ran anyway.</td></tr>
+<tr><td><code class="k badge-fail">ARGS CHANGED AFTER APPROVAL</code></td><td>What ran isn&rsquo;t what was approved.</td></tr>
+<tr><td><code class="k badge-fail">APPROVAL EXPIRED</code> / <code class="k badge-fail">APPROVAL REUSED</code></td><td>Too late, or used twice.</td></tr>
+<tr><td><code class="k badge-fail">SIGNED BY SEALING KEY</code> / <code class="k badge-fail">UNKNOWN APPROVER</code></td><td>Not independent, or not a key you pinned.</td></tr>
+<tr><td><code class="k badge-warn">AUTO-APPROVED (NOT HUMAN)</code></td><td>A test or dev setting approved it. Never counts as a person.</td></tr>
+<tr><td><code class="k badge-warn">approver key on agent host</code></td><td>Signed, but the key was on the vendor&rsquo;s machine. Not independent.</td></tr>
+</tbody>
+</table></div>
+<p>Without <code class="k">--witness-log</code>, order comes only from the vendor&rsquo;s own record and is labelled &ldquo;not independent&rdquo;.</p>
+
+<!-- TODO(Part 3): render the "DORA evidence for AI vendors" link when /dora exists. -->
+
+<h2>What a file proves &mdash; and what it doesn&rsquo;t</h2>
+<ul>
+<li><strong>Proves:</strong> the record has not changed since it was sealed, who sealed it and who approved it (once you have pinned their keys), and &mdash; with your log &mdash; that it is the version reported to you at the time.</li>
+<li><strong>Does not prove:</strong> that the AI&rsquo;s decision was right, that every case was recorded, or that an approval came before the action. A file is evidence for your review, not a certificate. See the <a href="/trust" style="color:var(--acc)">trust model</a> and <a href="/standards" style="color:var(--acc)">standards</a>.</li>
+</ul>
+
+<h2>More</h2>
+<ul>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/BANK-REVIEWER-BRIEF.md" style="color:var(--acc)" target="_blank" rel="noopener">Bank reviewer brief</a> &mdash; one page, every claim checkable</li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/AUDITORS-GUIDE.md" style="color:var(--acc)" target="_blank" rel="noopener">Auditor&rsquo;s guide</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/WITNESS.md" style="color:var(--acc)" target="_blank" rel="noopener">Your witness log</a></li>
+<li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" style="color:var(--acc)" target="_blank" rel="noopener">Known limitations</a></li>
+</ul>
+<p style="margin-top:28px">Is your AI vendor not using EPI yet? <a href="/plans#contact" style="color:var(--acc)">Tell us who they are</a> &mdash; checking is free for reviewers, always.</p>
+</div>
+</main>
+<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
+  <div class="wrap fbot" style="border:0;padding-top:0">
+    <span>&copy; 2026 EPI LABS · Apache-2.0 · v4.10.0</span>
+    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
+  </div>
+<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+</footer>
+<script src="/js/theme.js"></script>
+<script>
+(function(){
+  var nav=document.getElementById('nav');
+  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
+  addEventListener('scroll',onS,{passive:true});onS();
+  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
+  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
+})();
+</script>
+<script src="/js/aos.js"></script>
+<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
+<script src="/js/auth-ui.js?v=2"></script>
+</body>
+</html>

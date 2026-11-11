@@ -636,6 +636,31 @@ def verify(
             "(or a case-level approval)."
         ),
     ),
+    release: Path | None = typer.Option(
+        None,
+        "--release",
+        help="The signed release .epi this decision was produced under.",
+    ),
+    release_dir: Path | None = typer.Option(
+        None,
+        "--release-dir",
+        help="Directory to resolve release_ref by id (never guesses between two matches).",
+    ),
+    min_approvals: int | None = typer.Option(
+        None,
+        "--min-approvals",
+        help="Verifier's minimum release approvals; wins when higher than the release's.",
+    ),
+    require_release: bool = typer.Option(
+        False,
+        "--require-release",
+        help="FAIL when no release is declared, or the release does not match.",
+    ),
+    require_pre_action_approval: bool = typer.Option(
+        False,
+        "--require-pre-action-approval",
+        help="FAIL unless every gated action has an independent, pre-action approval.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -670,6 +695,11 @@ def verify(
         witness_pubkey=witness_pubkey,
         tsa_root=tsa_root, require_timestamp=require_timestamp,
         require_human_approval=require_human_approval,
+        release=release,
+        release_dir=release_dir,
+        min_approvals=min_approvals,
+        require_release=require_release,
+        require_pre_action_approval=require_pre_action_approval,
     )
 
 # Phase 2: record command (legacy/advanced) - lazy import to avoid loading the
@@ -999,7 +1029,23 @@ from epi_cli.witness import app as witness_app
 app.add_typer(
     witness_app,
     name="witness",
-    help="Customer witness: vendor outbox (status/flush/drop) and the customer receiver (serve)",
+    help="Customer witness: seal reports (status/flush/drop), gap audit, heartbeat, and the receiver (serve)",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.release import app as release_app
+app.add_typer(
+    release_app,
+    name="release",
+    help="Signed release records: pin policy/prompts/models/code, approve, and list versions",
+    rich_help_panel="Everyday",
+)
+
+from epi_cli.approval import app as approval_app
+app.add_typer(
+    approval_app,
+    name="approval",
+    help="Pre-action approvals: list requests, sign on the approver's machine, export/import",
     rich_help_panel="Everyday",
 )
 
@@ -2493,6 +2539,23 @@ def doctor(
             _fail("No signing key found", "Run: epi keys generate")
     except Exception as e:
         _fail(f"Key system error: {e}", "Run: epi keys generate")
+
+    # Owner-only private key files. Windows inherits the profile ACL, so a key
+    # can be readable by unrelated SIDs even though chmod 0600 would be enough
+    # on Unix. Report old keys rather than silently leaving them exposed.
+    try:
+        from epi_core.approvers import _resolve_default_approver_keys_dir
+        from epi_core.keys import key_acl_advice
+
+        for label, directory in (
+            ("signing keys", km.keys_dir),
+            ("approver keys", _resolve_default_approver_keys_dir()),
+        ):
+            advice = key_acl_advice(directory)
+            if advice:
+                _warn(f"{label}: {advice}")
+    except Exception:
+        pass
 
     # ── 2. Disk space ─────────────────────────────────────────────────────
     console.print()

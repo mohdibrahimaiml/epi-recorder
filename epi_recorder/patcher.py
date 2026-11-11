@@ -114,7 +114,12 @@ class RecordingContext:
         except Exception:
             pass
     
-    def add_step(self, kind: str, content: Dict[str, Any], trace_id: Optional[str] = None, span_id: Optional[str] = None, parent_span_id: Optional[str] = None) -> None:
+    def chain_head(self) -> str:
+        """Canonical hash of the latest step (the chain anchor for the next one)."""
+        with self._lock:
+            return self._last_step_hash
+
+    def add_step(self, kind: str, content: Dict[str, Any], trace_id: Optional[str] = None, span_id: Optional[str] = None, parent_span_id: Optional[str] = None, redact: bool = True) -> None:
         """
         Add a step to the recording.
         
@@ -151,7 +156,7 @@ class RecordingContext:
                 pass
 
             # Redact if enabled
-            if self.redactor:
+            if self.redactor and redact:
                 redacted_content, redaction_count = self.redactor.redact(content)
 
                 # Add redaction step if secrets were found

@@ -135,7 +135,7 @@ def test_view_link_renders_the_verified_record_in_a_real_browser_with_nothing_in
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(sealed["view_url"])  # no Authorization header: only the link's token
-            page.wait_for_timeout(4000)
+            page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
             body = page.inner_text("body")
             browser.close()
         assert "INTEGRITY VERIFIED" in body and "SIGNATURE VALID" in body

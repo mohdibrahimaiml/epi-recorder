@@ -23,10 +23,16 @@ def test_no_insurability_claim():
 
 
 def test_footer_matches_the_published_version():
+    """The homepage badge names the release and its PyPI state honestly.
+
+    A release branch may be version-bumped before the upload runs; in that state
+    the badge says "PyPI publish pending" instead of claiming the wheel is live.
+    """
     home = _read("index.html")
     # A release branch may be version-bumped before the wheel is uploaded; in
     # that state the banner must say so rather than claim it is already live.
     assert ("on PyPI" in home) or ("PyPI publish pending" in home)
+    assert not ("on PyPI" in home and "PyPI publish pending" in home)
 
 
 def test_no_polyglot_by_default_claim():

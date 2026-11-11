@@ -311,7 +311,7 @@ def _make_stub(state: StubState) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def browser():
     import glob
     import os
@@ -774,7 +774,11 @@ def test_refresh_keeps_token_and_strips_url(servers, page) -> None:
 def test_missing_token_explains_and_disables(servers, page) -> None:
     _, static, api = servers
     page.goto(f"{static}/t/sh_test?api={api}")
-    page.wait_for_timeout(300)
+    page.wait_for_function(
+        "() => { const el = document.querySelector('#gateStatus'); "
+        "return !!el && el.innerText.includes('copied without its key'); }",
+        timeout=10000,
+    )
     assert "copied without its key" in page.inner_text("#gateStatus")
     assert not page.locator("#gateBtn").is_enabled()
 

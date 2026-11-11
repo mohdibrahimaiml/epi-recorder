@@ -8,6 +8,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  compatibility-gate:
+    name: Last-release compatibility (blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+
+      - name: Check out the last released tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(python -c "import json,urllib.request; print(json.load(urllib.request.urlopen('https://pypi.org/pypi/epi-recorder/json', timeout=30))['info']['version'])")
+          echo LAST_VERSION=$VERSION >> "$GITHUB_ENV"
+          git fetch --depth=1 origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
+          git worktree add "$RUNNER_TEMP/last-release" "v${VERSION}"
+
+      - name: Files sealed by HEAD must verify on the last release
+        run: |
+          python scripts/check_backward_compatibility.py \
+            --last-version "$LAST_VERSION" \
+            --last-website "$RUNNER_TEMP/last-release"
+
   artifact-privacy:
     name: Artifact privacy (committed samples)
     runs-on: ubuntu-latest
@@ -29,6 +63,7 @@ jobs:
 
   release-gate:
     name: Full test, build, and wheel audit
+    needs: compatibility-gate
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

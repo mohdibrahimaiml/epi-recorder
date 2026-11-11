@@ -16,11 +16,16 @@ small hash-only report to an endpoint **the customer** controls, at seal time:
  "workflow_id": "...", "manifest_hash": "<sha256>", "file_sha256": "<sha256>",
  "content_digest": "<sha256>",
  "public_key": "<hex>", "key_fingerprint": "<16 hex>",
+ "seal_seq": 57, "ledger_id": "<uuid>",
+ "prev_seq": 56, "prev_content_digest": "<sha256>",
  "steps": 12, "sealed_at": "<vendor clock>", "seal_timestamp": {"status": "present", "gen_time": "..."}}
 ```
 
 No content, no prompts, no step data — hashes and counts only. The vendor
 cannot edit the customer's copy afterwards.
+
+The `seal_seq`, `ledger_id`, `prev_seq` and `prev_content_digest` fields are
+additive: older receivers ignore them, and older reports simply lack them.
 
 `steps` counts every sealed step, including the session and environment
 steps EPI adds itself, so it can be larger than the "N steps" printed at seal
@@ -28,6 +33,91 @@ time (a run printed as `3 steps` reports `"steps": 6`).
 
 `content_digest` covers the sealed evidence: every manifest field and file
 hash except the signature and transparency receipts added after sealing.
+
+## Sequence numbers and gaps
+
+Every seal made with a signing key gets a number (1, 2, 3…) and the
+fingerprint of the previous seal, written **inside the signed manifest**
+(`seal_chain`) and repeated in the witness report. The signature covers the
+number, so a vendor cannot renumber a file afterwards without breaking it.
+
+### One chain per customer, not per key
+
+A chain belongs to an **audience**, not to a key. One key that reports to two
+customers keeps two independent 1..n sequences, so a number missing from one
+customer's log is never a hole in the other's. The audience is the explicit
+`record(customer="acme-bank")` when given, otherwise the Cloud inbox id, then
+a hash of the normalised witness URL, then `local:unwitnessed` for seals made
+before any witness exists.
+
+`customer=` also keeps a chain continuous when the witness URL changes; a
+changed URL without it reads as a NEW CHAIN warning. A seal with no witness
+lands on its own `local:unwitnessed` chain and never creates a hole in a
+customer's chain.
+
+When one seal goes to more than one audience, the file stores only salted
+commitments for every audience (`artifacts/seal_chains.json`); the full entry
+and its nonce travel only in that audience's report. A file handed to one
+customer therefore reveals no audience id, number or count for another. A
+single-audience file keeps the plaintext `seal_chain`, as before.
+
+`prev_seq` names the last *committed* seal, which is not always `seq - 1`:
+two seals can be allocated and sealed at the same time (the gateway does
+this), and a seal cannot link to a number whose content digest is not known
+yet. In serial operation `prev_seq == seq - 1`.
+
+### Audit the log
+
+```bash
+epi witness audit received.jsonl          # plain English
+epi witness audit received.jsonl --json   # machine-readable
+```
+
+Per `(audience, key fingerprint, ledger id)` it reports:
+
+| Finding | Meaning |
+| --- | --- |
+| `MISSING #2` | the vendor sealed #2 but never reported it |
+| `FORK at #57` | two different seals were reported with the same number |
+| `CHAIN BREAK at #58` | `prev_content_digest` does not match the seal at `prev_seq` |
+| `TAIL GAP` | a heartbeat says the chain runs past the last seal you received |
+| `BURNED #57 (vendor-declared)` | the vendor says #57 was allocated but never sealed. **Not verifiable**: it is shown as a warning, never counted as clean, and `--strict` makes it exit 1 |
+| `NEW CHAIN` | the same key now has a second chain starting at #1 (state wiped, restored elsewhere, or a second machine). A warning, shown rather than hidden |
+
+Exit codes: `0` clean; `1` on MISSING, FORK, CHAIN BREAK or TAIL GAP (and,
+with `--strict`, on BURNED and NEW CHAIN); `2` when the log cannot be read.
+Reports from before sequence numbers — and seals made in the browser with
+"Sign & seal" — have no ledger and are listed as **unsequenced**, never as
+errors.
+
+### Heartbeat: stop the last few seals from being withheld
+
+A daily audit cannot see a seal the vendor simply never sent. An hourly
+signed heartbeat ("I have sealed up to #412") closes that tail:
+
+```bash
+EPI_WITNESS_URL=https://witness.customer.example/ \
+EPI_WITNESS_SECRET=SHARED_SECRET \
+epi witness heartbeat --key default
+```
+
+Run it from cron (hourly is a good default):
+
+```cron
+0 * * * * EPI_HOME=/var/lib/epi EPI_WITNESS_URL=https://witness.customer.example/ EPI_WITNESS_SECRET=... /usr/local/bin/epi witness heartbeat --key default
+```
+
+The heartbeat goes through the same outbox and is signed with the same key
+(`X-EPI-Seal-Signature`). It reports the last committed number and any
+vendor-declared burns. If the customer's receiver predates heartbeats it
+answers HTTP 400; the vendor is told plainly that the receiver needs
+upgrading, and the entry is not retried forever.
+
+`epi verify --witness-log` adds one line for the file's chain position, for
+example `Sequence: #57 of chain 3f2a…, log contiguous 1..412`. Files sealed
+before this feature show `Sequence: not present`, and their verdict does not
+change.
+
 
 ## Vendor setup
 
@@ -236,6 +326,12 @@ The SEAL block shows one `Witness:` line:
   simply not what you were told about. Headline
   `✘ FAIL — NOT THE VERSION REPORTED TO YOU`, in every policy.
 
+A second `Sequence:` line shows where the file sits in the vendor's chain
+(`#57 of chain 3f2a…, log contiguous 1..412`). It is display-only: an old
+file says `not present`, and a gap in the log does not change the verdict —
+use `epi witness audit` for that, so the reason is named rather than folded
+into a file verdict.
+
 ### In the browser, no install
 
 `/verify` now takes **two** drops: the `.epi` file, and your `received.jsonl`
@@ -283,6 +379,17 @@ epi oversight report --cases ./received --log received.jsonl \
 
 - The witness proves **what was sent**, not what happened. A vendor can
   choose not to send a seal, and can only send seals for runs they record.
+  Sequence numbers make a withheld **middle** seal visible, and the heartbeat
+  makes a withheld **tail** visible — but only if the vendor's sealing path
+  uses the ledger and the heartbeat actually runs. A vendor who never runs
+  `epi witness heartbeat` can still hide the last few seals.
+- Decisions that were never sealed at all are invisible except through the
+  heartbeat's count (and the customer's own knowledge that a case happened).
+  A vendor-declared burn is not verifiable: a dishonest vendor could call a
+  withheld seal "burned", which is why `epi witness audit` reports burns as
+  warnings and `--strict` fails them.
+- Seals made in the browser with "Sign & seal" have no access to the local
+  ledger and are **unsequenced**. They are listed as such, never as errors.
 - It does not prove the agent behaved correctly, completely, or compliantly
   — only that these contents were sealed at (no later than) the recorded time.
 - `sealed_at` is the vendor's clock; the independent time is the TSA

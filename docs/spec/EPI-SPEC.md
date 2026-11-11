@@ -1,8 +1,8 @@
 # EPI File Format Specification v4.10.0
 
 **Status:** Active  
-**Date:** 2026-10-23  
-**Version:** 4.9.0  
+**Date:** 2026-11-08  
+**Version:** 4.10.0  
 **Category:** Standards Track
 
 ---
@@ -661,6 +661,7 @@ produces valid files is partially conformant.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 4.10.0 | 2026-11-08 | No breaking format change. The signed manifest may carry `seal_chain` (ledger id, key fingerprint, sequence, previous sequence and digest) and `release_ref` (approved release id and digest); a run may seal `approval.request`, `approval.response` and `approval.executed` steps. All fields are omitted from the signature preimage when absent, so older artifacts keep their verdict |
 | 4.9.0 | 2026-11-01 | No format change. Oversight totals count only files that are the version the witness recorded; the DEMO trust page prints the byte count it serves |
 | 4.8.0 | 2026-10-30 | Tool-call decisions sealed (`tool_calls` / `tool_use`, `served_model`, `response_id`, request settings); approval version 1.1.0 adds `signed_at` inside the signed entry; the approval's review hash is independently timestamped (RFC 3161) in `review_timestamps/<id>.json`, outside the review ledger namespace |
 | 4.7.0 | 2026-10-28 | `review_version` 1.2.0: a human approval is a single `entry_type: "approval"` entry inside the existing `reviews` list (no new top-level field, so older readers keep the same content hash); `verify` adds the `human_approval` classification field and `--require-human-approval`; approver registry (`epi approvers`) separate from trusted signer keys; HSM/KMS signing (`epi keys link`); gateway approval links become single-use tokenised capabilities |

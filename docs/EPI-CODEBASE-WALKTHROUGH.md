@@ -468,7 +468,7 @@ It acts as the translation layer between low-level events and business-facing
 
 The `.epi` artifact is the center of the whole product.
 
-In the current `v4.9.0` line, it is a polyglot envelope: the same bytes open
+In the current `v4.10.0` line, it is a polyglot envelope: the same bytes open
 as an HTML page and carry a signed ZIP payload. Under that display layer it is
 a binary envelope with a fixed 128-byte header, followed by the outer viewer
 HTML and the ZIP payload.

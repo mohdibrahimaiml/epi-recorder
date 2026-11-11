@@ -220,11 +220,11 @@
       <div class="summary-grid">
         <article class="summary-tile">
           <p class="eyebrow">Workflow</p>
-          <strong>936447ab-9442-4d92-88dc-edfce4e318fe</strong>
+          <strong>b87185ac-a123-479f-b897-e1496a8b25cc</strong>
         </article>
         <article class="summary-tile">
           <p class="eyebrow">Created</p>
-          <strong>2026-11-01 12:30 UTC</strong>
+          <strong>2026-11-09 13:04 UTC</strong>
         </article>
         <article class="summary-tile">
           <p class="eyebrow">Analysis</p>
@@ -242,9 +242,9 @@
       <p class="section-copy">A short business summary of the case and the result that was sealed into the artifact.</p>
       <div class="detail-list">
         <div class="detail-row"><dt>Goal</dt><dd>Adjudicate claim CLM-1001</dd></div>
-        <div class="detail-row"><dt>Notes</dt><dd>SIMULATED DEMO - the model response is scripted; the record format, hashes, signature and approval are real.</dd></div>
+        <div class="detail-row"><dt>Notes</dt><dd>SIMULATED DEMO - the model response is scripted; the record format, hashes, signature, release and approvals are real.</dd></div>
         <div class="detail-row"><dt>Decision</dt><dd>Denied</dd></div>
-        <div class="detail-row"><dt>Headline</dt><dd>No fault detected in the recorded execution.</dd></div>
+        <div class="detail-row"><dt>Headline</dt><dd>P4 (Context Drop) triggered at step 10.</dd></div>
       </div>
     </section>
 
@@ -266,12 +266,22 @@
         </article>
         <article class="summary-tile">
           <p class="eyebrow">Human approval</p>
-          <strong>Signed approval by DEMO KEY - Claims Adjuster (not a real person) (key not pinned by this verifier)</strong>
+          <strong>Signed approval by DEMO KEY (pinned)</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Release</p>
+          <strong>claims-policy 1.4 &middot; MATCHES</strong>
+        </article>
+        <article class="summary-tile">
+          <p class="eyebrow">Pre-action approval</p>
+          <strong>DEMO APPROVER &middot; before the action</strong>
         </article>
       </div>
       <div class="detail-list">
         <div class="detail-row"><dt>Principal reasons</dt><dd>Water damage exclusion HO3-4.2 applies to this peril.</dd></div>
         <div class="detail-row"><dt>Data and rules relied on</dt><dd>policy=HO3-4.2; data=claim:CLM-1001, policy:HO3-4.2#exclusion, peril:water damage</dd></div>
+        <div class="detail-row"><dt>Release</dt><dd>claims-policy 1.4 &middot; MATCHES</dd></div>
+        <div class="detail-row"><dt>Pre-action approval</dt><dd>DEMO APPROVER &middot; approved before the action</dd></div>
       </div>
     </section>
 
@@ -327,7 +337,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Business check started: Lookup claim.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>tool.call</p>
         </article>
@@ -335,7 +345,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Business check result: Success.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>tool.response</p>
         </article>
@@ -343,7 +353,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Business check started: Check policy.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>tool.call</p>
         </article>
@@ -351,7 +361,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Business check result: Success.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>tool.response</p>
         </article>
@@ -359,7 +369,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>AI was consulted for a recommendation.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>llm.request</p>
         </article>
@@ -367,7 +377,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>AI recommendation recorded.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>llm.response</p>
         </article>
@@ -375,7 +385,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Final decision recorded: Denied.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>agent.decision</p>
         </article>
@@ -383,7 +393,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Human approval requested for Issue denial notice.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>agent.approval.request</p>
         </article>
@@ -391,7 +401,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Workflow completed.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>agent.run.end</p>
         </article>
@@ -399,7 +409,7 @@
         <article class="timeline-item">
           <div class="timeline-top">
             <strong>Workflow completed.</strong>
-            <span>2026-11-01 12:30 UTC</span>
+            <span>2026-11-09 13:04 UTC</span>
           </div>
           <p>agent.run.end</p>
         </article>
@@ -410,13 +420,13 @@
       <h2>Human Review and Approval</h2>
       <p class="section-copy">This section records the human approval and any later attached review notes.</p>
       <div class="detail-list">
-        <div class="detail-row"><dt>Human approval</dt><dd>Signed approval by DEMO KEY - Claims Adjuster (not a real person) (key not pinned by this verifier)</dd></div>
-        <div class="detail-row"><dt>Approver</dt><dd>DEMO KEY - Claims Adjuster (not a real person)</dd></div>
-        <div class="detail-row"><dt>Approver key fingerprint</dt><dd>ed96b064fd705f79</dd></div>
-        <div class="detail-row"><dt>Signed at</dt><dd>2026-11-01T12:30:17.332295+00:00</dd></div>
-        <div class="detail-row"><dt>Independent time</dt><dd>verified 2026-11-01T12:30:20Z</dd></div>
+        <div class="detail-row"><dt>Human approval</dt><dd>Signed approval by DEMO KEY (pinned)</dd></div>
+        <div class="detail-row"><dt>Approver</dt><dd>DEMO KEY</dd></div>
+        <div class="detail-row"><dt>Approver key fingerprint</dt><dd>71926c38f452feee</dd></div>
+        <div class="detail-row"><dt>Signed at</dt><dd>2026-11-09T13:04:49.148842+00:00</dd></div>
+        <div class="detail-row"><dt>Independent time</dt><dd>verified 2026-11-09T13:04:53Z</dd></div>
         <div class="detail-row"><dt>Agent-reported step</dt><dd>None</dd></div>
-        <div class="detail-row"><dt>Review outcome</dt><dd>Human reviewer approved the decision (signed; the approver key is not pinned by this verifier)</dd></div>
+        <div class="detail-row"><dt>Review outcome</dt><dd>No final human review outcome recorded</dd></div>
         <div class="detail-row"><dt>Reviewer</dt><dd>DEMO KEY - Claims Adjuster (not a real person)</dd></div>
         <div class="detail-row"><dt>Review notes</dt><dd>Not recorded</dd></div>
       </div>
@@ -427,11 +437,11 @@
       <p class="section-copy">Anyone can verify this record later and detect whether it was changed after the decision was made.</p>
       <div class="proof-list">
         <div class="detail-row"><dt>Integrity</dt><dd><span class="status-pill tone-approved">Record has not been modified</span></dd></div>
-        <div class="detail-row"><dt>Signature</dt><dd>Verified signature - 6090c0d94782bb06</dd></div>
-        <div class="detail-row"><dt>Archive SHA-256</dt><dd><code>ae2966f6a1d52d6826b3865b23ed801ebe56de44c2432fdddd849c3bec542346</code></dd></div>
-        <div class="detail-row"><dt>Verify locally</dt><dd>epi verify decision-example.epi --require-human-approval</dd></div>
+        <div class="detail-row"><dt>Signature</dt><dd>Verified signature - 094da55fa3fd0844</dd></div>
+        <div class="detail-row"><dt>Archive SHA-256</dt><dd><code>5ab0e41389b66bbf9b591e869abcb5b1c4c490a6577c6bf8e278cb03297daaa3</code></dd></div>
+        <div class="detail-row"><dt>Verify locally</dt><dd>epi verify decision-example.epi --release claims-policy-1.4.epi --witness-log witness.jsonl --require-release --min-approvals 1 --require-pre-action-approval</dd></div>
         <div class="detail-row"><dt>Verify in browser</dt><dd>https://epilabs.org/verify</dd></div>
-        <div class="detail-row"><dt>Approver key to pin</dt><dd>ed96b064fd705f79</dd></div>
+        <div class="detail-row"><dt>Approver key to pin</dt><dd>71926c38f452feee</dd></div>
       </div>
       <p class="footnote">The raw execution record in <code>steps.jsonl</code> remains the ground truth. This Decision Record is a readable summary of the sealed artifact.</p>
     </section>
@@ -440,47 +450,81 @@
       <h2>Appendix</h2>
       <p class="section-copy">Technical detail for engineering, audit, or legal review when deeper inspection is needed.</p>
       <div class="detail-list">
-        <div class="detail-row"><dt>Workflow ID</dt><dd>936447ab-9442-4d92-88dc-edfce4e318fe</dd></div><div class="detail-row"><dt>Created at</dt><dd>2026-11-01 12:30 UTC</dd></div><div class="detail-row"><dt>Signer</dt><dd>6090c0d94782bb06</dd></div><div class="detail-row"><dt>Analysis status</dt><dd>complete</dd></div><div class="detail-row"><dt>Analysis error</dt><dd>None</dd></div><div class="detail-row"><dt>Files sealed in manifest</dt><dd>7</dd></div><div class="detail-row"><dt>Policy profile</dt><dd>custom.guided</dd></div><div class="detail-row"><dt>Rule count</dt><dd>1</dd></div><div class="detail-row"><dt>Primary finding</dt><dd>No fault detected in the recorded execution.</dd></div>
+        <div class="detail-row"><dt>Workflow ID</dt><dd>b87185ac-a123-479f-b897-e1496a8b25cc</dd></div><div class="detail-row"><dt>Created at</dt><dd>2026-11-09 13:04 UTC</dd></div><div class="detail-row"><dt>Signer</dt><dd>094da55fa3fd0844</dd></div><div class="detail-row"><dt>Analysis status</dt><dd>complete</dd></div><div class="detail-row"><dt>Analysis error</dt><dd>None</dd></div><div class="detail-row"><dt>Files sealed in manifest</dt><dd>10</dd></div><div class="detail-row"><dt>Policy profile</dt><dd>custom.guided</dd></div><div class="detail-row"><dt>Rule count</dt><dd>1</dd></div><div class="detail-row"><dt>Primary finding</dt><dd>P4 (Context Drop) triggered at step 10.</dd></div>
       </div>
       <details>
         <summary>Open technical payload</summary>
         <pre>{
   &quot;manifest&quot;: {
-    &quot;spec_version&quot;: &quot;4.9.0&quot;,
-    &quot;producer_version&quot;: &quot;4.9.0&quot;,
-    &quot;workflow_id&quot;: &quot;936447ab-9442-4d92-88dc-edfce4e318fe&quot;,
-    &quot;created_at&quot;: &quot;2026-11-01T12:30:16.667199Z&quot;,
+    &quot;spec_version&quot;: &quot;4.10.0&quot;,
+    &quot;producer_version&quot;: &quot;4.10.0&quot;,
+    &quot;case_id&quot;: &quot;CLM-1001&quot;,
+    &quot;seal_chain&quot;: {
+      &quot;ledger_id&quot;: &quot;a3bec938-83f1-4d38-ba29-7cd463a11bc0&quot;,
+      &quot;key_fingerprint&quot;: &quot;094da55fa3fd0844&quot;,
+      &quot;seq&quot;: 2,
+      &quot;prev_seq&quot;: 1,
+      &quot;prev_content_digest&quot;: &quot;d2c8b436f4da4d151a08e70098c552141960667931bcb2fc197752d68e8410df&quot;
+    },
+    &quot;record_kind&quot;: null,
+    &quot;release&quot;: null,
+    &quot;release_ref&quot;: {
+      &quot;release_id&quot;: &quot;rel_5acea31c7277ffb6&quot;,
+      &quot;release_digest&quot;: &quot;5acea31c7277ffb6cd22c2145c2214497fcd41cee8857fd99220d054e168ab9f&quot;
+    },
+    &quot;runtime_components&quot;: [
+      {
+        &quot;type&quot;: &quot;policy&quot;,
+        &quot;name&quot;: &quot;claims&quot;,
+        &quot;observed&quot;: true,
+        &quot;path&quot;: &quot;C:\\Users\\dell\\epi-recorder\\website\\assets\\demo\\claims-policy.yaml&quot;,
+        &quot;sha256&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;,
+        &quot;sha256_at_start&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;,
+        &quot;sha256_at_seal&quot;: &quot;466bb1f14fbedcbbceff703798f8d9fd10db630812d4f4601fd2318e7405e2cc&quot;
+      },
+      {
+        &quot;type&quot;: &quot;model&quot;,
+        &quot;name&quot;: &quot;openai:gpt-4o&quot;,
+        &quot;identifier&quot;: &quot;openai:gpt-4o&quot;,
+        &quot;observed&quot;: true
+      }
+    ],
+    &quot;workflow_id&quot;: &quot;b87185ac-a123-479f-b897-e1496a8b25cc&quot;,
+    &quot;created_at&quot;: &quot;2026-11-09T13:04:47.539711Z&quot;,
     &quot;cli_command&quot;: null,
     &quot;env_snapshot_hash&quot;: null,
     &quot;file_manifest&quot;: {
-      &quot;analysis.json&quot;: &quot;221fadc0a1b43b369e108cf305821a66e552227e1bf2857a4e118640a838be4d&quot;,
-      &quot;artifacts/manifest.json&quot;: &quot;0c47f73d3c6ce34a21dbcc1bd467e098a7aae99d14ddb4eb4836be2d2ee86ef6&quot;,
-      &quot;environment.json&quot;: &quot;57e01e9e4aff6c687c9aaec95cb2f50980fbf89f36a64ed347b0f83498213e5d&quot;,
+      &quot;analysis.json&quot;: &quot;e2f67790b531ff253bac766f33a4d6b303de79fc014384ab6d13b7173f59c24f&quot;,
+      &quot;artifacts/case_id.json&quot;: &quot;3a5d10d5ffd731a8c5394b0f58d97bd88a5a207354c863bd81c35151a9f49c05&quot;,
+      &quot;artifacts/manifest.json&quot;: &quot;f553fb949dbeaba2daac4356b51f7289ae17f7750371bd4c9cd7773325d36b38&quot;,
+      &quot;artifacts/release_ref.json&quot;: &quot;b9b1862120d22fdc4d7e91ee88467638a056a6ad0a717692ecd6bdec60a00569&quot;,
+      &quot;artifacts/seal_chain.json&quot;: &quot;2f57d077e7659f8e043e9d16f1c13c85c6c98a13d23a8284c8055564516c6772&quot;,
+      &quot;environment.json&quot;: &quot;fdb8845ab107b8461dbf258f73d05383613018c7f5966d69c37ddcaad7006e1d&quot;,
       &quot;policy.json&quot;: &quot;e4bb67707534956003c5357e7d20fd67344a5794859991d5a92bdd22333809af&quot;,
-      &quot;policy_evaluation.json&quot;: &quot;f5d2b940fcad5a181d061201206a664d7220ec8b2fc5262ba24aa1461793375a&quot;,
-      &quot;steps.jsonl&quot;: &quot;3f281dd04bad167cc3cccae747ee0882d6f078f6b46acfd1c67f4774a60df7e2&quot;,
-      &quot;VERIFY.txt&quot;: &quot;554fabc97ef84db9517cef64a83ecac02371c4eccb04a48f7146ff606a31f985&quot;
+      &quot;policy_evaluation.json&quot;: &quot;055508156e7febcdc063617e3e4ba8e465eaff9bf1de53890e05df0c942ba6cd&quot;,
+      &quot;steps.jsonl&quot;: &quot;5efe91d520f1da863670743a603f4d0b3a89ee164396c5022ed551ce386b3923&quot;,
+      &quot;VERIFY.txt&quot;: &quot;1180109b3b34ca6f5897424d6fe66ca89b6e7d2acbe377868d694129f985d1ab&quot;
     },
-    &quot;public_key&quot;: &quot;d111cc3366eeaba7a1f4bce89cf25d28a29e455c8034ec012064de0154d96af8&quot;,
-    &quot;signature&quot;: &quot;ed25519:6090c0d94782bb06:f10e492e77eec555e1256f168427bbd01241711dcdf0112937911d0fa45e7c70b909199f9c7ae9663aad079c0718da7aafacb50e208d88a7b566483de8004e01&quot;,
+    &quot;public_key&quot;: &quot;45451c6135c977a540b9aa4e402bf78d4945eb9eb2ec8cc283cbee75a6f67dad&quot;,
+    &quot;signature&quot;: &quot;ed25519:094da55fa3fd0844:48ae78afb4e19961d4d7bcc4a732164f75d6b5b5aa5e6ff91c6a7f87030eef2adc964603de9d04954877317a2587d9f133c27ae875efde6629da72f76cce4007&quot;,
     &quot;container_format&quot;: &quot;legacy-zip&quot;,
     &quot;analysis_status&quot;: &quot;complete&quot;,
     &quot;analysis_error&quot;: null,
     &quot;content_truncated&quot;: false,
     &quot;policy_load_status&quot;: &quot;loaded&quot;,
     &quot;goal&quot;: &quot;Adjudicate claim CLM-1001&quot;,
-    &quot;notes&quot;: &quot;SIMULATED DEMO - the model response is scripted; the record format, hashes, signature and approval are real.&quot;,
+    &quot;notes&quot;: &quot;SIMULATED DEMO - the model response is scripted; the record format, hashes, signature, release and approvals are real.&quot;,
     &quot;metrics&quot;: null,
     &quot;source&quot;: null,
-    &quot;total_steps&quot;: 15,
+    &quot;total_steps&quot;: 18,
     &quot;total_validators&quot;: null,
     &quot;total_llm_calls&quot;: null,
     &quot;passed&quot;: null,
     &quot;failed&quot;: null,
     &quot;corrected&quot;: null,
     &quot;trust&quot;: {
-      &quot;payload_hash&quot;: &quot;ca5fa17d7dc9324cb327ce90c86942988ea3a9b0c5c55e3de427c2b9dd677910&quot;,
-      &quot;artifact_uuid&quot;: &quot;936447ab-9442-4d92-88dc-edfce4e318fe&quot;,
+      &quot;payload_hash&quot;: &quot;c480b02194d33694942aa91ab90e8e8b5580aafdfa8f2ae67e3090f94273851e&quot;,
+      &quot;artifact_uuid&quot;: &quot;b87185ac-a123-479f-b897-e1496a8b25cc&quot;,
       &quot;mimetype&quot;: &quot;application/vnd.epi+zip&quot;,
       &quot;envelope_version&quot;: 2
     },
@@ -500,10 +544,10 @@
     }
   },
   &quot;analysis_summary&quot;: {
-    &quot;headline&quot;: &quot;No fault detected in the recorded execution.&quot;,
-    &quot;primary_category&quot;: null,
-    &quot;primary_step&quot;: null,
-    &quot;secondary_count&quot;: 0
+    &quot;headline&quot;: &quot;P4 (Context Drop) triggered at step 10.&quot;,
+    &quot;primary_category&quot;: &quot;heuristic_observation&quot;,
+    &quot;primary_step&quot;: 10,
+    &quot;secondary_count&quot;: 1
   },
   &quot;policy_evaluation&quot;: {
     &quot;controls_evaluated&quot;: 1,
@@ -518,21 +562,21 @@
     &quot;decision&quot;: &quot;approve&quot;,
     &quot;action&quot;: &quot;issue denial notice&quot;,
     &quot;reason&quot;: &quot;Checked against policy HO3-4.2; the exclusion applies.&quot;,
-    &quot;signed_at&quot;: &quot;2026-11-01T12:30:17.332295+00:00&quot;,
+    &quot;signed_at&quot;: &quot;2026-11-09T13:04:49.148842+00:00&quot;,
     &quot;approver&quot;: {
       &quot;name&quot;: &quot;DEMO KEY - Claims Adjuster (not a real person)&quot;,
-      &quot;key_fingerprint&quot;: &quot;ed96b064fd705f79&quot;
+      &quot;key_fingerprint&quot;: &quot;71926c38f452feee&quot;
     },
     &quot;demo_key&quot;: true
   },
   &quot;decision&quot;: {
     &quot;agent_name&quot;: &quot;claims-agent&quot;,
     &quot;agent_type&quot;: &quot;agent&quot;,
-    &quot;session_id&quot;: &quot;bcdfeb94-2643-411e-b899-98750e27b0f4&quot;,
-    &quot;task_id&quot;: &quot;aa73665a-2338-47ab-b977-7b8cf9a41044&quot;,
-    &quot;run_id&quot;: &quot;a568bcda-ac43-4d4c-af3f-8430498086fb&quot;,
+    &quot;session_id&quot;: &quot;e62e9482-168f-4109-b7b7-7417946e3196&quot;,
+    &quot;task_id&quot;: &quot;91668252-3cbd-499c-8bd4-4b6566cd0841&quot;,
+    &quot;run_id&quot;: &quot;5e3649eb-96bb-424f-9d61-6f8f11f789a5&quot;,
     &quot;attempt&quot;: 1,
-    &quot;timestamp&quot;: &quot;2026-11-01T12:30:16.731381+00:00&quot;,
+    &quot;timestamp&quot;: &quot;2026-11-09T13:04:47.694030+00:00&quot;,
     &quot;decision&quot;: &quot;deny_claim&quot;,
     &quot;output&quot;: {
       &quot;claim_id&quot;: &quot;CLM-1001&quot;,

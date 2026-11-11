@@ -99,6 +99,45 @@ def test_cloud_login_device_flow(home, monkeypatch):
     assert "dev_abc123" not in result.output
 
 
+def test_login_trims_workspace_and_customer_names(home, monkeypatch):
+    """A server label with a leading space must not leak into cloud.json."""
+    import time
+    import webbrowser
+
+    import httpx
+
+    class Spaced(FakeDeviceClient):
+        def get(self, url, **kwargs):
+            self.calls.append({"method": "GET", "url": url})
+            self.polls += 1
+
+            class R:
+                status_code = 200
+                headers: dict[str, str] = {}
+
+                def json(self):
+                    return {
+                        "status": "authorized",
+                        "org_id": "org_123",
+                        "api_key": "epik_devicekey123",
+                        "customer_label": "  QA Test Customer  ",
+                        "org_name": "  EPI Live Test  ",
+                    }
+
+            return R()
+
+    FakeDeviceClient.instances.clear()
+    monkeypatch.setattr(httpx, "Client", Spaced)
+    monkeypatch.setattr(webbrowser, "open", lambda url: True)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    result = CliRunner().invoke(app, ["login"])
+    assert result.exit_code == 0, result.output
+    saved = json.loads((home / "cloud.json").read_text())
+    assert saved["customer"] == "QA Test Customer"
+    assert saved["org_name"] == "EPI Live Test"
+
+
 def test_cloud_login_device_flow_backs_off_on_429(home, monkeypatch):
     """Poller handles 429 with Retry-After instead of hammering sign-in."""
 

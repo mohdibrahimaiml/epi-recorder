@@ -3,7 +3,12 @@
  * Dispatch matches epi_core._version.JCS_INTRODUCED_TUPLE (4, 4, 1):
  *   spec < 4.4.1 → json.dumps(sort_keys) with preserved float text (900.0)
  *   spec >= 4.4.1 → JCS-equivalent JSON.parse numbers (900.0 → 900)
- * Omit null content_truncated, policy_load_status, producer_version, case_id (MANIFEST_OMIT_NONE_FROM_HASH).
+ * Omit null content_truncated, policy_load_status, producer_version
+ * (MANIFEST_OMIT_NONE_FROM_HASH).
+ * Omit member-backed fields unconditionally: case_id, seal_chain, record_kind,
+ * release, release_ref, runtime_components. From 4.10 these live in archive
+ * members listed in file_manifest, never at the manifest top level; keeping
+ * them out of the hash is what lets 4.9.0 verifiers read new files.
  */
 (function (global) {
   'use strict';
@@ -186,6 +191,20 @@
         if (typeof o[k] === 'string') o[k] = epiUtcZ(o[k]); else walk(o[k]);
       }
     })(manifest);
+    if (manifest.record_kind === null || manifest.record_kind === undefined) {
+      delete manifest.case_id;
+      delete manifest.seal_chains;
+      delete manifest.record_kind;
+    }
+    if (manifest.release === null || manifest.release === undefined) {
+      delete manifest.release;
+    }
+    if (manifest.release_ref === null || manifest.release_ref === undefined) {
+      delete manifest.release_ref;
+    }
+    if (manifest.runtime_components === null || manifest.runtime_components === undefined) {
+      delete manifest.runtime_components;
+    }
     return manifest;
   }
 
@@ -200,9 +219,16 @@
     if (manifest.producer_version === null || manifest.producer_version === undefined) {
       delete manifest.producer_version;
     }
-    if (manifest.case_id === null || manifest.case_id === undefined) {
-      delete manifest.case_id;
-    }
+    return manifest;
+  }
+
+  // Fields stored as archive members (file_manifest covers their hashes).
+  // Python's model_dict_for_hash drops these unconditionally; the browser must
+  // do the same or the preimage diverges.
+  var MEMBER_FIELDS = ['case_id', 'seal_chain', 'record_kind', 'release', 'release_ref', 'runtime_components'];
+  function omitMemberFields(manifest) {
+    if (!manifest || typeof manifest !== 'object') return manifest;
+    for (var i = 0; i < MEMBER_FIELDS.length; i++) delete manifest[MEMBER_FIELDS[i]];
     return manifest;
   }
 
@@ -217,6 +243,7 @@
     _jcsNumbers = !legacy;
     var manifest = legacy ? parseJSONPreserveNumbers(rawManifestText) : peek;
     omitAbsentOptionalHashFields(manifest);
+    omitMemberFields(manifest);
     normalizeCreatedAt(manifest);
     delete manifest.signature;
     return sha256(new TextEncoder().encode(sortedJSON(manifest)));

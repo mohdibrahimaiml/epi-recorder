@@ -41,7 +41,14 @@ def _render(html: str, tmp_path: Path) -> dict:
         browser = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         page = browser.new_page()
         page.goto(page_path.as_uri())
-        page.wait_for_timeout(3500)
+        # The viewer hides its boot overlay after verification; the
+        # diagnostics section is what every assertion below reads.
+        page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
+        page.wait_for_function(
+            "() => { const el = document.querySelector('#diag-chain'); "
+            "return !!el && el.innerText.trim().length > 0; }",
+            timeout=20000,
+        )
 
         def txt(sel):
             el = page.query_selector(sel)
