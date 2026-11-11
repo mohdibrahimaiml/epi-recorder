@@ -6,45 +6,6 @@ from epi_cli.main import app
 runner = CliRunner()
 
 
-def test_integrate_dry_run_writes_nothing(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(app, ["integrate", "langchain", "--dry-run"])
-
-    assert result.exit_code == 0, result.output
-    assert "DRY-RUN" in result.output
-    assert not (tmp_path / ".epi").exists()
-
-
-def test_integrate_write_examples(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-
-    result = runner.invoke(app, ["integrate", "langchain", "--write-examples"])
-
-    assert result.exit_code == 0, result.output
-    example = tmp_path / ".epi" / "examples" / "langchain_epi_example.py"
-    assert example.exists()
-    text = example.read_text(encoding="utf-8")
-    # The deprecated EPICallbackHandler() writes no file; the example must use
-    # the session-bound adapter.
-    assert "EpiCallbackHandler(session)" in text
-    assert "EPICallbackHandler" not in text
-
-
-def test_integrate_pytest_apply_writes_workflow(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "tests").mkdir()
-
-    result = runner.invoke(app, ["integrate", "pytest", "--apply"])
-
-    assert result.exit_code == 0, result.output
-    workflow = tmp_path / ".github" / "workflows" / "epi-audit.yml"
-    assert workflow.exists()
-    content = workflow.read_text(encoding="utf-8")
-    assert "pytest --epi --epi-dir=evidence" in content
-    assert "mohdibrahimaiml/epi-recorder/.github/actions/verify-epi@main" in content
-
-
 def test_init_github_action_does_not_overwrite_without_force(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "tests").mkdir()

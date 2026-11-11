@@ -548,7 +548,7 @@ async def test_async_recorder_and_context(tmp_path):
 # ---------------------------------------------------------------------------
 
 def test_langgraph_checkpoint_saver(monkeypatch):
-    import epi_recorder.integrations.langgraph as lg
+    lg = pytest.importorskip("epi_enterprise.integrations.langgraph")
 
     # Force available so class body paths run even without langgraph installed
     monkeypatch.setattr(lg, "LANGGRAPH_AVAILABLE", True)
@@ -584,7 +584,7 @@ def test_langgraph_checkpoint_saver(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_langgraph_aput_aget_alist(monkeypatch):
-    import epi_recorder.integrations.langgraph as lg
+    lg = pytest.importorskip("epi_enterprise.integrations.langgraph")
 
     monkeypatch.setattr(lg, "LANGGRAPH_AVAILABLE", True)
     saver = lg.EPICheckpointSaver("x.epi")
@@ -616,7 +616,7 @@ async def test_langgraph_aput_aget_alist(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_record_langgraph_cm(monkeypatch):
-    import epi_recorder.integrations.langgraph as lg
+    lg = pytest.importorskip("epi_enterprise.integrations.langgraph")
     from contextlib import asynccontextmanager
 
     monkeypatch.setattr(lg, "LANGGRAPH_AVAILABLE", True)

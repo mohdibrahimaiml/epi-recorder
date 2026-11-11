@@ -573,7 +573,8 @@ class TestFailureModes:
         everything worked.
         """
         from unittest.mock import patch, MagicMock
-        from epi_recorder.integrations.opentelemetry import EPISpanExporter
+        pytest.importorskip("epi_enterprise.integrations.opentelemetry")
+        from epi_enterprise.integrations.opentelemetry import EPISpanExporter
 
         # We cannot easily import OTel without it installed, so skip gracefully.
         pytest.importorskip("opentelemetry.sdk.trace")
@@ -603,7 +604,8 @@ class TestFailureModes:
         flagged as failed, not silently lost.
         """
         from unittest.mock import patch
-        from epi_recorder.integrations.opentelemetry import EPISpanExporter
+        pytest.importorskip("epi_enterprise.integrations.opentelemetry")
+        from epi_enterprise.integrations.opentelemetry import EPISpanExporter
 
         pytest.importorskip("opentelemetry.sdk.trace")
         monkeypatch.setenv("EPI_DEADLETTER", "1")
@@ -639,7 +641,8 @@ class TestFailureModes:
     def test_otel_best_effort_drops_trace_without_deadletter_opt_in(self, monkeypatch):
         """Without EPI_DEADLETTER=1, best-effort mode must NOT write raw steps to disk."""
         from unittest.mock import patch
-        from epi_recorder.integrations.opentelemetry import EPISpanExporter
+        pytest.importorskip("epi_enterprise.integrations.opentelemetry")
+        from epi_enterprise.integrations.opentelemetry import EPISpanExporter
 
         pytest.importorskip("opentelemetry.sdk.trace")
         monkeypatch.delenv("EPI_DEADLETTER", raising=False)

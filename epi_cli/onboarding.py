@@ -137,7 +137,7 @@ with record("epi-recordings/langchain-run.epi", goal="Capture one LangChain run"
             "litellm_epi_example.py",
             '''import litellm
 from epi_recorder import record
-from epi_recorder.integrations.litellm import enable_epi
+from epi_enterprise.integrations.litellm import enable_epi
 
 enable_epi()
 
@@ -153,7 +153,7 @@ with record("epi-recordings/litellm-run.epi", goal="Capture one LiteLLM run"):
         return (
             "opentelemetry_epi_example.py",
             '''from opentelemetry import trace
-from epi_recorder.integrations.opentelemetry import setup_epi_tracing
+from epi_enterprise.integrations.opentelemetry import setup_epi_tracing
 
 exporter = setup_epi_tracing(output_dir="./epi-recordings", service_name="my-agent")
 tracer = trace.get_tracer("my-agent")

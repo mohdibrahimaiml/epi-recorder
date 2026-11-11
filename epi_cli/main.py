@@ -1156,12 +1156,7 @@ try:
 except ImportError:
     pass
 
-from epi_cli.integrate import integrate_command
-app.command(
-    name="integrate",
-    help="Generate EPI integration examples and CI workflows",
-    rich_help_panel="Advanced",
-)(integrate_command)
+# `epi integrate` lives in EPI Enterprise; PAID_COMMANDS explains its absence.
 
 
 @app.command(rich_help_panel="Everyday")
@@ -2183,7 +2178,7 @@ print("\\nDone! Open with: epi view epi-recordings/openai_demo.epi")
 
 try:
     import litellm
-    from epi_recorder.integrations.litellm import enable_epi
+    from epi_enterprise.integrations.litellm import enable_epi
 except ImportError:
     print("litellm not installed — pip install litellm")
     import sys; sys.exit(1)
@@ -2244,7 +2239,7 @@ print("\\nDone! Open with: epi view epi-recordings/langchain_demo.epi")
 # pip install epi-recorder langgraph langchain-openai
 
 from epi_recorder import record
-from epi_recorder.integrations.langgraph import EPICheckpointSaver
+from epi_enterprise.integrations.langgraph import EPICheckpointSaver
 
 try:
     from langgraph.graph import StateGraph, END
