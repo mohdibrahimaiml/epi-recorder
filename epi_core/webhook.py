@@ -1100,6 +1100,8 @@ def stage_release_report(
     key_name: str | None = None,
     signer: Any = None,
     path: Path | None = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Queue the witness report for a sealed release artifact."""
     targets = [u for u in (urls or []) if str(u or "").strip()]
@@ -1113,23 +1115,36 @@ def stage_release_report(
         release = getattr(manifest, "release", None)
         if release is None:
             return None
-        chain = _seal_chain_kwargs(manifest)
+        from epi_core.audience import derive_audiences
+
         public_key = getattr(manifest, "public_key", None)
-        payload = build_release_payload(
-            release_id=str(release.release_id),
-            name=str(release.name),
-            version=str(release.version),
-            release_digest=str(release.release_digest),
-            required_approvals=int(release.required_approvals),
-            sealed_at=_utc_now_iso(),
-            public_key=public_key,
-            key_fingerprint=key_fingerprint(str(public_key), grouped=False) if public_key else None,
-            **chain,
-        )
+        entries = dict(audience_entries or {})
+        payloads: dict[str, dict[str, Any]] = {}
+        headers_by_url: dict[str, dict[str, str]] = {}
+        for url in targets:
+            audience = derive_audiences(customer, [url])[0]
+            entry = entries.get(audience) or {}
+            chain = _chain_kwargs_from_entry(entry) if entry else _seal_chain_kwargs(manifest)
+            payload_for_target = build_release_payload(
+                release_id=str(release.release_id),
+                name=str(release.name),
+                version=str(release.version),
+                release_digest=str(release.release_digest),
+                required_approvals=int(release.required_approvals),
+                sealed_at=_utc_now_iso(),
+                public_key=public_key,
+                key_fingerprint=key_fingerprint(str(public_key), grouped=False) if public_key else None,
+                **chain,
+            )
+            payloads[url] = payload_for_target
+            headers_by_url[url] = _signed_headers(payload_for_target, signer, key_name)
+        payload = next(iter(payloads.values()))
         return append_outbox_entry(
             payload,
             targets,
-            headers=_signed_headers(payload, signer, key_name),
+            headers=headers_by_url.get(targets[0]) or {},
+            payloads=payloads,
+            headers_by_url=headers_by_url,
             path=path,
         )
     except Exception as exc:
@@ -1185,6 +1200,8 @@ def report_release(
     signer: Any = None,
     timeout_seconds: float | None = None,
     path: Path | None = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Stage and deliver a release report. Never raises.
 
@@ -1201,6 +1218,8 @@ def report_release(
         key_name=key_name,
         signer=signer,
         path=path,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     release_entry = stage_release_report(
         epi_path,
@@ -1208,6 +1227,8 @@ def report_release(
         key_name=key_name,
         signer=signer,
         path=path,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     entries = [entry for entry in (seal_entry, release_entry) if entry is not None]
     if not entries:
