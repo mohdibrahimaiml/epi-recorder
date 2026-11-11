@@ -49,6 +49,10 @@ def omit_absent_optional_hash_fields(model_dict: dict[str, Any], class_name: str
     for key in MANIFEST_OMIT_NONE_FROM_HASH:
         if model_dict.get(key) is None:
             model_dict.pop(key, None)
+    # Member-backed and unknown to pre-4.10 verifiers. It must never enter the
+    # preimage: 4.9.0 drops it before re-hashing and would call a genuine file
+    # tampered. The member is already bound through file_manifest.
+    model_dict.pop("seal_chains", None)
 
 
 def canonical_format_for(spec_version: str | None) -> CanonicalFormat:

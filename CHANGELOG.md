@@ -129,6 +129,13 @@ All notable changes to EPI Recorder are documented here.
   oversight report and check the customer's own key history.
 
 ### Fixed
+- **Seal numbers are per customer, not per key.** One key reporting to two
+  witnesses shared one 1..n sequence, so each customer's log showed false
+  MISSING numbers from the other's seals. Every audience now has its own
+  chain; a seal sent to several audiences is stored as salted commitments
+  only, so one customer's copy reveals nothing about another's numbers or
+  count. A seal made before any witness exists cannot create a hole in a
+  customer's chain. Old single-chain files audit exactly as before.
 
 - **The case number is sealed into the record.** `record(case_id="ORD-9001")`
   was accepted and then dropped: `ManifestModel` had no `case_id`, so a reviewer

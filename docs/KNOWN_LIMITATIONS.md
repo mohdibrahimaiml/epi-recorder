@@ -579,3 +579,8 @@ prove the decision was correct, and it cannot see everything:
 
 2026-08-01 — residual fix-before-PyPI: hosted plan key, dual-mode verify,
 browser Ed25519 honesty, contact route de-dup, product-first home, release hold.
+
+- **Seal numbers are per customer.** A gap means a seal was withheld from
+  that customer's log; it says nothing about another customer's sequence.
+  Old files sealed before the audience split carry one chain and are audited
+  exactly as they were.
