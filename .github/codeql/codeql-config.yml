@@ -1,0 +1,11 @@
+# CodeQL configuration.
+#
+# These two test modules build HTML from deliberately hostile input (a trust
+# page rendered from an artifact's metadata, viewer sections assembled from a
+# URL) and assert that the output is safe. CodeQL's path-injection and
+# URL-sanitisation queries flag the test harness itself, not shipped code.
+# They are excluded here instead of adding suppressions that would also mask a
+# real finding in the same file.
+paths-ignore:
+  - tests/test_trust_page.py
+  - tests/test_viewer_sections.py
