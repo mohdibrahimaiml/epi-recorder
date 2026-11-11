@@ -57,11 +57,17 @@ class SealChainModel(BaseModel):
     chain is new).
     """
 
+    audience: Optional[str] = Field(
+        None, description="Who this chain reports to (customer:, cloud:<inbox>, url:<hash>, local:unwitnessed)"
+    )
     ledger_id: str = Field(..., min_length=1, description="Random id for this machine's chain")
     key_fingerprint: str = Field(..., min_length=1, description="Fingerprint of the signing key")
     seq: int = Field(..., ge=1, description="Monotonic sequence number for this key")
     prev_seq: int = Field(default=0, ge=0, description="Sequence number this seal links back to")
     prev_content_digest: str = Field(default="genesis", description="Content digest of prev_seq")
+    nonce: Optional[str] = Field(
+        None, description="Salt for the commitment; travels only in that audience's report"
+    )
 
 
 class ReleaseComponentModel(BaseModel):
@@ -158,6 +164,16 @@ class ManifestModel(BaseModel):
             "Lets the customer detect a seal the vendor never reported. Absent "
             "(None) on artifacts sealed before this field existed; omitted from "
             "the signature preimage when None so old signatures still verify."
+        ),
+    )
+
+    # Other audiences' entries are stored as salted commitments only, so a
+    # copy handed to one customer reveals nothing about another customer.
+    seal_chains: Optional[list[dict]] = Field(
+        default=None,
+        description=(
+            "Commitments for the other audiences this seal was reported to. "
+            "The full entry and its nonce travel only in that audience's report."
         ),
     )
 

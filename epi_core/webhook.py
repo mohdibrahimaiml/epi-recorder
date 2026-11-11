@@ -254,6 +254,8 @@ def append_outbox_entry(
     urls: list[str],
     *,
     headers: dict[str, str] | None = None,
+    payloads: dict[str, dict[str, Any]] | None = None,
+    headers_by_url: dict[str, dict[str, str]] | None = None,
     path: Path | None = None,
 ) -> dict[str, Any]:
     """Append one witness entry with all urls pending. Returns the entry.
@@ -279,6 +281,10 @@ def append_outbox_entry(
         "delivered": {},
         "last_error": None,
     }
+    if payloads:
+        entry["payloads"] = dict(payloads)
+    if headers_by_url:
+        entry["headers_by_url"] = {k: dict(v) for k, v in headers_by_url.items()}
     data = (json.dumps(entry, ensure_ascii=False) + "\n").encode("utf-8")
     target.parent.mkdir(parents=True, exist_ok=True)
     with _APPEND_LOCK, _OutboxFileLock(target, timeout=10.0):
@@ -725,6 +731,17 @@ def build_heartbeat_payload(
     return payload
 
 
+def _chain_kwargs_from_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seal_seq": entry.get("seq"),
+        "ledger_id": entry.get("ledger_id"),
+        "prev_seq": entry.get("prev_seq"),
+        "prev_content_digest": entry.get("prev_content_digest"),
+        "audience": entry.get("audience"),
+        "nonce": entry.get("nonce"),
+    }
+
+
 def _seal_chain_kwargs(manifest: Any) -> dict[str, Any]:
     """Witness fields from ``manifest.seal_chain``, if this seal has one."""
     chain = getattr(manifest, "seal_chain", None)
@@ -841,7 +858,14 @@ def stage_seal_report(
                     return existing
         except Exception:
             pass
-        return append_outbox_entry(payload, targets, headers=headers, path=path)
+        return append_outbox_entry(
+            payload,
+            targets,
+            headers=headers,
+            payloads=payloads,
+            headers_by_url=headers_by_url,
+            path=path,
+        )
     except Exception as exc:
         logger.warning("Witness staging failed: %s", exc)
         return None
@@ -1360,6 +1384,8 @@ def report_seal(
     path: Path | None = None,
     case_id: str | None = None,
     signer: Any = None,
+    customer: str | None = None,
+    audience_entries: dict[str, dict] | None = None,
 ) -> dict[str, Any] | None:
     """Witness one sealed `.epi` to customer endpoints. Never raises, never slows the seal.
 
@@ -1376,6 +1402,8 @@ def report_seal(
         path=path,
         case_id=case_id,
         signer=signer,
+        customer=customer,
+        audience_entries=audience_entries,
     )
     if entry is None:
         return None

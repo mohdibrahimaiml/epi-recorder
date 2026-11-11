@@ -1003,6 +1003,8 @@ class EPIContainer:
         notarize: bool | None = None,
         embed_viewer: bool = True,
         seal_fingerprint: str | None = None,
+        audiences: list[str] | None = None,
+        seal_entries: dict[str, dict] | None = None,
         **kwargs,
     ) -> str | None:
         if not source_dir.exists():
@@ -1351,21 +1353,38 @@ class EPIContainer:
         # top level stays inside the 4.9.0 field set.
         from epi_core.manifest_members import write_manifest_members
 
+        _seal_entries: list[dict] = []
         if (
             seal_fingerprint
             and getattr(manifest, "seal_chain", None) is None
+            and getattr(manifest, "seal_chains", None) is None
             and not getattr(manifest, "signature", None)
         ):
-            # Allocate once per pack, before the walk, so the chain member is
-            # covered from the first signature. _attach_seal_chain in the
-            # signer reuses this reservation for the same key.
+            # Allocate once per audience, before the walk, so every entry is
+            # covered from the first signature. A single audience keeps the
+            # plaintext seal_chain (4.9-era readers and the common case); with
+            # more than one, only salted commitments are written, so the file
+            # handed to one customer reveals nothing about another.
             try:
+                from epi_core.audience import commitment_record
                 from epi_core.seal_ledger import allocate
                 from epi_core.schemas import SealChainModel
 
-                _chain = allocate(seal_fingerprint)
-                if _chain:
-                    manifest.seal_chain = SealChainModel(**_chain)
+                _auds = [a for a in (audiences or []) if a] or ["local:unwitnessed"]
+                for _audience in _auds:
+                    _chain = allocate(seal_fingerprint, _audience)
+                    if _chain:
+                        _seal_entries.append(_chain)
+                if len(_seal_entries) == 1:
+                    manifest.seal_chain = SealChainModel(**_seal_entries[0])
+                elif len(_seal_entries) > 1:
+                    manifest.seal_chains = [commitment_record(e) for e in _seal_entries]
+                    # `signature` is excluded from the preimage; the sentinel
+                    # only stops _attach_seal_chain allocating a second entry.
+                    manifest.signature = "0" * 128
+                if seal_entries is not None:
+                    for _entry in _seal_entries:
+                        seal_entries[str(_entry.get("audience") or "")] = _entry
             except Exception:
                 pass
         write_manifest_members(source_dir, manifest)
@@ -1906,11 +1925,14 @@ class EPIContainer:
                     from epi_core.webhook import witness_content_digest
 
                     final_manifest = EPIContainer.read_manifest(output_path)
-                    if getattr(final_manifest, "seal_chain", None) is not None:
-                        commit_from_manifest(
-                            final_manifest.seal_chain,
-                            witness_content_digest(final_manifest),
-                        )
+                    _digest = witness_content_digest(final_manifest)
+                    if _seal_entries:
+                        from epi_core.seal_ledger import commit
+
+                        for _entry in _seal_entries:
+                            commit(_entry, _digest)
+                    elif getattr(final_manifest, "seal_chain", None) is not None:
+                        commit_from_manifest(final_manifest.seal_chain, _digest)
                 except Exception:
                     pass
             finally:
