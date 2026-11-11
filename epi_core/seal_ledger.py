@@ -350,6 +350,7 @@ def allocate(key_fingerprint: str, audience: str = "local:unwitnessed") -> dict[
     try:
         with _LOCAL_LOCK, FileLock(path, timeout=10.0):
             state = _load_state(path) or _new_state(fingerprint)
+            state["audience"] = audience
             _reap(state)
             seq = int(state.get("seq") or 0) + 1
             state["seq"] = seq

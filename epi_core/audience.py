@@ -132,3 +132,13 @@ def verify_commitment(entry: dict, commitments: list[dict]) -> bool:
             continue
         return True
     return False
+
+
+def urls_for_audience(audience: str, urls: list[str] | None) -> list[str]:
+    """The subset of URLs that report to this audience.
+
+    A heartbeat for audience A must never be posted to audience B's endpoint:
+    the receiver would learn A's last number.
+    """
+    target = str(audience or "")
+    return [u for u in (urls or []) if audience_for_url(str(u)) == target]

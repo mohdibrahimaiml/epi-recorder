@@ -1337,7 +1337,19 @@ def heartbeat(
         raise typer.Exit(2)
 
     failed = False
+    from epi_core.audience import urls_for_audience
+
     for key_name, state in targets:
+        audience_urls = (
+            urls
+            if (url and str(url).strip())
+            else urls_for_audience(str(state.get("audience") or ""), urls)
+        )
+        if not audience_urls:
+            _plain(
+                f"{key_name}: no witness URL for audience {state.get('audience') or 'unknown'}; skipped"
+            )
+            continue
         fields = seal_ledger.heartbeat_fields(state)
         try:
             signer = km.load_private_key(key_name)
@@ -1347,7 +1359,7 @@ def heartbeat(
             failed = True
             continue
         entry = report_heartbeat(
-            urls=urls,
+            urls=audience_urls,
             ledger_id=fields["ledger_id"],
             audience=state.get("audience"),
             key_fingerprint=fields["key_fingerprint"],

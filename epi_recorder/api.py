@@ -2104,8 +2104,10 @@ class EpiRecorderSession:
         """Witness URLs and secret, explicit first, then the saved Cloud config."""
         from epi_core.webhook import split_witness_urls
 
-        urls = split_witness_urls(getattr(self, "witness_url", None))
-        secret = getattr(self, "witness_secret", None)
+        urls = split_witness_urls(
+            getattr(self, "witness_url", None) or os.environ.get("EPI_WITNESS_URL")
+        )
+        secret = getattr(self, "witness_secret", None) or os.environ.get("EPI_WITNESS_SECRET") or None
         if urls:
             return urls, secret
         try:

@@ -143,3 +143,47 @@ def test_single_audience_keeps_the_plaintext_chain(tmp_path):
     assert manifest.seal_chain.seq == 1
     assert manifest.seal_chain.audience == "customer:bank-a"
     assert manifest.seal_chains is None
+
+
+def test_plain_seal_payloads_never_cross_audiences(tmp_path):
+    import os
+    os.environ["EPI_SEAL_LEDGER_DIR"] = str(tmp_path / "ledger")
+    urls = ["https://bank-a.example.test/w", "https://bank-b.example.test/w"]
+    audiences = derive_audiences(None, urls)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "steps.jsonl").write_text('{"index": 0, "kind": "x", "content": {}}\n', encoding="utf-8")
+    key = Ed25519PrivateKey.generate()
+    entries = {}
+    out = tmp_path / "seal.epi"
+    EPIContainer.pack(
+        work,
+        ManifestModel(goal="two"),
+        out,
+        signer_function=lambda c: sign_manifest(c, key, "k"),
+        seal_fingerprint=fingerprint_for_private_key(key),
+        audiences=audiences,
+        seal_entries=entries,
+        generate_analysis=False,
+        embed_viewer=False,
+        notarize=False,
+    )
+    from epi_core.webhook import stage_seal_report
+
+    entry = stage_seal_report(
+        out, urls=urls, audience_entries=entries, path=tmp_path / "outbox.jsonl"
+    )
+    assert entry is not None
+    for url, audience in zip(urls, audiences):
+        payload = entry["payloads"][url]
+        assert payload["audience"] == audience
+
+
+def test_heartbeat_targets_are_scoped_to_one_audience():
+    from epi_core.audience import urls_for_audience
+
+    urls = ["https://bank-a.example.test/w", "https://bank-b.example.test/w"]
+    audiences = derive_audiences(None, urls)
+    assert urls_for_audience(audiences[0], urls) == [urls[0]]
+    assert urls_for_audience(audiences[1], urls) == [urls[1]]
+    assert urls_for_audience("customer:none", urls) == []

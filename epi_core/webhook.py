@@ -536,18 +536,21 @@ def deliver_entry(
                 resolved = secret_for_url(url)
             except Exception:
                 resolved = None
+        payload_for_url = (entry.get("payloads") or {}).get(url) or entry["payload"]
+        headers_for_url = dict(stored_headers)
+        headers_for_url.update((entry.get("headers_by_url") or {}).get(url) or {})
         try:
             _post_once(
                 url,
-                entry["payload"],
+                payload_for_url,
                 secret=resolved,
-                extra_headers=stored_headers,
+                extra_headers=headers_for_url,
                 timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
             failed[url] = str(exc)[:300]
             status = witness_http_status(exc)
-            kind = str((entry.get("payload") or {}).get("type") or "")
+            kind = str((payload_for_url or {}).get("type") or "")
             if status == 410 or (
                 status == 400
                 and kind in (
@@ -897,7 +900,7 @@ def stage_seal_report(
             path=path,
         )
     except Exception as exc:
-        logger.warning("Witness staging failed: %s", exc)
+        _handle_report_error("Witness staging failed", exc)
         return None
 
 
@@ -1148,7 +1151,7 @@ def stage_release_report(
             path=path,
         )
     except Exception as exc:
-        logger.warning("Release witness staging failed: %s", exc)
+        _handle_report_error("Release witness staging failed", exc)
         return None
 
 
@@ -1503,6 +1506,23 @@ def report_seal(
     except Exception as exc:
         logger.warning("Witness report failed: %s", exc)
         return entry
+
+
+def _handle_report_error(message: str, exc: Exception) -> None:
+    """Log a reporting failure, or re-raise in tests.
+
+    Reporting must never break a customer's seal, so production logs and
+    continues. In the suite, EPI_STRICT_REPORTING=1 turns a coding error
+    (TypeError/KeyError/AttributeError) into a failure instead of a warning
+    that hides the bug.
+    """
+    if os.environ.get("EPI_STRICT_REPORTING") == "1" and type(exc).__name__ in (
+        "TypeError",
+        "KeyError",
+        "AttributeError",
+    ):
+        raise exc
+    logger.warning("%s: %s", message, exc)
 
 
 def short_reason(error: object, urls: list[str] | None = None) -> str:
