@@ -30,6 +30,7 @@ MANIFEST_OMIT_NONE_FROM_HASH: frozenset[str] = frozenset(
         "producer_version",
         "case_id",
         "seal_chain",
+        "seal_chains",
         "record_kind",
         "release",
         "release_ref",
