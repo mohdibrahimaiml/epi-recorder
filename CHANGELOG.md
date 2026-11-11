@@ -129,6 +129,14 @@ All notable changes to EPI Recorder are documented here.
   oversight report and check the customer's own key history.
 
 ### Fixed
+- **A connected computer's customer is no longer dropped on upload.** A key
+  created in the dashboard with "Records for" a customer already knew the name,
+  but `epi cloud push` and `epi demo` uploaded the run unassigned unless a local
+  customer was saved, so it disappeared from that customer's analytics and
+  reviewer link. The server now falls back to the key's customer, and the CLI
+  reports the customer the server stored instead of saying "no customer set
+  yet". An explicit `--agent` still wins; a closed or renamed customer never
+  blocks the upload.
 - **Seal numbers are per customer, not per key.** One key reporting to two
   witnesses shared one 1..n sequence, so each customer's log showed false
   MISSING numbers from the other's seals. Every audience now has its own

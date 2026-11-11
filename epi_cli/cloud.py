@@ -728,6 +728,11 @@ def push(
         console.print(f"[red][FAIL][/red] Push failed: {escape(friendly_error(exc, creds['url']))}")
         raise typer.Exit(1) from exc
     console.print(f"[green][OK][/green] Pushed {file.name} as {created['id']}")
+    # The server decides the customer: it falls back to the one this computer
+    # was connected for when the request carries no agent, so report what it
+    # actually stored rather than what the local config happens to say.
+    if created.get("agent"):
+        console.print(f"[dim]Customer: {created['agent']}[/dim]")
     console.print(
         f"[dim]Seal: {created.get('signature_check')} · "
         f"Witness: {created.get('witness_status')}[/dim]"

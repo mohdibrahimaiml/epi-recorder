@@ -105,6 +105,35 @@ def test_demo_push_helper_true_when_push_succeeds(demo_cwd: Path, monkeypatch, c
     assert "Evidence Room" not in out
 
 
+def test_demo_push_without_saved_customer_does_not_claim_none(demo_cwd: Path, monkeypatch, capsys):
+    import json
+
+    from epi_cli.dev import _demo_push_if_logged_in
+
+    (demo_cwd / "epi_home" / "cloud.json").write_text(
+        json.dumps({"url": "https://cloud.test", "org_id": "org_1", "api_key": "k"}),
+        encoding="utf-8",
+    )
+
+    class _OkRunner:
+        def invoke(self, app, args):
+            class R:
+                exit_code = 0
+                output = "ok"
+
+            return R()
+
+    monkeypatch.setattr("typer.testing.CliRunner", _OkRunner)
+    epi = demo_cwd / "run.epi"
+    epi.write_bytes(b"fake")
+    assert _demo_push_if_logged_in(epi) is True
+    out = capsys.readouterr().out
+    assert "Pushed to EPI Cloud" in out
+    # The server may tag the run from the key's customer; the CLI cannot know
+    # that here, so it must not assert there is no customer.
+    assert "no customer set yet" not in out
+
+
 def test_demo_done_lines_pushed_uses_saved_host(demo_cwd: Path):
     import json
 

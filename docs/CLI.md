@@ -139,6 +139,7 @@ Behavior:
 
 - `login` with no flags is RFC 8628 device flow: a short code, typed at `/auth/device`. Saves `~/.epi/cloud.json` (0600). Flags/env (`EPI_CLOUD_URL`, `EPI_CLOUD_ORG`, `EPI_CLOUD_API_KEY`) remain for automation.
 - `push` streams the file; the Worker never unzips it. Max 25 MB. Client sends `manifest.json` separately.
+- A key created with **Records for** a customer tags uploads with that customer automatically, including the `--api-key` login path, which has no local customer name. `push --agent` overrides it; a renamed or closed customer never blocks the upload (the run lands unassigned instead).
 - `keys push` accepts only `*.pub` files of 64 hex chars (Ed25519). Private keys are refused. Registration is **informational**. Pinning is still `epi keys trust` (optionally `--from-cloud <slug>` after confirming the fingerprint with the sender). Revoked cloud keys are refused as pins.
 - `storage set` registers bucket metadata only. Credentials stay in the recorder environment (`EPI_STORAGE_URL` / AWS env). Cloud cannot read the bucket.
 
