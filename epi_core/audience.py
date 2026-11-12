@@ -116,6 +116,32 @@ def commitment_record(entry: dict) -> dict[str, str]:
     }
 
 
+def entry_from_report(payload: dict) -> dict:
+    """Rebuild the committed ledger entry from one witness report payload.
+
+    The report is not the entry: it renames ``seq`` to ``seal_seq`` and adds
+    fields (schema, type, workflow, hashes, timestamps) that were never part of
+    the commitment. Hashing the report itself can never match, which is why a
+    valid log used to read as "not in this witness log".
+    """
+    entry: dict = {}
+    for name in (
+        "audience",
+        "key_fingerprint",
+        "ledger_id",
+        "prev_seq",
+        "prev_content_digest",
+        "nonce",
+    ):
+        if name in payload:
+            entry[name] = payload[name]
+    if "seal_seq" in payload:
+        entry["seq"] = payload["seal_seq"]
+    elif "seq" in payload:
+        entry["seq"] = payload["seq"]
+    return entry
+
+
 def verify_commitment(entry: dict, commitments: list[dict]) -> bool:
     """True when this report's entry is one committed to by the file."""
     nonce = str(entry.get("nonce") or "")

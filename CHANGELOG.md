@@ -129,6 +129,25 @@ All notable changes to EPI Recorder are documented here.
   oversight report and check the customer's own key history.
 
 ### Fixed
+- **The browser and CLI agree on the witnessed content digest for 4.10 files.**
+  Member-backed fields (`seal_chain`, `seal_chains`, `case_id`, `release`,
+  `release_ref`, `runtime_components`) live in their own ZIP members and are
+  excluded from the signature preimage. `read_manifest()` restores them, but
+  the browser has only `manifest.json`, so the two sides hashed different
+  objects and every file sealed with a chain looked like a different version
+  when a repackaged copy was checked in the browser. The digest now excludes
+  those fields, exactly like the signature preimage. 4.9 files have none of
+  them, so their digest is unchanged.
+- **Multi-customer files now show the real chain position in `--witness-log`.**
+  A file sealed for two customers carries salted commitments, and the verifier
+  hashed the witness report itself to find its place. A report is not the
+  committed entry (it renames `seq` to `seal_seq` and adds fields), so a valid
+  log printed "per-customer (supply --witness-log to check)" even when one was
+  supplied. It now prints "#5 of chain a3be…, log contiguous 1..5" or "log has
+  gaps", and a log that does not contain this customer's seal says so without
+  blaming the flag. The site demo files and their witness log are re-sealed
+  together with the current build; a test runs the `/verify` commands exactly
+  as printed and fails if the page, keys, log or files drift apart.
 - **A connected computer's customer is no longer dropped on upload.** A key
   created in the dashboard with "Records for" a customer already knew the name,
   but `epi cloud push` and `epi demo` uploaded the run unassigned unless a local
