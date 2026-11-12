@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [4.10.0] - 2026-11-11
+## [4.10.0] - 2026-11-12
 
 ### Licensing
 

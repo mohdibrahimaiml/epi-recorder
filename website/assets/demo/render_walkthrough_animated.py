@@ -399,7 +399,7 @@ def main():
                 ('$ python -c "import epi_recorder; print(epi_recorder.__version__)"', INK_SOFT),
                 ("4.4.0", ACCENT),
                 ("", INK),
-                ("# MIT · offline · no account required", INK_MUTED),
+                ("# Apache-2.0 · offline · no account required", INK_MUTED),
             ],
             "02 / 05  ·  get the package from PyPI",
             "02",
