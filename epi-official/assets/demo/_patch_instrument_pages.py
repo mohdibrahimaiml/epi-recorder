@@ -38,7 +38,7 @@ FOOTER = """
   <div class="container"><div class="footer-inner">
     <div class="footer-left">
       <img src="/assets/logo.png" alt="EPI Labs" class="footer-logo">
-      <span class="footer-copy">&copy; 2026 EPI LABS. MIT License.</span>
+      <span class="footer-copy">&copy; 2026 EPI LABS. Apache-2.0.</span>
     </div>
     <ul class="footer-links">
       <li><a href="/verify/">Verify</a></li>

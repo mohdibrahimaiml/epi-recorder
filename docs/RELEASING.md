@@ -1,24 +1,12 @@
 # Releasing epi-recorder
 
-**4.10.0 status (11 Nov 2026): prepared on `release/4.10.0-prep`, upload
-pending.** The version, changelog, site copy and sample artifacts are ready;
-the wheel is built and audited locally (`epi_recorder-4.10.0`, `audit_wheel.py`
-passes). Nothing has been tagged or uploaded, so `pip install epi-recorder`
-still serves 4.9.0 under MIT. To publish, run the same Trusted Publishing path
-as 4.9.0, then tag `v4.10.0` with the maintainer key - the workflow and the tag
-must agree (`tests/test_publish_workflow.py` enforces the workflow side).
-
-Releases go to PyPI through **Trusted Publishing**: no tokens, no passwords.
-The workflow is `.github/workflows/publish-pypi.yml` - read it before changing
-anything here.
-
-**4.10.0 status (8 Nov 2026): prepared in-tree; the PyPI upload is pending.**
-`pyproject.toml`, the docs stamps, the installer and the site banner say 4.10.0,
-and the homepage badge reads `v4.10.0 · PyPI publish pending`. Cut the signed
-`v4.10.0` tag and publish the GitHub release when you are ready to upload; the
-workflow refuses a tag/version mismatch. It adds seal sequence numbers and gap
-detection, signed release records, signed pre-action approvals anchored by the
-customer's witness, the DORA evidence guide, and the blog on `epilabs.org`.
+**4.10.0 status (12 Nov 2026): published.** Tag `v4.10.0` is signed with the
+maintainer SSH key on commit `6aad0929`; the GitHub Release triggered
+`.github/workflows/publish-pypi.yml`, which uploaded the wheel and sdist with
+PEP 740 attestations. The public tool is Apache-2.0 from this release; 4.9.0
+and earlier remain MIT. `pip install epi-recorder==4.10.0` serves it. Verify
+the tag locally with a configured `gpg.ssh.allowedSignersFile`; without one,
+`git tag -v` reports that the file is missing even though the tag is signed.
 
 **4.9.0 status (1 Nov 2026): cut, tagged `v4.9.0`, and uploaded through Trusted
 Publishing** — the same path as 4.8.0, so both files carry PEP 740 attestations.

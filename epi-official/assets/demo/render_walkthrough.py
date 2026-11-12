@@ -144,7 +144,7 @@ def frame_02_install() -> Image.Image:
         ("$ python -c \"import epi_recorder; print(epi_recorder.__version__)\"", INK_SOFT),
         ("4.4.0", ACCENT),
         ("", INK),
-        ("# MIT licensed · works offline · no account required", INK_MUTED),
+        ("# Apache-2.0 · works offline · no account required", INK_MUTED),
     ]
     draw_terminal(d, lines, "bash — install")
     d.text((120, 1000), "02 / 05  ·  get the package from PyPI", font=sans(22), fill=INK_MUTED)
