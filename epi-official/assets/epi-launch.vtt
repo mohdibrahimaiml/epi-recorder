@@ -1,34 +1,43 @@
 WEBVTT
 
-00:00:00.600 --> 00:00:04.100
-When an AI denies a claim, someone asks why.
+00:00:00.100 --> 00:00:02.500
+Your agent just denied a claim.
 
-00:00:05.000 --> 00:00:07.850
-The vendor sends a PDF, and a promise.
+00:00:02.500 --> 00:00:03.500
+Now prove why.
 
-00:00:09.200 --> 00:00:14.050
-EPI sends the decision itself: sealed, signed, and readable.
+00:00:03.500 --> 00:00:04.300
+Meet
 
-00:00:14.600 --> 00:00:19.500
-What the model saw. What it decided. Which rule it applied. Who signed off.
+00:00:04.300 --> 00:00:06.300
+EPI Labs
 
-00:00:21.000 --> 00:00:25.200
-Their reviewer checks it in a browser. No install. No account.
+00:00:06.300 --> 00:00:09.500
+Decision records for AI agents.
 
-00:00:26.600 --> 00:00:31.450
-And if someone edits the record, and re-seals it with the vendor's own key...
+00:00:09.500 --> 00:00:15.300
+It records the prompt, the tool call, the policy check, and the decision it made.
 
-00:00:31.600 --> 00:00:33.800
-the signature still verifies.
+00:00:15.300 --> 00:00:19.300
+Hash-chained, redacted, signed into one file.
 
-00:00:34.200 --> 00:00:35.900
-Their copy does not.
+00:00:19.300 --> 00:00:20.900
+Verify it offline.
 
-00:00:37.000 --> 00:00:41.450
-A signature protects the file. The witness protects the customer.
+00:00:20.900 --> 00:00:22.100
+No account.
 
-00:00:43.000 --> 00:00:47.100
-One workflow. Thirty days. Four and a half thousand euros.
+00:00:22.100 --> 00:00:23.100
+No server.
 
-00:00:49.000 --> 00:00:51.700
-EPI. Hand them a file they can check.
+00:00:23.100 --> 00:00:26.300
+Change one byte, and the seal fails closed.
+
+00:00:26.300 --> 00:00:28.900
+Your customer checks it without logging in.
+
+00:00:28.900 --> 00:00:32.500
+One command: record, seal, and verify.
+
+00:00:32.500 --> 00:00:34.100
+Start with one decision.
