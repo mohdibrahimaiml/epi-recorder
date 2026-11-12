@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=84.2.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -55,93 +55,93 @@ classifiers = [
 ]
 
 dependencies = [
-    "pydantic>=2.0.0,<3.0.0",
-    "cryptography>=41.0.0,<51",
-    "cbor2>=5.6.0",
+    "pydantic>=2.14.3,<3.0.0",
+    "cryptography>=50.0.2,<51",
+    "cbor2>=6.2.1",
     "rfc8785>=0.1.4",
-    "asn1crypto>=1.5,<2",
-    "typer>=0.16.0,<0.28.0",
-    "click>=8.1.0,<9.0.0",
-    "rich>=13.0.0,<16",
-    "httpx>=0.27.0",
+    "asn1crypto>=1.5.1,<2",
+    "typer>=0.28.0,<0.29.0",
+    "click>=8.5.1,<9.0.0",
+    "rich>=15.0.0,<16",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
 ai = [
-    "google-generativeai>=0.4.0",
+    "google-generativeai>=0.8.6",
 ]
 openai = [
-    "openai>=1.0.0",
+    "openai>=3.46.0",
 ]
 anthropic = [
-    "anthropic>=0.25.0",
+    "anthropic>=2.6.0",
 ]
 # Framework adapters and their dependencies ship in epi-enterprise.
 analytics = [
-    "pandas>=1.5.0",
-    "matplotlib>=3.5.0",
+    "pandas>=3.1.1",
+    "matplotlib>=3.11.2",
 ]
 pdf = [
-    "fpdf2>=2.8.0",
+    "fpdf2>=2.9.0",
 ]
 # Signing keys held in an HSM or cloud KMS (docs/KEY-CUSTODY.md)
 pkcs11 = [
-    "python-pkcs11>=0.7.0",
+    "python-pkcs11>=0.10.1",
 ]
 aws-kms = [
-    "boto3>=1.34.0",
+    "boto3>=1.43.126",
 ]
 gcp-kms = [
-    "google-cloud-kms>=3.0.0",
+    "google-cloud-kms>=3.18.0",
 ]
 # The team gateway dependencies moved to epi-enterprise.
 mcp = [
-    "mcp>=2.0",
+    "mcp>=2.3.0",
 ]
 all = [
-    "google-generativeai>=0.4.0",
-    "openai>=1.0.0",
-    "anthropic>=0.25.0",
-    "pandas>=1.5.0",
-    "matplotlib>=3.5.0",
-    "boto3>=1.34.0",
+    "google-generativeai>=0.8.6",
+    "openai>=3.46.0",
+    "anthropic>=2.6.0",
+    "pandas>=3.1.1",
+    "matplotlib>=3.11.2",
+    "boto3>=1.43.126",
 ]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0",
-    "httpx>=0.27.0",
-    "black>=24.0.0",
-    "ruff>=0.3.0",
-    "pandas>=1.5.0",
-    "fastapi>=0.111.0,<1",
-    "uvicorn>=0.30.0,<1",
-    "python-multipart>=0.0.20",
-    "wrapt>=1.16.0",
-    "mcp>=2.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "pytest-cov>=7.1.0",
+    "httpx>=0.28.1",
+    "black>=26.10.1",
+    "ruff>=0.17.4",
+    "pandas>=3.1.1",
+    "fastapi>=0.162.2,<1",
+    "uvicorn>=0.54.0,<1",
+    "python-multipart>=0.0.33",
+    "wrapt>=2.5.2",
+    "mcp>=2.3.0",
 ]
 test = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0",
-    "pytest-timeout>=2.3.1",
-    "pytest-playwright>=0.5.0",
-    "playwright>=1.45.0",
-    "httpx>=0.27.0",
-    "fastapi>=0.111.0,<1",
-    "uvicorn>=0.30.0,<1",
-    "python-multipart>=0.0.20",
-    "pandas>=1.5.0",
-    "litellm>=1.0.0",
-    "langchain-core>=0.2.0",
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
-    "wrapt>=1.16.0",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "pytest-cov>=7.1.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-playwright>=0.10.0",
+    "playwright>=1.64.1",
+    "httpx>=0.28.1",
+    "fastapi>=0.162.2,<1",
+    "uvicorn>=0.54.0,<1",
+    "python-multipart>=0.0.33",
+    "pandas>=3.1.1",
+    "litellm>=1.108.3",
+    "langchain-core>=1.7.6",
+    "opentelemetry-api>=1.45.2",
+    "opentelemetry-sdk>=1.45.2",
+    "wrapt>=2.5.2",
     "anyio",
-    "boto3>=1.34.0",  # S3 interop tests (bucket setup + independent read-back)
-    "agentrust-trace>=0.9.0",
-    "agentrust-trace-tests>=0.5.1",
-    "mcp>=2.0",
+    "boto3>=1.43.126",  # S3 interop tests (bucket setup + independent read-back)
+    "agentrust-trace>=0.11.0",
+    "agentrust-trace-tests>=0.6.2",
+    "mcp>=2.3.0",
 ]
 
 [project.scripts]
