@@ -3,11 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pricing &amp; Pilot | EPI Labs</title>
-  <meta name="description" content="Open-source recording, sealing and verification stay free forever under Apache-2.0. A readiness assessment is €4,500; the full 30-day AI vendor review engagement is €9,500 for the first 3 customers (standard €15,000). EPI Cloud has a free workspace (1 customer relationship, 10 files a year, 30 days, 7-day share links); Startup is $500/month and Growth $2,000/month, upgraded in your dashboard.">
+  <title>Pricing | EPI Labs</title>
+  <meta name="description" content="Open-source recording, sealing and verification stay free forever under Apache-2.0. A readiness assessment is €4,500; the full 30-day engagement is €9,500 for the first 3 customers (standard €15,000). EPI Cloud has a free workspace (1 customer relationship, 10 files a year, 30 days, 7-day share links); Startup is $500/month and Growth $2,000/month, upgraded in your dashboard.">
   <link rel="canonical" href="https://epilabs.org/plans">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <style>
+    .plans-mobile-cards { display: none; }
+    .plans-only-mobile { display: none; }
+    @media (max-width: 48rem) {
+      .plans-compare { display: none; }
+      .plans-mobile-cards { display: grid; gap: 0.75rem; margin-top: 1.25rem; }
+      .plans-mobile-cards .z-tri-card { padding: 1rem; }
+      .plans-only-mobile { display: block; }
+    }
+  </style>
 </head>
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -64,34 +74,38 @@
       <section class="z-center" aria-labelledby="plans-heading">
         <div class="z-intro-grid">
           <div class="z-intro-grid__title z-blur-in z-blur-in--d1">
-            <span class="z-eyebrow">Pricing · three offers</span>
+            <span class="z-eyebrow">Pricing</span>
             <h1 id="plans-heading" class="z-h1" style="margin-top:1rem">
               Free software. Optional hosting. A service when the <span style="color:var(--acc-envelope)">review is stuck</span>.
             </h1>
             <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
               The verifier is always free. <strong style="color:var(--foreground);font-weight:500">Open Source</strong> is the complete product, not a trial. <strong style="color:var(--foreground);font-weight:500">EPI Cloud</strong> is hosting if you want it. The <strong style="color:var(--foreground);font-weight:500">AI vendor review engagement</strong> is us doing one workflow with you when a named customer is asking for the record.
             </p>
-            <div style="margin-top:1.75rem">
-              <a href="#contact" class="z-btn-primary">Start with a readiness assessment — €4,500</a>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.75rem">
+              <a href="#contact" class="z-btn-primary">Start with the assessment &mdash; €4,500</a>
+              <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-btn-ghost">Install free &mdash; pip install epi-recorder</a>
             </div>
+            <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted)">
+              Cloud prices in USD; engagements in EUR. Verification is free on every plan.
+            </p>
           </div>
           <div class="z-intro-grid__aside z-blur-in z-blur-in--d2">
             <p class="z-body">
-              Open source stays free: the recorder, sealing, <code style="font-family:var(--font-mono)">.epi</code> files, the viewer, release and approval records, analysis and <code style="font-family:var(--font-mono)">epi verify</code> are Apache-2.0 from 4.10.0, and checking a file is never metered or charged. The team gateway, framework adapters and the guardrails runtime ship with EPI Enterprise.
+              Open source is Apache-2.0 from 4.10.0: the recorder, sealing, <code style="font-family:var(--font-mono)">.epi</code> files, the viewer, release and approval records, analysis and <code style="font-family:var(--font-mono)">epi verify</code>. Checking a file is never metered or charged. The team gateway, framework adapters and guardrails runtime ship with EPI Enterprise.
             </p>
             <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
-              EPI Cloud (hosted witness and share links) has a free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year, 30 days. No approval step. Startup and Growth upgrade in your dashboard; Enterprise is invoiced directly.
+              The free Cloud workspace is 1 customer relationship, 1 share link (7 days), 10 files a year and 30-day storage. No approval step.
             </p>
           </div>
         </div>
 
-        <section aria-labelledby="offers" style="margin-top:3.5rem">
+        <section aria-labelledby="offers" style="margin-top:3.5rem;padding-left:1.5rem;padding-right:1.5rem">
           <span class="z-eyebrow">At a glance</span>
-          <h2 id="offers" class="z-h2" style="margin-top:1rem">The software is the same. The layer is different.</h2>
+          <h2 id="offers" class="z-h2" style="margin-top:1rem">One price per offer. One action.</h2>
           <p class="z-body" style="max-width:42rem;margin-top:1rem">
-            Open Source is complete and free, not a trial. EPI Cloud is optional hosting. The engagement is a fixed-scope service for a vendor with a named review.
+            Open Source is the complete local product. EPI Cloud is optional hosting. The engagement is a fixed-scope service for one workflow.
           </p>
-          <div style="overflow-x:auto;margin-top:1.75rem">
+          <div class="plans-compare" style="overflow-x:auto;margin-top:1.75rem">
             <table style="width:100%;min-width:720px;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary)">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--line)">
@@ -105,8 +119,8 @@
                 <tr style="border-bottom:1px solid var(--line)">
                   <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">Price</td>
                   <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">€0 forever</strong></td>
-                  <td style="padding:0.7rem 0.6rem">Free workspace; Startup from $500/month, Growth $2,000/month</td>
-                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">€4,500 assessment; €9,500 full for the first 3; then €15,000</strong></td>
+                  <td style="padding:0.7rem 0.6rem">Free workspace; Startup from $500/month; Growth $2,000/month</td>
+                  <td style="padding:0.7rem 0.6rem"><strong style="color:var(--text)">€4,500 assessment; €9,500 full</strong> (first 3; then €15,000)</td>
                 </tr>
                 <tr style="border-bottom:1px solid var(--line)">
                   <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">For</td>
@@ -118,115 +132,86 @@
                   <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">What you get</td>
                   <td style="padding:0.7rem 0.6rem">The complete local product</td>
                   <td style="padding:0.7rem 0.6rem">Hosted witness, retention, share links</td>
-                  <td style="padding:0.7rem 0.6rem">30 days of work, records, review pack</td>
-                </tr>
-                <tr style="border-bottom:1px solid var(--line)">
-                  <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">Account</td>
-                  <td style="padding:0.7rem 0.6rem">None</td>
-                  <td style="padding:0.7rem 0.6rem">Sign in</td>
-                  <td style="padding:0.7rem 0.6rem">Contract</td>
-                </tr>
-                <tr style="border-bottom:1px solid var(--line)">
-                  <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">Verification</td>
-                  <td style="padding:0.7rem 0.6rem">Free</td>
-                  <td style="padding:0.7rem 0.6rem">Free</td>
-                  <td style="padding:0.7rem 0.6rem">Free</td>
+                  <td style="padding:0.7rem 0.6rem">One workflow, records, reviewer pack</td>
                 </tr>
                 <tr>
-                  <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">Not</td>
-                  <td style="padding:0.7rem 0.6rem">A trial, or hosting</td>
-                  <td style="padding:0.7rem 0.6rem">Required to verify</td>
-                  <td style="padding:0.7rem 0.6rem">Software access, or a certificate</td>
+                  <td style="padding:0.7rem 0.6rem;color:var(--text-muted)">Action</td>
+                  <td style="padding:0.7rem 0.6rem"><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" style="color:var(--acc)">Install free</a></td>
+                  <td style="padding:0.7rem 0.6rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Create a workspace</a></td>
+                  <td style="padding:0.7rem 0.6rem"><a href="#contact" style="color:var(--acc)">Start the assessment</a></td>
                 </tr>
               </tbody>
             </table>
           </div>
+          <div class="plans-mobile-cards">
+            <div class="z-tri-card">
+              <div class="z-tri-card__step" style="margin-top:0">Open Source</div>
+              <h3 class="z-h3-card" style="margin-top:0.4rem">&euro;0 forever</h3>
+              <p class="z-body" style="margin-top:0.5rem">The complete local product. Install and verify offline; no account.</p>
+              <p style="margin-top:0.75rem"><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" style="color:var(--acc)">Install free</a></p>
+            </div>
+            <div class="z-tri-card">
+              <div class="z-tri-card__step" style="margin-top:0">EPI Cloud</div>
+              <h3 class="z-h3-card" style="margin-top:0.4rem">Free workspace</h3>
+              <p class="z-body" style="margin-top:0.5rem">Startup from $500/month; Growth $2,000/month. Hosted witness, retention and share links.</p>
+              <p style="margin-top:0.75rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Create a workspace</a></p>
+            </div>
+            <div class="z-tri-card">
+              <div class="z-tri-card__step" style="margin-top:0">AI vendor review</div>
+              <h3 class="z-h3-card" style="margin-top:0.4rem">&euro;4,500 assessment</h3>
+              <p class="z-body" style="margin-top:0.5rem">One workflow, records and a reviewer pack. &euro;9,500 full engagement (first 3; then &euro;15,000).</p>
+              <p style="margin-top:0.75rem"><a href="#contact" style="color:var(--acc)">Start the assessment</a></p>
+            </div>
+          </div>
         </section>
 
-        <!-- 3-Tier Architectural Grid -->
-        <div class="z-tri-grid">
-          <div class="z-tri-card">
-            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-envelope)">Tier 01 · Apache-2.0 core</div>
-            <h2 class="z-h3-card" style="margin-top:0.5rem">Open source (€0, always)</h2>
-            <p class="z-body" style="margin-top:0.75rem">
-              Everything required to record, seal, view, and verify offline without EPI Labs.
-            </p>
-            <p class="z-body" style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted)">
-              For developers, customers and auditors. Complete, not a trial. No account.
-            </p>
-            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
-              <li>&#10003; Python SDK, CLI, Envelope v2, embedded viewer</li>
-              <li>&#10003; Ed25519 + SHA-256 + <code style="font-family:var(--font-mono)">--policy strict</code></li>
-              <li>&#10003; Release records, approvals, oversight and analysis</li>
-            </ul>
-            <div style="margin-top:2rem">
-              <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-btn-ghost">pip install epi-recorder</a>
+        <section id="engagement" aria-labelledby="engagement-heading" style="margin-top:4rem;padding-left:1.5rem;padding-right:1.5rem">
+          <span class="z-eyebrow">AI vendor review engagement</span>
+          <h2 id="engagement-heading" class="z-h2" style="margin-top:1rem">Pass the review your customer is running.</h2>
+          <p class="z-body" style="max-width:42rem;margin-top:1rem">
+            For an AI vendor with a named bank, insurer, carrier or auditor review. A service, not software access. If there is no named review yet, start with the free software.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;margin-top:1.75rem">
+            <div class="z-tri-card">
+              <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-trust)">Readiness assessment</div>
+              <h3 class="z-h3-card" style="margin-top:0.5rem">€4,500 &middot; 5 days</h3>
+              <p class="z-body" style="margin-top:0.75rem">We instrument one workflow, seal and witness real runs, and hand your reviewer a pack they can check. Credited toward the full engagement.</p>
             </div>
-            <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Not included: the team gateway, framework adapters, guardrails, hosting or support.</p>
+            <div class="z-tri-card">
+              <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-trust)">Full engagement</div>
+              <h3 class="z-h3-card" style="margin-top:0.5rem">€9,500 founding &middot; 30 days</h3>
+              <p class="z-body" style="margin-top:0.75rem">Everything in the assessment, then rollout across the workflow, a reviewer session and 30 days of email support. €15,000 after the first 3 customers.</p>
+            </div>
           </div>
-
-          <div class="z-tri-card" style="background:rgba(16,185,129,0.03)">
-            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-trust)">Tier 02 &middot; One workflow</div>
-            <h2 class="z-h3-card" style="margin-top:0.5rem">AI vendor review engagement</h2>
-            <p class="z-body" style="margin-top:0.75rem">
-              Pass the review your customer is running: a record per decision, and a copy they can check without asking you to log in.
-            </p>
-            <p class="z-body" style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted)">
-              For an AI vendor with a named carrier, bank or auditor review. A service, not software access.
-            </p>
-            <div style="margin-top:1.1rem;display:flex;flex-direction:column;gap:0.45rem;font-size:0.875rem">
-              <div><strong style="color:var(--foreground)">Readiness assessment — €4,500</strong><span style="color:var(--text-muted)"> · 5 days, credited toward the full engagement</span></div>
-              <div><strong style="color:var(--foreground)">Full 30-day engagement — €9,500 founding</strong><span style="color:var(--text-muted)"> · first 3 customers only, in exchange for a named reference and a verification session with your reviewer; standard €15,000</span></div>
-              <div><strong style="color:var(--foreground)">Each additional workflow — +€6,000</strong></div>
-            </div>
-            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
-              <li>&#10003; One workflow instrumented end to end</li>
-              <li>&#10003; A record per case: outcome, reasons, rules, model, approver</li>
-              <li>&#10003; Your customer keeps their own witness log; a re-sealed record is caught</li>
-              <li>&#10003; Record spec mapped to the rule in play, plus a review pack</li>
-            </ul>
-            <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:0.4rem;font-size:0.8rem;color:var(--text-muted)">
-              <div><strong style="color:var(--text-secondary)">Invoiced in full at the start.</strong></div>
-              <div><strong style="color:var(--text-secondary)">Access within 5 working days</strong> of the invoice clearing.</div>
-              <div><strong style="color:var(--text-secondary)">30 days of email support</strong> after handover.</div>
-            </div>
-            <div style="margin-top:2rem">
-              <a href="#contact" class="z-btn-primary">Start with the assessment &mdash; €4,500</a>
-            </div>
-            <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Not included: a compliance certificate, or more than one workflow.</p>
+          <p class="z-body" style="margin-top:1rem;font-size:0.85rem;color:var(--text-muted)">
+            Each additional workflow: +€6,000. Invoiced in full at the start. Access within 5 working days of the invoice clearing.
+          </p>
+          <h3 class="z-h3-card" style="margin-top:2.25rem">What you leave with</h3>
+          <ul style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.9rem;color:var(--text-secondary)">
+            <li>&#10003; A signed release record: policy, prompts, model ids and code pinned by hash.</li>
+            <li>&#10003; A sealed decision record for each case: outcome, reasons, rules, model and approver.</li>
+            <li>&#10003; Your customer keeps their own witness log, so an edited or re-sealed copy no longer matches.</li>
+            <li>&#10003; A one-page reviewer guide and a live walkthrough with their reviewer.</li>
+          </ul>
+          <p class="z-body" style="margin-top:1rem;max-width:42rem">
+            Five days: instrument the workflow &middot; seal and witness &middot; build the pack &middot; reviewer session and handover. The full engagement adds rollout across the workflow and 30 days of email support.
+          </p>
+          <p class="z-body" style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">
+            This is what their reviewer runs: <a href="/verify/" style="color:var(--acc)">open the demo</a> &middot; <a href="/#film" style="color:var(--acc)">watch the 36-second film</a>.
+          </p>
+          <div style="margin-top:1.75rem">
+            <a href="#contact" class="z-btn-primary">Start with the assessment &mdash; €4,500</a>
           </div>
+          <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Not included: a compliance certificate, or more than one workflow. We tell you if EPI is not the right fit.</p>
+        </section>
 
-          <div class="z-tri-card">
-            <div class="z-tri-card__step" style="margin-top:0;color:var(--acc-witness)">Tier 03 · Hosted layer</div>
-            <h2 class="z-h3-card" style="margin-top:0.5rem">EPI Cloud — free workspace</h2>
-            <p class="z-body" style="margin-top:0.75rem">
-              Hosted hash-only witness receipts, reviewer trust pages (<code style="font-family:var(--font-mono)">/t/{slug}#k=…</code>), and a place to keep the runs you choose to share. Signing in creates the workspace; there is no approval step.
-            </p>
-            <p class="z-body" style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted)">
-              For teams that want hosting without running a server. Not required to record or verify.
-            </p>
-            <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.5rem;font-size:0.875rem;color:var(--text-secondary)">
-              <li>&#10003; Free: 1 customer relationship, 1 share link (7 days), 10 files a year, 30-day storage</li>
-              <li>&#10003; Verification stays free in browser &amp; CLI — never metered</li>
-              <li>&#10003; Startup from $500/month, Growth $2,000/month (upgrade in your dashboard); Enterprise invoiced directly</li>
-              <li>&#10003; Agents are fair use — we never charge per agent</li>
-            </ul>
-            <div style="margin-top:2rem">
-              <a href="https://cloud.epilabs.org/" class="z-btn-ghost">Create a free workspace</a>
-            </div>
-            <p class="z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">
-              Already have one? <a href="https://cloud.epilabs.org/" style="color:var(--acc)">Sign in</a>.
-            </p>
-            <p class="z-body" style="margin-top:0.35rem;font-size:0.8rem;color:var(--text-muted)">Not included: the review engagement; Enterprise is invoiced directly.</p>
-          </div>
-        </div>
-
-        <section aria-labelledby="cloud-plans" style="margin-top:4rem">
-          <span class="z-eyebrow">EPI Cloud · workspace limits</span>
+        <section aria-labelledby="cloud-plans" style="margin-top:4rem;padding-left:1.5rem;padding-right:1.5rem">
+          <span class="z-eyebrow">EPI Cloud &middot; workspace limits</span>
           <h2 id="cloud-plans" class="z-h2" style="margin-top:1rem">Free is self-serve. Startup and Growth upgrade in your dashboard.</h2>
           <p class="z-body" style="max-width:42rem;margin-top:1rem">
-            Verification is unlimited on every plan. We charge per customer relationship, not per AI agent: agents are fair use. Free is created by signing in. Startup and Growth are billed by card in your dashboard; Enterprise is invoiced directly.
+            Verification is unlimited on every plan. We charge per customer relationship, not per AI agent: agents are fair use. Free is created by signing in. Startup and Growth are billed by card in your dashboard; Enterprise is invoiced directly. Not required to record or verify.
           </p>
+          <p class="plans-only-mobile z-body" style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">Scroll the table sideways for retention and billing.</p>
           <div style="overflow-x:auto;margin-top:1.75rem">
             <table style="width:100%;min-width:900px;border-collapse:collapse;font-size:0.9rem;color:var(--text-secondary)">
               <thead>
@@ -246,12 +231,12 @@
                   <td style="padding:0.7rem 0.6rem">1</td>
                   <td style="padding:0.7rem 0.6rem">10</td>
                   <td style="padding:0.7rem 0.6rem">30 days</td>
-                  <td style="padding:0.7rem 0.6rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Sign in — self-serve</a></td>
+                  <td style="padding:0.7rem 0.6rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Sign in &mdash; self-serve</a></td>
                 </tr>
                 <tr style="border-bottom:1px solid var(--line)">
                   <td style="padding:0.7rem 0.6rem"><strong>Startup</strong></td>
                   <td style="padding:0.7rem 0.6rem"><strong>$500</strong> / month<br><span style="font-size:0.8rem">or $5,000 / year</span></td>
-                  <td style="padding:0.7rem 0.6rem">3<br><span style="font-size:0.8rem">+$150/month each, up to 6</span></td>
+                  <td style="padding:0.7rem 0.6rem">3</td>
                   <td style="padding:0.7rem 0.6rem">1,000 / year</td>
                   <td style="padding:0.7rem 0.6rem">1 year</td>
                   <td style="padding:0.7rem 0.6rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Upgrade in your dashboard</a></td>
@@ -259,9 +244,9 @@
                 <tr style="border-bottom:1px solid var(--line)">
                   <td style="padding:0.7rem 0.6rem"><strong>Growth</strong></td>
                   <td style="padding:0.7rem 0.6rem"><strong>$2,000</strong> / month<br><span style="font-size:0.8rem">or $20,000 / year</span></td>
-                  <td style="padding:0.7rem 0.6rem">15<br><span style="font-size:0.8rem">+$100/month each</span></td>
+                  <td style="padding:0.7rem 0.6rem">15</td>
                   <td style="padding:0.7rem 0.6rem">10,000 / year</td>
-                  <td style="padding:0.7rem 0.6rem">7 years while subscribed</td>
+                  <td style="padding:0.7rem 0.6rem">7+ years while subscribed</td>
                   <td style="padding:0.7rem 0.6rem"><a href="https://cloud.epilabs.org/" style="color:var(--acc)">Upgrade in your dashboard</a></td>
                 </tr>
                 <tr>
@@ -278,6 +263,67 @@
           <p class="z-body" style="margin-top:0.9rem;font-size:0.8rem;color:var(--text-muted)">
             Prices in USD, excluding taxes. Retention lasts while the subscription is active; after cancelling, you have 90 days to export everything. Evidence Room files are counted per rolling year. Agents are fair use on every plan. Verification is free and reviewers never pay, on every plan including Free.
           </p>
+          <p class="z-body" style="margin-top:0.6rem;font-size:0.8rem;color:var(--text-muted)">
+            Need more customer relationships than your plan allows? We add them by agreement &mdash; talk to us.
+          </p>
+          <div style="margin-top:1.5rem;padding:1.1rem 1.25rem;border:1px solid var(--line)">
+            <strong style="color:var(--text)">Enterprise includes</strong>
+            <ul style="margin-top:0.6rem;display:flex;flex-direction:column;gap:0.35rem;font-size:0.875rem;color:var(--text-secondary)">
+              <li>&#10003; The licensed <code style="font-family:var(--font-mono)">epi-enterprise</code> package</li>
+              <li>&#10003; An offline licence, issued to your organisation</li>
+              <li>&#10003; Private deployment on your infrastructure</li>
+              <li>&#10003; Named support and a signed DPA</li>
+            </ul>
+          </div>
+          <div style="margin-top:1.5rem">
+            <a href="https://cloud.epilabs.org/" class="z-btn-ghost">Create a free workspace</a>
+          </div>
+        </section>
+
+        <section style="margin-top:3rem;padding:1.25rem 1.4rem;border:1px solid var(--line)">
+          <h2 class="z-h3-card">Open source &mdash; the complete product, not a trial</h2>
+          <p class="z-body" style="margin-top:0.6rem">
+            Apache-2.0 from 4.10.0. Record, seal, view and verify offline; release and approval records, analysis and oversight. No account. Not included: the team gateway, framework adapters, guardrails, hosting or support.
+          </p>
+          <p class="z-body" style="margin-top:0.75rem">
+            <a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" style="color:var(--acc)">pip install epi-recorder</a>
+            <span style="color:var(--text-muted)"> &middot; </span>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" style="color:var(--acc)">GitHub</a>
+          </p>
+          <p class="z-body" style="margin-top:0.6rem;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted)">
+            <code>epi verify FILE --policy strict --witness-log received.jsonl --offline</code>
+          </p>
+        </section>
+
+        <section style="margin-top:4rem;padding-left:1.5rem;padding-right:1.5rem" aria-labelledby="faq">
+          <span class="z-eyebrow">Questions</span>
+          <h2 id="faq" class="z-h2" style="margin-top:1rem">What buyers ask before a call.</h2>
+          <div style="margin-top:1rem">
+            <details style="border-top:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">What is a customer relationship?</summary>
+              <p class="z-body" style="margin-top:0.6rem">One named customer &mdash; a bank, insurer, carrier or auditor &mdash; whose runs, witness and reviewer link are kept separate. Agents are unlimited on every plan; we never charge per agent.</p>
+            </details>
+            <details style="border-top:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">What counts as a file?</summary>
+              <p class="z-body" style="margin-top:0.6rem">One sealed <code style="font-family:var(--font-mono)">.epi</code> decision record in the Evidence Room. Free keeps 10 a year, Startup 1,000, Growth 10,000. Recording and verifying offline are unlimited and never counted.</p>
+            </details>
+            <details style="border-top:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">Can I self-host?</summary>
+              <p class="z-body" style="margin-top:0.6rem">Yes. The recorder, witness receiver and verifier run on your infrastructure; Cloud is optional. The paid Enterprise package adds the operational layer: gateway, adapters, guardrails, private deployment and a licence issued to your organisation.</p>
+            </details>
+            <details style="border-top:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">What happens after cancellation?</summary>
+              <p class="z-body" style="margin-top:0.6rem">Retention lasts while the subscription is active. After cancelling you have 90 days to export everything. The free workspace keeps 30 days of storage.</p>
+            </details>
+            <details style="border-top:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">Do you sign NDAs?</summary>
+              <p class="z-body" style="margin-top:0.6rem">Yes &mdash; mutual, on your paper or ours. We can review a customer MSA too; if we cannot accept a term, we say so before the engagement starts.</p>
+            </details>
+            <details style="border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:1rem 0">
+              <summary style="cursor:pointer;color:var(--text);font-weight:500">What do you need from me?</summary>
+              <p class="z-body" style="margin-top:0.6rem">One workflow, a test case that looks like a real decision, access to the agent's code and configuration, and a named reviewer on the customer side.</p>
+            </details>
+          </div>
         </section>
 
         <!-- Contact Form Section -->
@@ -312,6 +358,7 @@
                     <option>Readiness assessment (€4,500)</option>
                     <option>Full engagement (€9,500 founding)</option>
                     <option>EPI Cloud (free workspace)</option>
+                    <option>Enterprise (from $40,000/year)</option>
                   </select>
                 </div>
               </div>
@@ -331,7 +378,7 @@
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
   
-<section class="z-center" style="padding:2rem 0"><p class="z-body">AI vendor review engagement · €4,500 readiness or €9,500 full engagement · one workflow · 30 days · EPI Cloud: free workspace (1 customer relationship, 10 files a year, 30 days, 7-day share links), Startup from $500/month, Growth $2,000/month, upgraded in your dashboard.</p><p class="z-body" style="font-family:var(--font-mono);font-size:.8rem"><code>epi verify FILE --policy strict --witness-log received.jsonl --offline</code></p></section>
+
 </main>
 
   <div class="z-shell" style="margin-top:auto">
