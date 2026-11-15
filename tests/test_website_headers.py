@@ -69,7 +69,9 @@ def test_enforcing_csp_holds_only_directives_that_cannot_break_rendering():
     m = re.search(r"^  Content-Security-Policy:\s*(.+)$", text, re.M)
     assert m, "no enforcing Content-Security-Policy line"
     policy = m.group(1)
-    allowed = {"frame-ancestors", "base-uri", "form-action", "object-src"}
+    # report-uri is not a resource-loading directive, so it cannot break
+    # rendering and belongs with the enforced set.
+    allowed = {"frame-ancestors", "base-uri", "form-action", "object-src", "report-uri"}
     directives = {d.strip().split(" ")[0] for d in policy.split(";") if d.strip()}
     assert directives <= allowed, f"unexpected enforcing directives: {directives - allowed}"
     for must_wait in ("script-src", "style-src", "connect-src"):

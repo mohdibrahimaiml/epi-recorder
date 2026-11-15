@@ -189,3 +189,20 @@ jobs:
       # exercise the consent and redirect path end to end.
       - name: OAuth connector flow (experimental, still blocking here)
         run: python -m pytest tests/test_mcp_chatgpt_flow.py -q --no-cov
+
+  # The Pages Functions are JavaScript, and no workflow ran their tests at all:
+  # functions/_proxy.allowlist.test.mjs existed and was never executed by CI.
+  edge-functions:
+    name: Edge function tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: node --test
+        run: node --test functions/*.test.mjs

@@ -47,7 +47,10 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   and a report-only CSP.
 - **The site CSP enforces** `frame-ancestors`, `base-uri`, `form-action` and
   `object-src`. `script-src`, `style-src` and `connect-src` remain report-only
-  until jszip's `setImmediate` polyfill (`new Function`) is resolved.
+  until jszip's `setImmediate` polyfill (`new Function`) is resolved. A new
+  `/csp-report` function accepts violations (capped body, query strings
+  stripped) so "enforce after a week of clean reports" is measurable instead of
+  assumed.
 - **The privacy page named one timestamp authority; sealing uses several.** It
   now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
   each receives only the hash, never the conversation.
