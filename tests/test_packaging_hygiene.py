@@ -61,9 +61,16 @@ def test_release_gate_deps_come_from_pyproject_not_hardcoded_pins():
 
 
 def test_ci_install_deps_resolves_repo_ceilings():
-    """scripts/ci-install-deps.py must emit pyproject's current ceilings."""
+    """scripts/ci-install-deps.py must emit pyproject's current ceilings.
+
+    Expectations are read from pyproject.toml rather than hardcoded. Hardcoding
+    them made this test fail on every Dependabot bump - it still asserted
+    ``typer<0.28.0`` after pyproject had moved on - which blocks the update
+    instead of checking the contract it is named for.
+    """
     import subprocess
     import sys
+    import tomllib
 
     proc = subprocess.run(
         [sys.executable, "scripts/ci-install-deps.py", "--print-only"],
@@ -74,7 +81,17 @@ def test_ci_install_deps_resolves_repo_ceilings():
     )
     assert proc.returncode == 0, proc.stderr
     resolved = proc.stdout
-    assert "cryptography>=41.0.0,<51" in resolved
-    assert "typer>=0.16.0,<0.28.0" in resolved
-    assert "rich>=13.0.0,<16" in resolved
+
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = data["project"]["dependencies"]
+    test_extra = data["project"]["optional-dependencies"]["test"]
+    assert runtime, "pyproject declares no runtime dependencies"
+
+    for spec in runtime:
+        assert spec in resolved, f"ci-install-deps.py did not emit {spec!r}"
+    for spec in test_extra:
+        if spec.startswith(("playwright", "pytest-playwright")):
+            continue
+        assert spec in resolved, f"ci-install-deps.py did not emit test dep {spec!r}"
+
     assert "playwright" not in resolved  # gate deselects browser tests
