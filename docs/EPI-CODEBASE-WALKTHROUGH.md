@@ -5,6 +5,12 @@
 This document is a practical map of the current `epi-recorder` repository.
 It is written for someone who wants to understand:
 
+> **Note (4.10.x).** The team gateway (`epi_gateway`, the `gateway`/`viewer`
+> Docker services and the `Caddyfile` front end) moved to **epi-enterprise**.
+> Sections below that describe `epi_gateway/` or the Docker stack are kept for
+> historical context about the event model and no longer describe files in this
+> repository. See [SELF-HOSTED-RUNBOOK.md](./SELF-HOSTED-RUNBOOK.md).
+
 - what EPI is at a systems level
 - how the main packages fit together
 - which folders matter most

@@ -113,9 +113,20 @@ def _read_json(path: Path) -> dict[str, Any]:
         return {}
 
 
+def _restrict_permissions(path: Path) -> None:
+    """Best effort 0600. These files hold a stable install id and, for pilot
+    signup, an email address, so another local user should not be able to read
+    them under a default 022 umask."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    _restrict_permissions(path)
 
 
 def load_config() -> dict[str, Any]:
@@ -161,6 +172,7 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = "\n".join(json.dumps(record, separators=(",", ":"), sort_keys=True) for record in records)
     path.write_text(content + "\n", encoding="utf-8")
+    _restrict_permissions(path)
 
 
 def is_env_opted_in() -> bool:

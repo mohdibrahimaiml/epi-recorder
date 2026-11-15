@@ -1,0 +1,208 @@
+# Pre-launch security gate.
+#
+# This is the durable half of the audit: a checklist run once is stale the next
+# day, so every check that can be automated is enforced here on every push and
+# weekly. Anything this gate cannot decide (a live setting, a human fact) is
+# listed in AUDIT.md under "CAN'T VERIFY" instead of being assumed green.
+#
+# Blocking by design. If a step here is flaky, fix the step — do not delete it.
+name: Security Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 7 * * 1" # weekly: catches newly disclosed CVEs in pinned deps
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1.2 / 1.1 — a secret committed once is compromised forever, so this scans
+  # full history, not just the diff.
+  secret-scan:
+    name: Secret scan (full history)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_SUMMARY: "true"
+
+  # 10.4 — the simplest way to leak every key is to commit the file that holds
+  # them. .env* is gitignored; this proves no key file ever slipped in anyway.
+  tracked-secret-files:
+    name: No credential files tracked
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Fail if a private key or env file is tracked
+        run: |
+          set -eu
+          bad=0
+          # Extensions whose presence is never legitimate in a repo.
+          for f in $(git ls-files); do
+            base=$(basename "$f")
+            case "$base" in
+              .env|.env.local|.env.production|*.key|*.p12|*.pfx|id_rsa|id_ed25519)
+                if [ "$f" != ".env.example" ]; then
+                  echo "::error file=$f::credential file is tracked"
+                  bad=1
+                fi
+                ;;
+            esac
+          done
+          # .pem is legitimate for public CA roots (epi_core/assets/tsa_roots),
+          # so check the content, not the extension: only a PEM that actually
+          # carries a private key block is a finding.
+          for f in $(git ls-files '*.pem'); do
+            if grep -qI "PRIVATE KEY" "$f"; then
+              echo "::error file=$f::PEM contains a private key"
+              bad=1
+            fi
+          done
+          if [ "$bad" -eq 0 ]; then
+            echo "No credential files tracked."
+          else
+            exit 1
+          fi
+
+  # 9.1 — known-vulnerable versions, on the Python deps and the site's node deps.
+  # Never auto-fix here: upgrades are proposed one at a time and reviewed.
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit (runtime dependencies)
+        # Installs the package as a user would, then audits exactly what that
+        # pulled in. Deliberately not `pip-audit` on the dev environment, which
+        # would report on test-only tooling that never ships.
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit .
+          pip-audit --desc
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # package.json says >=18, but ai@7 requires >=22. Use the version the
+          # dependency actually needs rather than the one the field claims.
+          node-version: "22"
+
+      - name: npm audit (site build dependencies)
+        run: |
+          set -eu
+          if [ -f package-lock.json ]; then
+            npm audit --audit-level=high
+          else
+            echo "::error::package-lock.json is missing; node versions are not locked (check 9.2)"
+            exit 1
+          fi
+
+  # 5.4 / 4.5 — the classes of bug a reviewer misses: eval, exec, pickle,
+  # shell=True, and unvalidated subprocess. Report-only noise is disabled so a
+  # finding actually stops the build.
+  static-analysis:
+    name: Static analysis (bandit + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scanners
+        run: pip install "bandit[toml]" ruff
+
+      - name: "ruff (real defects: syntax, undefined names, bad __all__)"
+        # Deliberately narrow. A bare `ruff check` reports ~115 pre-existing
+        # style findings, and a gate that fails on day one gets deleted rather
+        # than fixed. These four rules catch code that cannot run.
+        run: ruff check --select E9,F63,F7,F82 .
+
+      - name: bandit (high severity, medium+ confidence)
+        run: |
+          # B310 (urlopen scheme audit) is skipped as a rule rather than
+          # annotated 15 times. Every hit is a call to a configured service
+          # endpoint (telemetry, webhook, storage sink, DID, SCITT, IdP), not a
+          # user-supplied URL, and the three CLI paths that do take an operator
+          # URL now validate the scheme through http_url_only(). Real SSRF
+          # dataflow is covered by CodeQL, which can follow taint where bandit
+          # only sees that urlopen was called. Revisit if a user-supplied URL is
+          # ever passed to urlopen.
+          #
+          # B603/B404 (subprocess) and B311 (random) are reviewed in AUDIT.md.
+          bandit -r epi_core epi_recorder epi_mcp epi_cli pytest_epi \
+            -ll -iii \
+            --skip B603,B404,B311,B310 \
+            -f txt
+
+  # Cryptographic and trust-boundary behaviour, the project's own marker.
+  security-tests:
+    name: Security test suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: pytest -m security
+        run: python -m pytest tests -m security -q --no-cov
+
+      # The OAuth flow is marked experimental and so is excluded from the
+      # release gate. It is included here because these are the only tests that
+      # exercise the consent and redirect path end to end.
+      - name: OAuth connector flow (experimental, still blocking here)
+        run: python -m pytest tests/test_mcp_chatgpt_flow.py -q --no-cov
+
+  # The Pages Functions are JavaScript, and no workflow ran their tests at all:
+  # functions/_proxy.allowlist.test.mjs existed and was never executed by CI.
+  edge-functions:
+    name: Edge function tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: node --test
+        run: node --test functions/*.test.mjs

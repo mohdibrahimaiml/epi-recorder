@@ -2065,7 +2065,6 @@ def verify_command(
 
         try:
             import hashlib as _hashlib
-            import json
 
             steps = EPIContainer.read_steps(epi_file)
             spec_ver = getattr(manifest, "spec_version", None) if manifest else None

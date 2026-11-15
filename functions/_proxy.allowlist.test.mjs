@@ -212,4 +212,30 @@ describe("proxyToRender (WP-SEC-2b hardening)", () => {
     const good = await run(ctxFor("https://epilabs.org"));
     assert.equal(good.headers.get("access-control-allow-origin"), "https://epilabs.org");
   });
+
+  // A pathname starting "//" is protocol-relative: new URL("//evil.com/x", BACKEND)
+  // resolves to https://evil.com/x, which would make this function an open proxy.
+  for (const url of [
+    "https://epilabs.org//evil.com/x",
+    "https://epilabs.org/api/..//evil.com/x",
+  ]) {
+    it(`refuses to be re-targeted by a protocol-relative path: ${url}`, async () => {
+      let called = false;
+      const spy = async () => {
+        called = true;
+        return new Response("{}", { status: 200 });
+      };
+      const run = loadProxy(spy);
+      const res = await run({
+        request: {
+          url,
+          method: "GET",
+          headers: new Headers({}),
+          body: null,
+        },
+      });
+      assert.equal(res.status, 400);
+      assert.equal(called, false, "must not fetch an attacker-controlled origin");
+    });
+  }
 });

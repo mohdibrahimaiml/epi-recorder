@@ -41,8 +41,8 @@ repository, if it is enabled.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 4.6.x   | ✅ Active support  |
-| < 4.6   | ❌ No longer supported |
+| 4.10.x  | ✅ Active support  |
+| < 4.10  | ❌ No longer supported |
 
 ## 🔐 Security Features
 

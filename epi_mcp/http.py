@@ -27,6 +27,19 @@ from starlette.routing import Route
 from epi_mcp.server import server
 from epi_mcp.tools import get_artifact_path
 
+# The consent and error pages are the ones a person reads before deciding
+# something, so they must not be framable (a framed "Approve" is a clickjacked
+# seal approval) and must not load anything at all.
+_CONSENT_PAGE_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        "frame-ancestors 'none'; base-uri 'none'"
+    ),
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+}
+
 
 def is_loopback_host(host: str) -> bool:
     h = (host or "").strip().lower()
@@ -47,8 +60,14 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
         raw = presented[7:] if presented.lower().startswith("bearer ") else presented
         subject = _auth.verify_bearer_token(raw) if raw else None
         if subject is None and not _auth.auth_configured():
-            # No auth configured (loopback dev): the caller is the operator.
-            subject = "operator"
+            # No auth configured: only a loopback caller is the operator. A
+            # remote caller stays anonymous even then, so a server built with
+            # build_app() and no EPI_MCP_TOKEN cannot be talked into reading
+            # arbitrary host files through the verify/export path arguments.
+            client = request.client
+            client_host = (client.host if client else "") or ""
+            if is_loopback_host(client_host) or client_host in ("testclient", "testserver"):
+                subject = "operator"
         path = request.url.path
         if subject is None and path.startswith(("/artifacts/", "/view/")):
             # Human download and view links carry their own expiring capability token.
@@ -99,7 +118,10 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
 
 
 async def _download_artifact(request: Request):
-    path = get_artifact_path(request.path_params.get("artifact_id", ""))
+    artifact_id = request.path_params.get("artifact_id", "")
+    if not _may_read_artifact(artifact_id):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    path = get_artifact_path(artifact_id)
     if path is None:
         return JSONResponse({"error": "Not found"}, status_code=404)
     return FileResponse(
@@ -133,8 +155,19 @@ def _start_purge_thread() -> None:
     def _loop():
         from epi_mcp import tools as _t
 
+        # Sweep once at startup: the registry is in memory, so a previous
+        # process may have left seal directories behind that nothing tracks.
+        try:
+            _t.sweep_orphaned_seals()
+            _t.purge_expired_artifacts()
+        except Exception:
+            pass
+
         while True:
-            _time.sleep(15 * 60)
+            # Once a minute, not once every 15: the stated retention is 24 hours,
+            # so a 15-minute timer let a file outlive the promise by up to 15
+            # minutes. At a minute the overshoot is bounded by a minute.
+            _time.sleep(60)
             try:
                 _t.purge_expired_artifacts()
                 _prune_seal_hits()
@@ -157,6 +190,26 @@ def _prune_seal_hits(now: float | None = None) -> None:
             del _SEAL_HITS[key]
 
 
+def _may_read_artifact(artifact_id: str) -> bool:
+    """Whether the current caller may fetch this artifact.
+
+    A download link carries its own capability token (subject "download-link")
+    and the operator sees everything, so those pass. Otherwise the artifact must
+    belong to the caller: the id is a content hash, not a secret, so a caller who
+    has seen someone else's id must not be able to read their conversation.
+    """
+    from epi_mcp.tools import artifact_owner, get_current_subject
+
+    subject = get_current_subject()
+    if subject is None or subject in ("operator", "download-link"):
+        return True
+    import hashlib
+
+    mine = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
+    owner = artifact_owner(artifact_id)
+    return owner is None or owner == mine
+
+
 async def _view_artifact(request: Request):
     """Show a sealed file in the browser with nothing to install.
 
@@ -168,7 +221,10 @@ async def _view_artifact(request: Request):
     from epi_mcp.tools import purge_expired_artifacts as _purge
 
     _purge()
-    path = get_artifact_path(request.path_params.get("artifact_id", ""))
+    artifact_id = request.path_params.get("artifact_id", "")
+    if not _may_read_artifact(artifact_id):
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    path = get_artifact_path(artifact_id)
     if path is None:
         return HTMLResponse(
             "<html><body style=\"font-family:sans-serif;max-width:40em;margin:3em auto\">"
@@ -222,7 +278,17 @@ def _seal_page(body: str, status: int = 200) -> HTMLResponse:
         "<meta name=viewport content='width=device-width,initial-scale=1'>"
         f"<title>Seal a conversation</title><style>{_PAGE_CSS}</style></head><body>{body}</body></html>",
         status_code=status,
-        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer", "X-Robots-Tag": "noindex"},
+        headers={
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Robots-Tag": "noindex",
+            # Frame protection: this page takes an upload and a decision.
+            "X-Frame-Options": "DENY",
+            "Content-Security-Policy": (
+                "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+                "frame-ancestors 'none'; base-uri 'none'"
+            ),
+        },
     )
 
 
@@ -484,7 +550,8 @@ async def _oauth_authorize_form(request: Request):
         f'<form method="post" action="{action}">{gate}'
         '<button type="submit" name="decision" value="approve">Approve</button> '
         '<button type="submit" name="decision" value="deny">Deny</button>'
-        f"</form>{signin}</body></html>"
+        f"</form>{signin}</body></html>",
+        headers=_CONSENT_PAGE_HEADERS,
     )
 
 
@@ -513,6 +580,7 @@ async def _oauth_approve(request: Request):
                 "<p>Access to this EPI server is restricted. Go back and try again.</p>"
                 "</body></html>",
                 status_code=403,
+                headers=_CONSENT_PAGE_HEADERS,
             )
     if form.get("decision") != "approve":
         q = _urlencode({"error": "access_denied", "state": params.get("state", "")})
@@ -535,6 +603,7 @@ def _idp_page(title: str, message: str, status: int) -> HTMLResponse:
     return HTMLResponse(
         f"<html><body><h1>{_html.escape(title)}</h1><p>{_html.escape(message)}</p></body></html>",
         status_code=status,
+        headers=_CONSENT_PAGE_HEADERS,
     )
 
 

@@ -8,6 +8,15 @@ This runbook defines the supported `v4.10.0` self-hosted shape for EPI (the loca
 - shared reviewer workflow in the browser
 - portable `.epi` export from any shared case
 
+> **Where the gateway lives now.** The team gateway (`epi gateway …`, the
+> `gateway`/`viewer` Docker services and their Caddy front end) moved to
+> **epi-enterprise**. This repository no longer contains those packages, a
+> Dockerfile for them, or the compose stack — `docker compose build` here
+> cannot succeed and never could after the move. Everything below that refers
+> to the gateway therefore assumes an `epi-enterprise` install; the public
+> package ships the client-side path (`epi record`, `epi verify`,
+> `epi connect open`, the MCP server) only.
+
 ## Supported Shape
 
 - Gateway: `epi gateway serve` or the `gateway` Docker service
@@ -32,11 +41,15 @@ This runbook defines the supported `v4.10.0` self-hosted shape for EPI (the loca
 2. Choose one of these if you want the shared reviewer workspace protected:
    - set `EPI_GATEWAY_ACCESS_TOKEN` for one shared bearer token
    - or set `EPI_GATEWAY_USERS_FILE` to a local users JSON file like [config/gateway-users.example.json](../config/gateway-users.example.json)
-3. Start the supported stack:
+3. Start the stack. The published Docker image ships with `epi-enterprise`; from
+   a public checkout, run the client-side pieces directly:
 
 ```bash
-docker compose up --build
+epi connect open            # viewer on port 8000
 ```
+
+   From an `epi-enterprise` checkout, `docker compose up --build` starts the
+   gateway plus viewer as before.
 
 4. Open the viewer:
 

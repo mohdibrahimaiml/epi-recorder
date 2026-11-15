@@ -2,6 +2,87 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [Unreleased]
+
+### Security
+
+A pre-launch audit (85-check framework) was run across the repository. Findings,
+evidence and per-item status live in the local, gitignored `AUDIT.md`; this
+section records what changed. **34 findings fixed, 8 open, 0 High.**
+
+- **OAuth redirect URI was a wildcard for unknown clients.** A client that
+  registered no redirect URIs was accepted with *any* URI, so an authorization
+  code could be delivered to a host the client never proved it controlled.
+  Registering an empty list is now refused.
+- **CSRF on the verify portal.** The session cookie is `SameSite=None` and
+  nothing checked `Origin`, so any page could POST to `/api/keys` or
+  `/api/share` as the signed-in user. Cookie-authenticated unsafe methods now
+  require an allow-listed `Origin`/`Referer`; Bearer clients are unaffected.
+- **Token exfiltration through a lookalike redirect.** `verify_portal` used
+  `startswith("http://localhost")`, which accepted `http://localhost.evil.com`
+  and put the freshly minted bearer token in the attacker's query string. It
+  now parses and compares the hostname exactly.
+- **The edge proxy could be re-targeted to any host.** In
+  `functions/_proxy.js` a pathname beginning `//` is protocol-relative, so
+  `new URL(path, BACKEND)` resolved to the attacker's origin. Paths must now
+  start with exactly one `/`, and the origin is re-asserted afterwards.
+- **Artifact downloads had no owner check.** The artifact id is `sha256[:16]`,
+  a content hash rather than a capability, so a caller who saw someone else's
+  id could fetch their conversation. Ownership is now enforced; the `?t=` link
+  token still works.
+- **Retention could silently fail.** `purge_expired_artifacts` dropped its
+  bookkeeping before deleting and swallowed the error, and a restart orphaned
+  every sealed temp directory. Tracking is dropped only once the bytes are
+  gone, failures retry, and startup sweeps what a previous process left. The
+  purge loop runs every minute instead of every 15, so the published 24-hour
+  retention is bounded by a minute rather than a quarter hour.
+- **`build_app()` treated every remote caller as the local operator,** which
+  allowed arbitrary host paths in verify/export. The fallback now requires a
+  loopback client.
+- **Consent and seal pages could be framed,** so an "Approve" click could be
+  clickjacked into sealing. They are now `frame-ancestors 'none'`.
+- **The verify portal served `/docs`, `/redoc` and `/openapi.json`** to
+  anonymous callers. All three return 404, and every response now carries
+  HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
+  and a report-only CSP.
+- **The site CSP enforces** `frame-ancestors`, `base-uri`, `form-action` and
+  `object-src`. `script-src`, `style-src` and `connect-src` remain report-only
+  until jszip's `setImmediate` polyfill (`new Function`) is resolved. A new
+  `/csp-report` function accepts violations (capped body, query strings
+  stripped) so "enforce after a week of clean reports" is measurable instead of
+  assumed.
+- **The privacy page named one timestamp authority; sealing uses several.** It
+  now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
+  each receives only the hash, never the conversation.
+- **Self-serve deletion.** New `epi_delete_artifact` MCP tool deletes the
+  caller's own sealed file immediately, so erasure no longer depends on someone
+  answering email. The privacy page documents it.
+- **The demo deployment path could not build.** `epi_gateway` moved to
+  `epi-enterprise`; the `Dockerfile`, both compose files and the `Caddyfile`
+  that referenced it are removed, and `docs/SELF-HOSTED-RUNBOOK.md` says where
+  the gateway lives.
+- Fixes in passing: `cbor2`, `rfc8785` and `httpx` pinned; `package-lock.json`
+  tracked; the cases page uses the vendored jszip instead of a CDN script
+  without SRI; telemetry and case-store files are `0600`; the terminal demo
+  echoes typed input with `textContent`; pilot demos generate their key
+  passphrase per run; Dependabot targets the directory that exists;
+  `/.well-known/*` only proxies a named allow-list.
+- Two latent `UnboundLocalError` crashes fixed: `epi_cli/verify.py` used `json`
+  before a later `import json` made it local — it fired on the structural
+  verification failure path, exactly when an auditor is finding out why a file
+  did not verify — and `epi_recorder/api.py` did the same with `sys` when a
+  vault key was missing.
+
+### Internal
+
+- **New `Security Audit` workflow** on every push, PR and weekly: gitleaks over
+  full history, a tracked-credential check, `pip-audit`, `npm audit`,
+  `bandit`, `ruff` (E9/F63/F7/F82), the `-m security` suite, and the OAuth
+  connector flow that the release gate excludes as experimental.
+- `tests/security/test_prelaunch_hardening.py` pins each audit fix to a
+  regression test, named after its finding id.
+
+
 ## [4.10.0] - 2026-11-12
 
 ### Licensing

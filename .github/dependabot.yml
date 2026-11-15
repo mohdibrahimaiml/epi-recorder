@@ -17,9 +17,11 @@ updates:
       actions:
         patterns: ["*"]
   - package-ecosystem: "npm"
-    directory: "/cloud"
+    # The site's package.json lives at the repository root (the former /cloud
+    # directory moved out with the gateway, so this never opened a PR).
+    directory: "/"
     schedule:
       interval: "weekly"
     groups:
-      cloud-deps:
+      site-deps:
         patterns: ["*"]

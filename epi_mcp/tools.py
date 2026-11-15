@@ -97,7 +97,12 @@ _SEAL_DIR_PREFIX = "epi_mcp_seal_"
 
 
 def purge_expired_artifacts(now: float | None = None) -> int:
-    """Delete sealed files (and their temp dirs) past their retention. Returns count."""
+    """Delete sealed files (and their temp dirs) past their retention. Returns count.
+
+    Tracking is dropped only once the bytes are gone. A failed delete keeps its
+    entry so the next sweep retries it: forgetting a file that is still on disk
+    would silently break the 24-hour retention the privacy page promises.
+    """
     import shutil
     import time
 
@@ -107,20 +112,52 @@ def purge_expired_artifacts(now: float | None = None) -> int:
         if expires > now:
             continue
         path = ARTIFACTS.pop(aid, None)
+        if path:
+            target = Path(path)
+            try:
+                if target.parent.name.startswith(_SEAL_DIR_PREFIX):
+                    shutil.rmtree(target.parent)
+                else:
+                    target.unlink(missing_ok=True)
+            except OSError:
+                # Put the entry back: retry on the next sweep rather than orphaning it.
+                ARTIFACTS[aid] = path
+                continue
         _ARTIFACT_EXPIRY.pop(aid, None)
         _ARTIFACT_OWNER.pop(aid, None)
         purged += 1
-        if not path:
-            continue
-        parent = Path(path).parent
-        try:
-            if parent.name.startswith(_SEAL_DIR_PREFIX):
-                shutil.rmtree(parent, ignore_errors=True)
-            else:
-                Path(path).unlink(missing_ok=True)
-        except OSError:
-            pass
     return purged
+
+
+def sweep_orphaned_seals(max_age_seconds: float = DOWNLOAD_TTL_SECONDS) -> int:
+    """Delete leftover seal directories from a previous process. Returns count.
+
+    The artifact registry lives in memory, so a restart loses track of every
+    temp directory it wrote. Without this sweep those directories, each holding
+    a whole conversation, would never be deleted at all.
+    """
+    import shutil
+    import tempfile
+    import time
+
+    root = Path(tempfile.gettempdir())
+    if not root.is_dir():
+        return 0
+    deadline = time.time() - max_age_seconds
+    removed = 0
+    try:
+        candidates = list(root.glob(_SEAL_DIR_PREFIX + "*"))
+    except OSError:
+        return 0
+    for path in candidates:
+        try:
+            if not path.is_dir() or path.stat().st_mtime > deadline:
+                continue
+            shutil.rmtree(path)
+            removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 def _no_trusted_timestamp(epi_path: str) -> bool:
@@ -155,6 +192,12 @@ def _check_quota(owner: str) -> None:
         )
 
 
+def artifact_owner(artifact_id: str) -> str | None:
+    """Owner hash for a retention-managed artifact, or None when unmanaged."""
+    rec = _ARTIFACT_OWNER.get(artifact_id)
+    return rec[0] if rec else None
+
+
 def _issue_download_token(artifact_id: str) -> str:
     import secrets
     import time
@@ -178,6 +221,51 @@ def download_token_valid(artifact_id: str, token: str | None) -> bool:
     if rec is None or rec[1] < time.time():
         return False
     return hmac.compare_digest(rec[0], artifact_id)
+
+
+def epi_delete_artifact_tool(artifact_id: str) -> dict[str, Any]:
+    """Delete a sealed file this caller owns, before its retention window ends.
+
+    The privacy page promises early deletion on request; this makes it
+    self-serve so it does not depend on someone answering email. A caller may
+    only delete their own artifact, and a refusal is worded exactly like a miss
+    so this cannot be used to discover that someone else's id exists.
+    """
+    import hashlib
+    import shutil
+
+    aid = (artifact_id or "").strip()
+    if not aid:
+        raise ValueError("Pass the artifact_id returned by epi_seal_record.")
+    subject = get_current_subject()
+    if subject is None:
+        raise PermissionError("Deleting requires an authenticated caller.")
+
+    owner = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
+    record = _ARTIFACT_OWNER.get(aid)
+    path = ARTIFACTS.get(aid)
+    if path is None and record is None:
+        raise ValueError("That sealed file is no longer on the server.")
+    if subject != "operator" and (record is None or record[0] != owner):
+        raise ValueError("That sealed file is no longer on the server.")
+
+    target = Path(path) if path else None
+    if target is not None:
+        if target.parent.name.startswith(_SEAL_DIR_PREFIX):
+            shutil.rmtree(target.parent)
+        else:
+            target.unlink(missing_ok=True)
+    ARTIFACTS.pop(aid, None)
+    _ARTIFACT_EXPIRY.pop(aid, None)
+    _ARTIFACT_OWNER.pop(aid, None)
+    return {
+        "deleted": True,
+        "artifact_id": aid,
+        "note": (
+            "The server's copy is gone. A copy you already downloaded is yours and "
+            "is unaffected."
+        ),
+    }
 
 
 def _stable_signer() -> bool:

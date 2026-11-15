@@ -74,6 +74,29 @@ def normalize_plan(plan: str | None) -> str:
     return raw if raw in VALID_PLANS else "free"
 
 
+def is_loopback_redirect(uri: str | None) -> bool:
+    """True only for a genuine loopback or custom-scheme redirect.
+
+    A plain startswith() check accepts http://localhost.evil.com, which would
+    send a freshly minted bearer token to an attacker. Parse the URL and compare
+    the hostname exactly.
+    """
+    if not uri:
+        return False
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(uri)
+    except ValueError:
+        return False
+    if parsed.scheme == "epi":
+        return True
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
 def _utc_now() -> datetime:
     return datetime.now(UTC)
 
@@ -538,7 +561,7 @@ async def handle_github_callback(
         return _account_error_redirect("oauth_failed")
 
     # CLI / custom redirect (token in query — local loopback only expected)
-    if redirect_uri and redirect_uri.startswith(("http://127.0.0.1", "http://localhost", "epi://")):
+    if is_loopback_redirect(redirect_uri):
         separator = "&" if "?" in redirect_uri else "?"
         org_q = urlencode({"org": user.get("org") or ""})
         url = f"{redirect_uri}{separator}token={bearer}&user_id={user['id']}&{org_q}&plan={plan}"

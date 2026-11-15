@@ -14,7 +14,26 @@ const BACKEND = "https://epi-verify-portal.onrender.com";
 
 export async function proxyToRender(context) {
   const incoming = new URL(context.request.url);
-  const target = new URL(incoming.pathname + incoming.search, BACKEND);
+
+  // A pathname starting "//" is protocol-relative: new URL("//evil.com/x", BACKEND)
+  // resolves to https://evil.com/x, which would make this edge function an open
+  // proxy that issues requests from Cloudflare's egress. Normalise the path to a
+  // single leading slash before it is combined with the backend origin.
+  const path = incoming.pathname;
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    return new Response(
+      JSON.stringify({ ok: false, detail: "Bad request path" }),
+      { status: 400, headers: { "content-type": "application/json" } },
+    );
+  }
+  const target = new URL(path + incoming.search, BACKEND);
+  if (target.origin !== BACKEND) {
+    // Belt and braces: never forward upstream unless the origin is still ours.
+    return new Response(
+      JSON.stringify({ ok: false, detail: "Bad request path" }),
+      { status: 400, headers: { "content-type": "application/json" } },
+    );
+  }
 
   // Clone headers; drop hop-by-hop that confuse origin
   const headers = new Headers(context.request.headers);
@@ -48,11 +67,13 @@ export async function proxyToRender(context) {
       errHeaders["access-control-allow-origin"] = allowedErr;
       errHeaders["access-control-allow-credentials"] = "true";
     }
+    // Log the real cause server-side; never return it. The message can carry
+    // internal DNS names and TLS detail to an unauthenticated caller.
+    console.error("proxy upstream failed", err);
     return new Response(
       JSON.stringify({
         ok: false,
         detail: "Upstream API unreachable (Render may be cold-starting). Retry in a few seconds.",
-        error: String(err && err.message ? err.message : err),
       }),
       {
         status: 502,

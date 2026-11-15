@@ -49,6 +49,7 @@ from mcp.types import ToolAnnotations
 from epi_mcp.records import SCOPE_NOTE
 from epi_mcp.tools import (
     compare_runs,
+    epi_delete_artifact_tool,
     epi_export_summary_tool,
     epi_seal_record_tool,
     epi_verify_tool,
@@ -206,6 +207,36 @@ def epi_compare_runs(epi_path_a: str | None = None, epi_path_b: str | None = Non
     epi_path_a = _one_ref(epi_path_a, artifact_id_a)
     epi_path_b = _one_ref(epi_path_b, artifact_id_b)
     return compare_runs(epi_path_a, epi_path_b)
+
+
+@server.tool(
+    description=(
+        "Delete the server's copy of a sealed file before its retention window "
+        "ends. Use it when the user asks to delete, remove or erase a sealed "
+        "record early. Only the caller who sealed it can delete it, and a copy "
+        "the user already downloaded is unaffected."
+    ),
+    title="Delete a sealed file early",
+    # Removes a file on our own server. Destructive on purpose, so the host can
+    # warn before it runs.
+    annotations=ToolAnnotations(
+        title="Delete a sealed file early",
+        read_only_hint=False,
+        destructive_hint=True,
+        idempotent_hint=True,
+        open_world_hint=False,
+    ),
+    meta=_oauth_meta("seal"),
+)
+def epi_delete_artifact(artifact_id: str) -> dict[str, Any]:
+    from epi_mcp.tools import _current_subject as _subject_var
+
+    token = _subject_var.set("operator") if _subject_var.get() is None else None
+    try:
+        return epi_delete_artifact_tool(artifact_id)
+    finally:
+        if token is not None:
+            _subject_var.reset(token)
 
 
 # One-click starters. In the host's connector menu these appear as ready-made
