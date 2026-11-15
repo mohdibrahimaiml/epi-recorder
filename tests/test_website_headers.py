@@ -52,13 +52,31 @@ def test_headers_file_has_required_headers():
         "Referrer-Policy",
         "Permissions-Policy",
         "X-Frame-Options",
-        "Content-Security-Policy-Report-Only",
+        "Content-Security-Policy:",
+        "Content-Security-Policy-Report-Only:",
     ]:
         assert required in text, f"_headers missing {required}"
-    # Report-Only first: enforcing comes as a separate step after a clean run.
-    assert "Content-Security-Policy:" not in text.replace(
-        "Content-Security-Policy-Report-Only:", ""
-    ), "must ship Report-Only first, not enforcing"
+
+
+def test_enforcing_csp_holds_only_directives_that_cannot_break_rendering():
+    """The enforcing policy must stay narrow.
+
+    script-src, style-src and connect-src remain in Report-Only until jszip's
+    `new Function` polyfill is resolved; enforcing them early would break the
+    viewer, which is the page the whole product exists to serve.
+    """
+    text = HEADERS.read_text(encoding="utf-8", errors="ignore")
+    m = re.search(r"^  Content-Security-Policy:\s*(.+)$", text, re.M)
+    assert m, "no enforcing Content-Security-Policy line"
+    policy = m.group(1)
+    allowed = {"frame-ancestors", "base-uri", "form-action", "object-src"}
+    directives = {d.strip().split(" ")[0] for d in policy.split(";") if d.strip()}
+    assert directives <= allowed, f"unexpected enforcing directives: {directives - allowed}"
+    for must_wait in ("script-src", "style-src", "connect-src"):
+        assert must_wait not in policy, f"{must_wait} must not be enforced yet"
+        assert must_wait in text.split("Content-Security-Policy-Report-Only:")[1], (
+            f"{must_wait} missing from the report-only policy"
+        )
 
 
 def test_no_inline_event_handlers():

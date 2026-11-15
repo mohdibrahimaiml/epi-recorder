@@ -266,7 +266,8 @@ def main() -> int:
     vendor = home(root, "vendor")
     approver = home(root, "approver")
     bank = home(root, "bank")
-    approver["EPI_KEY_PASSWORD"] = "witness-pilot-password"
+    # Random per run rather than a literal, matching the witness secret below.
+    approver["EPI_KEY_PASSWORD"] = os.urandom(16).hex()
     vendor["EPI_OVERWRITE"] = "1"
 
     witness_dir = root / "customer"

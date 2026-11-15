@@ -223,6 +223,51 @@ def download_token_valid(artifact_id: str, token: str | None) -> bool:
     return hmac.compare_digest(rec[0], artifact_id)
 
 
+def epi_delete_artifact_tool(artifact_id: str) -> dict[str, Any]:
+    """Delete a sealed file this caller owns, before its retention window ends.
+
+    The privacy page promises early deletion on request; this makes it
+    self-serve so it does not depend on someone answering email. A caller may
+    only delete their own artifact, and a refusal is worded exactly like a miss
+    so this cannot be used to discover that someone else's id exists.
+    """
+    import hashlib
+    import shutil
+
+    aid = (artifact_id or "").strip()
+    if not aid:
+        raise ValueError("Pass the artifact_id returned by epi_seal_record.")
+    subject = get_current_subject()
+    if subject is None:
+        raise PermissionError("Deleting requires an authenticated caller.")
+
+    owner = hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16]
+    record = _ARTIFACT_OWNER.get(aid)
+    path = ARTIFACTS.get(aid)
+    if path is None and record is None:
+        raise ValueError("That sealed file is no longer on the server.")
+    if subject != "operator" and (record is None or record[0] != owner):
+        raise ValueError("That sealed file is no longer on the server.")
+
+    target = Path(path) if path else None
+    if target is not None:
+        if target.parent.name.startswith(_SEAL_DIR_PREFIX):
+            shutil.rmtree(target.parent)
+        else:
+            target.unlink(missing_ok=True)
+    ARTIFACTS.pop(aid, None)
+    _ARTIFACT_EXPIRY.pop(aid, None)
+    _ARTIFACT_OWNER.pop(aid, None)
+    return {
+        "deleted": True,
+        "artifact_id": aid,
+        "note": (
+            "The server's copy is gone. A copy you already downloaded is yours and "
+            "is unaffected."
+        ),
+    }
+
+
 def _stable_signer() -> bool:
     import os as _os
 

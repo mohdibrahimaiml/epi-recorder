@@ -83,8 +83,12 @@ kept in memory for up to one hour. Our hosting provider may keep ordinary server
 <strong>We delete the file {h} hours after sealing.</strong> Download it if you want to keep it.</li>
 <li>The view and download links contain a random secret and stop working after {h} hours. Anyone who has
 the link can open the file until then, so treat the link like the conversation itself.</li>
-<li>To add a trusted time to the file we send a <em>hash</em> of the file's list (not the content) to a public
-timestamp service (FreeTSA, <code>freetsa.org</code>).</li>
+<li>To add a trusted time to the file we send a <em>hash</em> of the file's list (not the content) to
+independent public timestamp authorities: FreeTSA (<code>freetsa.org</code>) and DigiCert
+(<code>timestamp.digicert.com</code>). When the OpenTimestamps tool is available we also send that same
+hash to the public OpenTimestamps calendars (<code>a.pool.opentimestamps.org</code>,
+<code>b.pool.opentimestamps.org</code> and <code>c.pool.opentimestamps.org</code>), which record it in
+Bitcoin. None of them receive the conversation.</li>
 <li>We do not sell your content, use it for advertising, or use it to train models.</li>
 <li>Passwords, keys and other people's personal data should not be sealed. The assistant is instructed to
 replace them with <code>[REDACTED]</code>, but you are responsible for what you ask it to seal.</li>
@@ -94,14 +98,16 @@ replace them with <code>[REDACTED]</code>, but you are responsible for what you 
 <ul>
 <li>Our hosting provider (Render) runs the server.</li>
 <li>GitHub or your identity provider, only if you choose to sign in.</li>
-<li>FreeTSA, which receives only the hash described above.</li>
+<li>FreeTSA and DigiCert as timestamp authorities, and the OpenTimestamps calendars when that tool is
+installed. Each receives only the hash described above, never the conversation.</li>
 </ul>
 
 <h2>Your choices</h2>
 <ul>
 <li>Seal nothing: the service only acts when you ask. Use pseudonymous approval to stay anonymous.</li>
-<li>Delete early: write to {_contact_html()} with the artifact id and we will remove the file.
-Otherwise it is deleted automatically after {h} hours.</li>
+<li>Delete early: ask in the chat to delete the sealed file and the sealer removes the server's
+copy straight away, or write to {_contact_html()} with the artifact id. Otherwise it is deleted
+automatically after {h} hours.</li>
 <li>Ask what we hold about you, or ask us to delete it, at the same address.</li>
 </ul>
 

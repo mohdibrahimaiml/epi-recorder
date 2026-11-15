@@ -47,7 +47,11 @@ RELEASE_FILE = OUT_DIR / f"{RELEASE_NAME}-{RELEASE_VERSION}.epi"
 POLICY_FILE = OUT_DIR / "claims-policy.yaml"
 TRUST_POLICY_FILE = OUT_DIR / "claims-approval-policy.json"
 WITNESS_FILE = OUT_DIR / "witness.jsonl"
-WITNESS_SECRET = "epi-demo-witness"
+# Public by construction: this authenticates posts to the sample witness ledger
+# that ships in the repo, so anyone reading the source can forge it. It is a
+# demo value, not a secret. A real witness endpoint sets EPI_WITNESS_SECRET and
+# must never reuse this string.
+WITNESS_SECRET = os.environ.get("EPI_DEMO_WITNESS_SECRET", "epi-demo-witness")
 RELEASE_APPROVER = "DEMO KEY"
 PRE_ACTION_APPROVER = "DEMO APPROVER"
 

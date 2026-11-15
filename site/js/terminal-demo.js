@@ -96,7 +96,9 @@ class TerminalDemo {
         const oldInput = this.body.querySelector('.command-input');
         if (oldInput) {
             oldInput.disabled = true;
-            oldInput.parentElement.innerHTML = oldInput.value;
+            // textContent, not innerHTML: this is whatever the visitor typed,
+            // and setting it as HTML made the demo terminal an XSS sink.
+            oldInput.parentElement.textContent = oldInput.value;
         }
 
         const line = document.createElement('div');

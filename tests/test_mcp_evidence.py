@@ -63,8 +63,21 @@ def test_server_tools_registered():
     pytest.importorskip("mcp.server.mcpserver")
     import epi_mcp.server as srv
 
-    registered = {fn.__name__ for fn in (srv.epi_seal_record, srv.epi_verify, srv.epi_export_summary)}
-    assert registered == {"epi_seal_record", "epi_verify", "epi_export_summary"}
+    registered = {
+        fn.__name__
+        for fn in (
+            srv.epi_seal_record,
+            srv.epi_verify,
+            srv.epi_export_summary,
+            srv.epi_delete_artifact,
+        )
+    }
+    assert registered == {
+        "epi_seal_record",
+        "epi_verify",
+        "epi_export_summary",
+        "epi_delete_artifact",
+    }
 
 
 def test_seal_tool_returns_file_bytes(isolated_keys, tmp_path):
@@ -107,6 +120,7 @@ def test_http_lists_and_seals(isolated_keys, tmp_path):
                     tools = await session.list_tools()
                     assert sorted(t.name for t in tools.tools) == [
                         "epi_compare_runs",
+                        "epi_delete_artifact",
                         "epi_export_summary",
                         "epi_seal_record",
                         "epi_verify",
@@ -1014,7 +1028,7 @@ def test_every_tool_has_a_title_inside_its_annotations_as_the_directory_requires
     from epi_mcp.server import server
 
     tools = asyncio.run(server.list_tools())
-    assert len(tools) == 4
+    assert len(tools) == 5
     for t in tools:
         assert t.annotations is not None and t.annotations.title, t.name
         assert t.annotations.title == t.title
@@ -1218,7 +1232,13 @@ def test_every_tool_sets_all_three_hints_and_declares_its_auth():
     from epi_mcp.server import server
 
     tools = asyncio.run(server.list_tools())
-    assert {t.name for t in tools} == {"epi_seal_record", "epi_verify", "epi_export_summary", "epi_compare_runs"}
+    assert {t.name for t in tools} == {
+        "epi_seal_record",
+        "epi_verify",
+        "epi_export_summary",
+        "epi_compare_runs",
+        "epi_delete_artifact",
+    }
     for t in tools:
         a = t.annotations
         for hint in ("read_only_hint", "destructive_hint", "open_world_hint"):
@@ -1226,8 +1246,14 @@ def test_every_tool_sets_all_three_hints_and_declares_its_auth():
         schemes = (t.meta or {}).get("securitySchemes")
         assert schemes and schemes[0]["type"] == "oauth2" and schemes[0]["scopes"], t.name
     by_name = {t.name: t for t in tools}
+    # The two tools that change state say so; everything else is read-only.
+    writers = {"epi_seal_record", "epi_delete_artifact"}
     assert by_name["epi_seal_record"].annotations.read_only_hint is False
-    assert all(by_name[n].annotations.read_only_hint is True for n in by_name if n != "epi_seal_record")
+    assert by_name["epi_delete_artifact"].annotations.read_only_hint is False
+    assert by_name["epi_delete_artifact"].annotations.destructive_hint is True
+    assert all(
+        by_name[n].annotations.read_only_hint is True for n in by_name if n not in writers
+    )
 
 
 def test_trust_command_works_with_the_fingerprint_rule(isolated_keys, tmp_path, monkeypatch):

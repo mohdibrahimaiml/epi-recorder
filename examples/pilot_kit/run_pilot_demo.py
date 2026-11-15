@@ -170,9 +170,10 @@ def fingerprint(path: Path) -> str:
 def main() -> int:
     root = Path(tempfile.mkdtemp(prefix="epi-pilot-"))
     vendor, approver, bank = (epi_home(root, n) for n in ("vendor", "approver", "bank"))
-    # The demo sets a password so `approvers keygen` does not prompt. A real
-    # approver types their own (docs/HUMAN-APPROVAL.md).
-    approver["EPI_KEY_PASSWORD"] = "pilot-demo-password"
+    # Random per run, not a literal: a "demo password" written in the source is a
+    # password everyone who reads the source knows, and people copy demo scripts.
+    # A real approver types their own (docs/HUMAN-APPROVAL.md).
+    approver["EPI_KEY_PASSWORD"] = os.urandom(16).hex()
     # Re-running the demo must replace the sample run, not create run-2.epi.
     vendor["EPI_OVERWRITE"] = "1"
     run_file = HERE / "run.epi"

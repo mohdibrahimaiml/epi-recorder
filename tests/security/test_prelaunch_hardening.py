@@ -172,6 +172,88 @@ def test_an_unmanaged_artifact_stays_readable():
         tools._current_subject.reset(token)
 
 
+# --- 12.4 : self-serve deletion --------------------------------------------
+
+
+def _seed_artifact(tmp_path, artifact_id: str, subject: str):
+    from epi_mcp import tools
+
+    seal_dir = tmp_path / f"{tools._SEAL_DIR_PREFIX}{artifact_id[:6]}"
+    seal_dir.mkdir()
+    target = seal_dir / "record.epi"
+    target.write_bytes(b"conversation")
+    tools.ARTIFACTS[artifact_id] = str(target)
+    tools._ARTIFACT_EXPIRY[artifact_id] = time.time() + 3600
+    tools._ARTIFACT_OWNER[artifact_id] = (
+        hashlib.sha256(subject.encode("utf-8")).hexdigest()[:16],
+        target.stat().st_size,
+    )
+    return seal_dir
+
+
+def test_a_caller_can_delete_their_own_artifact(tmp_path):
+    """12.4. Erasure must not depend on someone answering email."""
+    from epi_mcp import tools
+
+    artifact_id = "1" * 16
+    seal_dir = _seed_artifact(tmp_path, artifact_id, "alice")
+    token = tools._current_subject.set("alice")
+    try:
+        out = tools.epi_delete_artifact_tool(artifact_id)
+    finally:
+        tools._current_subject.reset(token)
+
+    assert out["deleted"] is True
+    assert not seal_dir.exists()
+    assert artifact_id not in tools.ARTIFACTS
+    assert artifact_id not in tools._ARTIFACT_EXPIRY
+    assert artifact_id not in tools._ARTIFACT_OWNER
+
+
+def test_another_caller_cannot_delete_it(tmp_path):
+    """12.4. Refusal is worded as a miss so the id cannot be probed."""
+    from epi_mcp import tools
+
+    artifact_id = "2" * 16
+    seal_dir = _seed_artifact(tmp_path, artifact_id, "bob")
+    token = tools._current_subject.set("alice")
+    try:
+        with pytest.raises(ValueError, match="no longer on the server"):
+            tools.epi_delete_artifact_tool(artifact_id)
+    finally:
+        tools._current_subject.reset(token)
+
+    assert seal_dir.exists()
+    assert artifact_id in tools.ARTIFACTS
+
+
+def test_the_operator_can_delete_any_artifact(tmp_path):
+    """12.4. Local stdio runs are the operator and may clean up anything."""
+    from epi_mcp import tools
+
+    artifact_id = "3" * 16
+    seal_dir = _seed_artifact(tmp_path, artifact_id, "bob")
+    token = tools._current_subject.set("operator")
+    try:
+        out = tools.epi_delete_artifact_tool(artifact_id)
+    finally:
+        tools._current_subject.reset(token)
+
+    assert out["deleted"] is True
+    assert not seal_dir.exists()
+
+
+def test_deleting_an_unknown_artifact_raises():
+    from epi_mcp import tools
+
+    token = tools._current_subject.set("alice")
+    try:
+        with pytest.raises(ValueError, match="no longer on the server"):
+            tools.epi_delete_artifact_tool("0123456789abcdef")
+    finally:
+        tools._current_subject.reset(token)
+
+
 # --- 2.7 / 5.5 : loopback redirect must be a real loopback ------------------
 
 
