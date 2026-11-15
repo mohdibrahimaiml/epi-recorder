@@ -25,7 +25,11 @@ services:
     working_dir: /app
     command: ["python", "-m", "http.server", "8000", "--directory", "/app"]
     volumes:
-      - ./:/app:ro
+      # Only the viewer is mounted, never the repository root. Mounting ./:/app
+      # served /app/.env, /app/.git and every sealed artifact over plain HTTP,
+      # and port 8000 is reachable from the LAN by design (docs/CONNECT.md), so
+      # that was a credential leak as well as a data leak.
+      - ./web_viewer:/app/web_viewer:ro
     ports:
       - "8000:8000"
     depends_on:

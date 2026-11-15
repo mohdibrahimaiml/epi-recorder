@@ -1741,11 +1741,14 @@ def keys(
                     '--fingerprint "<the fingerprint the sender read to you>" --name <sender>'
                 )
                 raise typer.Exit(1)
-            _base = (
+            from epi_cli._shared import http_url_only
+
+            _base = http_url_only(
                 cloud_url or _os.environ.get("EPI_CLOUD_URL") or "https://cloud.epilabs.org"
             ).rstrip("/")
             try:
-                with _urlreq.urlopen(f"{_base}/o/{_slug}/keys.json", timeout=15) as _res:
+                # Scheme is checked by http_url_only above.
+                with _urlreq.urlopen(f"{_base}/o/{_slug}/keys.json", timeout=15) as _res:  # nosec B310
                     _doc = _json.loads(_res.read().decode("utf-8"))
             except Exception as e:
                 console.print(f"[red][FAIL] Could not fetch the key registry:[/red] {e}")
@@ -2685,7 +2688,13 @@ def doctor(
         console.print("[bold]Gateway[/bold]")
         try:
             import urllib.request
-            req = urllib.request.urlopen(f"{gateway_url.rstrip('/')}/health", timeout=5)
+
+            from epi_cli._shared import http_url_only
+
+            # Scheme is checked by http_url_only before the request is made.
+            req = urllib.request.urlopen(  # nosec B310
+                http_url_only(f"{gateway_url.rstrip('/')}/health"), timeout=5
+            )
             data = json.loads(req.read())
             status = data.get("status", "unknown")
             cases = data.get("case_count", "?")

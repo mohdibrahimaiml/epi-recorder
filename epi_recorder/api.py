@@ -2369,7 +2369,6 @@ class EpiRecorderSession:
             return True
 
         except Exception as e:
-            import sys
             self._last_sign_error = str(e)
             print(f"Warning: Failed to sign .epi file: {e}", file=sys.stderr)
             return False

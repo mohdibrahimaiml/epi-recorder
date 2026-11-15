@@ -131,7 +131,10 @@ def _get_persistent_viewer_dir(epi_path: Path) -> Path:
         mtime = int(epi_path.stat().st_mtime)
     except Exception:
         mtime = 0
-    cache_key = hashlib.md5(f"{epi_path.absolute()}|{mtime}".encode()).hexdigest()[:10]
+    # MD5 as a cache key for path+mtime, not a security primitive.
+    cache_key = hashlib.md5(  # nosec B324
+        f"{epi_path.absolute()}|{mtime}".encode(), usedforsecurity=False
+    ).hexdigest()[:10]
     cache_dir = Path.home() / ".epi" / "view-cache" / f"{epi_path.stem}_{cache_key}"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir

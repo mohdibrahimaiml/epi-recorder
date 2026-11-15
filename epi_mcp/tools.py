@@ -97,7 +97,12 @@ _SEAL_DIR_PREFIX = "epi_mcp_seal_"
 
 
 def purge_expired_artifacts(now: float | None = None) -> int:
-    """Delete sealed files (and their temp dirs) past their retention. Returns count."""
+    """Delete sealed files (and their temp dirs) past their retention. Returns count.
+
+    Tracking is dropped only once the bytes are gone. A failed delete keeps its
+    entry so the next sweep retries it: forgetting a file that is still on disk
+    would silently break the 24-hour retention the privacy page promises.
+    """
     import shutil
     import time
 
@@ -107,20 +112,52 @@ def purge_expired_artifacts(now: float | None = None) -> int:
         if expires > now:
             continue
         path = ARTIFACTS.pop(aid, None)
+        if path:
+            target = Path(path)
+            try:
+                if target.parent.name.startswith(_SEAL_DIR_PREFIX):
+                    shutil.rmtree(target.parent)
+                else:
+                    target.unlink(missing_ok=True)
+            except OSError:
+                # Put the entry back: retry on the next sweep rather than orphaning it.
+                ARTIFACTS[aid] = path
+                continue
         _ARTIFACT_EXPIRY.pop(aid, None)
         _ARTIFACT_OWNER.pop(aid, None)
         purged += 1
-        if not path:
-            continue
-        parent = Path(path).parent
-        try:
-            if parent.name.startswith(_SEAL_DIR_PREFIX):
-                shutil.rmtree(parent, ignore_errors=True)
-            else:
-                Path(path).unlink(missing_ok=True)
-        except OSError:
-            pass
     return purged
+
+
+def sweep_orphaned_seals(max_age_seconds: float = DOWNLOAD_TTL_SECONDS) -> int:
+    """Delete leftover seal directories from a previous process. Returns count.
+
+    The artifact registry lives in memory, so a restart loses track of every
+    temp directory it wrote. Without this sweep those directories, each holding
+    a whole conversation, would never be deleted at all.
+    """
+    import shutil
+    import tempfile
+    import time
+
+    root = Path(tempfile.gettempdir())
+    if not root.is_dir():
+        return 0
+    deadline = time.time() - max_age_seconds
+    removed = 0
+    try:
+        candidates = list(root.glob(_SEAL_DIR_PREFIX + "*"))
+    except OSError:
+        return 0
+    for path in candidates:
+        try:
+            if not path.is_dir() or path.stat().st_mtime > deadline:
+                continue
+            shutil.rmtree(path)
+            removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 def _no_trusted_timestamp(epi_path: str) -> bool:
@@ -153,6 +190,12 @@ def _check_quota(owner: str) -> None:
         raise ValueError(
             "The server's temporary storage is full. Nothing was sealed. Try again later."
         )
+
+
+def artifact_owner(artifact_id: str) -> str | None:
+    """Owner hash for a retention-managed artifact, or None when unmanaged."""
+    rec = _ARTIFACT_OWNER.get(artifact_id)
+    return rec[0] if rec else None
 
 
 def _issue_download_token(artifact_id: str) -> str:

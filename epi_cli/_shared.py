@@ -22,6 +22,21 @@ from epi_core.workspace import create_recording_workspace
 console = Console()
 
 
+def http_url_only(url: str) -> str:
+    """Return the URL if its scheme is http(s), else raise.
+
+    urlopen() also accepts file: and other schemes, which turns a reachability
+    probe into a local-file read. The operator controls these URLs, so this is
+    hardening rather than a live exploit, but it costs one check.
+    """
+    from urllib.parse import urlparse
+
+    scheme = (urlparse(url).scheme or "").lower()
+    if scheme not in ("http", "https"):
+        raise ValueError(f"refusing non-http URL scheme: {scheme or '(none)'}")
+    return url
+
+
 def report_witness_for_cli(epi_path: Path | str) -> str | None:
     """Report a sealed file to the customer witness (CLI record/run flows).
 
@@ -147,9 +162,11 @@ def require_service(url: str, timeout: float = 5.0, label: str | None = None) ->
         from epi_core.useragent import user_agent
 
         req = urllib.request.Request(
-            url, method="HEAD", headers={"User-Agent": user_agent()}
+            http_url_only(url), method="HEAD", headers={"User-Agent": user_agent()}
         )
-        urllib.request.urlopen(req, timeout=timeout)
+        # Bandit cannot see that http_url_only() already rejected non-http
+        # schemes, so the suppression is justified by the call above.
+        urllib.request.urlopen(req, timeout=timeout)  # nosec B310
     except urllib.error.HTTPError:
         # Service is reachable; let the command handle the HTTP status.
         return

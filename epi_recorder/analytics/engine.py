@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["AgentAnalytics"]
+# AgentAnalytics is provided lazily by __getattr__ below, so static analysis
+# cannot see it as defined here. The export is deliberate.
+__all__ = ["AgentAnalytics"]  # noqa: F822
 
 
 def __getattr__(name: str) -> Any:

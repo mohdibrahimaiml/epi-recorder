@@ -792,13 +792,30 @@ def _uuid_from_case_id(case_id: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"https://epilabs.org/cases/{case_id}")
 
 
+def _restrict(path: Path, mode: int) -> None:
+    """Best-effort permission tightening (on Windows this only clears the read-only bit)."""
+    import os
+
+    try:
+        os.chmod(path, mode)
+    except OSError:
+        pass
+
+
 class CaseStore:
     def __init__(self, db_path: Path):
         self.db_path = Path(db_path)
+        # This store holds full conversation payloads. If we are the ones
+        # creating the directory, keep it private as well: SQLite writes -wal and
+        # -shm sidecars there later, and they would otherwise inherit 0755.
+        parent_existed = self.db_path.parent.exists()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.projection_failure_count = 0
         self.last_projection_error: str | None = None
         self._initialize()
+        if not parent_existed:
+            _restrict(self.db_path.parent, 0o700)
+        _restrict(self.db_path, 0o600)
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)

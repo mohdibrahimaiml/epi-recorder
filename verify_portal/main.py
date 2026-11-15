@@ -95,22 +95,93 @@ app = FastAPI(
     title="EPI Verify Portal",
     description="Verify .epi artifacts in your browser. No installation required.",
     version="1.0.0",
-    docs_url="/docs",
-    openapi_url="/openapi.json",
+    # 10.3: no interactive docs and no schema. /docs, /redoc and /openapi.json
+    # are unreachable, so an unauthenticated caller cannot enumerate every
+    # endpoint and parameter of the API behind epilabs.org.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
     lifespan=_lifespan,
 )
+
+# 10.1: applied to every response. CSP is report-only on purpose: a strict
+# policy would block this app's own inline scripts, so it starts by reporting
+# and can be enforced after a week of clean reports.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "Content-Security-Policy-Report-Only": (
+        "default-src 'self'; img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self' https://cloud.epilabs.org; "
+        "frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    ),
+}
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        # setdefault: a route that already sets its own (e.g. a download with
+        # its own CSP) keeps it.
+        response.headers.setdefault(name, value)
+    return response
 
 # Static files directory
 STATIC_DIR = Path(__file__).parent / "static"
 
+# Origins allowed to drive the API from a browser: the marketing site and the
+# portal's own hosts. Used for CORS and for the CSRF check below, so the two
+# cannot drift apart.
+_ALLOWED_ORIGINS = [
+    "https://epilabs.org",
+    "https://www.epilabs.org",
+    "https://verify.epilabs.org",
+]
+
+
+def _origin_of(url: str) -> str:
+    """Scheme://host[:port] of a URL, or "" if it is not a usable origin."""
+    from urllib.parse import urlparse
+
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return ""
+    if not parts.scheme or not parts.netloc:
+        return ""
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+@app.middleware("http")
+async def _csrf_guard(request: Request, call_next):
+    """Refuse cookie-authenticated state changes coming from another site.
+
+    The session cookie is SameSite=None, so a browser attaches it to cross-site
+    requests. Without this check any page could POST to /api/keys or /api/share
+    as the logged-in user. A Bearer client is not CSRF-able — it has to set the
+    header itself, which a cross-site page cannot do — so those requests pass.
+    """
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return await call_next(request)
+    if (request.headers.get("authorization") or "").lower().startswith("bearer "):
+        return await call_next(request)
+    if not (request.cookies.get(auth_module.COOKIE_NAME) or "").strip():
+        return await call_next(request)
+    source = request.headers.get("origin") or request.headers.get("referer") or ""
+    if _origin_of(source) not in _ALLOWED_ORIGINS:
+        return JSONResponse({"detail": "cross-site request refused"}, status_code=403)
+    return await call_next(request)
+
+
 # CORS - allow browser requests from epilabs.org (Render backend is cross-origin)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://epilabs.org",
-        "https://www.epilabs.org",
-        "https://verify.epilabs.org",
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

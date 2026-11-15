@@ -263,14 +263,65 @@ def test_pricing_page(client):
     r = client.get("/pricing")  
     assert r.status_code == 200  
   
-def test_docs_page(client):  
-    r = client.get("/docs")  
-    assert r.status_code == 200  
-  
-def test_openapi_json(client):  
-    r = client.get("/openapi.json")  
-    assert r.status_code == 200  
-    assert "openapi" in r.json()  
+def test_docs_page_is_not_exposed(client):
+    # 10.3: /docs, /redoc and /openapi.json hand an unauthenticated caller a
+    # complete map of every endpoint. They are disabled, not just less obvious.
+    r = client.get("/docs")
+    assert r.status_code == 404
+
+
+def test_openapi_json_is_not_exposed(client):
+    r = client.get("/openapi.json")
+    assert r.status_code == 404
+
+
+def test_security_headers_are_present(client):
+    # 10.1: every HTML page on the portal carried none of these.
+    r = client.get("/pricing")
+    assert r.headers.get("x-content-type-options") == "nosniff"
+    assert r.headers.get("x-frame-options") == "SAMEORIGIN"
+    assert r.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+    assert "camera=()" in (r.headers.get("permissions-policy") or "")
+    # CSP starts in report-only mode so it cannot break the app's own scripts.
+    report_only = r.headers.get("content-security-policy-report-only") or ""
+    assert "default-src" in report_only
+
+
+def test_cookie_post_without_origin_is_refused(client):
+    # 6.5: the session cookie is SameSite=None, so a browser attaches it to
+    # cross-site POSTs. No Origin and no Bearer means we cannot tell where it
+    # came from, so fail closed.
+    client.cookies.set("epi_token", "not-a-real-token")
+    r = client.post("/api/auth/logout")
+    assert r.status_code == 403
+
+
+def test_cookie_post_from_a_foreign_origin_is_refused(client):
+    client.cookies.set("epi_token", "not-a-real-token")
+    r = client.post(
+        "/api/auth/logout", headers={"Origin": "https://evil.example"}
+    )
+    assert r.status_code == 403
+
+
+def test_cookie_post_from_an_allowed_origin_is_not_refused(client):
+    client.cookies.set("epi_token", "not-a-real-token")
+    r = client.post("/api/auth/logout", headers={"Origin": "https://epilabs.org"})
+    assert r.status_code != 403
+
+
+def test_bearer_post_without_origin_still_works(client):
+    # A Bearer client is not CSRF-able: it has to set the header itself.
+    r = client.post(
+        "/api/auth/logout", headers={"Authorization": "Bearer not-a-real-token"}
+    )
+    assert r.status_code != 403
+
+
+def test_cookie_gets_are_not_affected(client):
+    client.cookies.set("epi_token", "not-a-real-token")
+    r = client.get("/api/auth/me")
+    assert r.status_code != 403
   
 def test_contact_endpoint(client):  
     r = client.post("/api/contact", data={"name": "T", "email": "t@c.com", "company": "C", "tier": "pro", "use_case": "x"})  

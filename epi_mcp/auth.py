@@ -17,6 +17,7 @@ is bound to someone.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 
 
@@ -40,7 +41,9 @@ def verify_bearer_token(token: str | None) -> str | None:
     if not presented:
         return None
     static = (os.environ.get("EPI_MCP_TOKEN") or "").strip()
-    if static and presented == static:
+    # Constant-time: a plain == leaks how many leading bytes matched, which is
+    # enough to recover a long-lived bearer token one byte at a time.
+    if static and hmac.compare_digest(presented.encode("utf-8"), static.encode("utf-8")):
         return "token-holder"
     oidc_subject = _verify_oidc(presented)
     if oidc_subject:

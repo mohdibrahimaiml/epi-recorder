@@ -331,7 +331,10 @@ def _check_ess_binding(signer_infos_attrs, signer_der: bytes) -> str | None:
                     return f"ESS binding uses unsupported hash {algo}"
                 actual = hasher(signer_der).digest()
             else:
-                actual = hashlib.sha1(signer_der).digest()
+                # ESS signing-certificate v1 is defined over SHA-1 (RFC 2634), so
+                # this is a protocol-mandated certificate identifier, not an
+                # integrity primitive chosen here.
+                actual = hashlib.sha1(signer_der, usedforsecurity=False).digest()  # nosec B324
             if claimed != actual:
                 return (
                     "ESS signing-certificate attribute names a different "
@@ -364,7 +367,9 @@ def _verify_cms_signature(
     elif digest_name == "sha512":
         digest_alg = hashes.SHA512()
     elif digest_name == "sha1":
-        digest_alg = hashes.SHA1()
+        # Required to verify older RFC 3161 timestamp tokens: the token names
+        # SHA-1, so the check must reproduce it. Not a hash chosen here.
+        digest_alg = hashes.SHA1()  # nosec B303
     else:
         return False
     pub = signer_cert.public_key()

@@ -130,7 +130,14 @@ def register_client(info: dict[str, Any]) -> dict[str, Any]:
 
 
 def redirect_allowed(client_id: str, redirect_uri: str) -> bool:
-    """Registered clients may only use their registered redirect URIs."""
+    """Registered clients may only use their registered redirect URIs.
+
+    An exact match against the URI the client registered is the whole check
+    (RFC 6749 3.1.2.3). A client that registered no URIs is refused rather than
+    waved through: accepting any string here turns the authorize step into an
+    open redirect, and delivers an authorization code to a host the client
+    never proved it controls.
+    """
     rec = _decode_client(client_id)
     registered = (
         rec.get("r") if rec is not None else (CLIENTS.get(client_id) or {}).get("redirect_uris")
@@ -138,7 +145,11 @@ def redirect_allowed(client_id: str, redirect_uri: str) -> bool:
     if rec is None and client_id not in CLIENTS:
         return False
     registered = registered or []
-    return redirect_uri in registered if registered else bool(redirect_uri)
+    if not registered:
+        return False
+    if not isinstance(redirect_uri, str) or not redirect_uri:
+        return False
+    return redirect_uri in registered
 
 
 def create_approval(subject: str | None = None) -> str:
