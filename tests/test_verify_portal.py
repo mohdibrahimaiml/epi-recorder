@@ -287,6 +287,20 @@ def test_security_headers_are_present(client):
     assert "default-src" in report_only
 
 
+def _lenient_client():
+    """TestClient that returns 5xx instead of raising.
+
+    The CSRF guard runs before the route, so an allowed request still reaches
+    the logout handler, which needs an initialised auth DB. These tests are
+    about the guard's decision (was it refused?), not the handler's outcome.
+    """
+    from starlette.testclient import TestClient
+
+    from verify_portal.main import app
+
+    return TestClient(app, raise_server_exceptions=False)
+
+
 def test_cookie_post_without_origin_is_refused(client):
     # 6.5: the session cookie is SameSite=None, so a browser attaches it to
     # cross-site POSTs. No Origin and no Bearer means we cannot tell where it
@@ -304,15 +318,17 @@ def test_cookie_post_from_a_foreign_origin_is_refused(client):
     assert r.status_code == 403
 
 
-def test_cookie_post_from_an_allowed_origin_is_not_refused(client):
-    client.cookies.set("epi_token", "not-a-real-token")
-    r = client.post("/api/auth/logout", headers={"Origin": "https://epilabs.org"})
+def test_cookie_post_from_an_allowed_origin_is_not_refused():
+    c = _lenient_client()
+    c.cookies.set("epi_token", "not-a-real-token")
+    r = c.post("/api/auth/logout", headers={"Origin": "https://epilabs.org"})
     assert r.status_code != 403
 
 
-def test_bearer_post_without_origin_still_works(client):
+def test_bearer_post_without_origin_still_works():
     # A Bearer client is not CSRF-able: it has to set the header itself.
-    r = client.post(
+    c = _lenient_client()
+    r = c.post(
         "/api/auth/logout", headers={"Authorization": "Bearer not-a-real-token"}
     )
     assert r.status_code != 403
