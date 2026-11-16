@@ -23,13 +23,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # See sbom.yml: `tag` builds an already-published tag without re-tagging.
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.11"
 
@@ -86,7 +86,7 @@ jobs:
         shell: powershell
 
       - name: Upload installer to GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
           # See sbom.yml: an explicit tag_name is required when github.ref is a
@@ -108,14 +108,14 @@ jobs:
       # `@v3` could not be resolved and the job died in 4s at action download.
       - name: Sigstore-sign exe + checksums (free, transparent)
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
-        uses: sigstore/gh-action-sigstore-python@v3.5.0
+        uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9 # v3.5.0
         with:
           inputs: |
             installer/windows/Output/epi-setup-*.exe
             installer/windows/Output/SHA256SUMS.txt
 
       - name: Attach Sigstore bundles to GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
