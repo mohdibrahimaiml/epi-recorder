@@ -79,8 +79,27 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   full history, a tracked-credential check, `pip-audit`, `npm audit`,
   `bandit`, `ruff` (E9/F63/F7/F82), the `-m security` suite, and the OAuth
   connector flow that the release gate excludes as experimental.
+- **Every workflow action is pinned to a commit SHA** (with the tag as a
+  trailing comment, so Dependabot keeps updating them). A tag is a pointer
+  someone else can move; in `publish-pypi` and `key-custody` that pointer
+  resolves next to release and signing secrets. `tests/test_workflow_pins.py`
+  fails the build on a bare tag.
 - `tests/security/test_prelaunch_hardening.py` pins each audit fix to a
   regression test, named after its finding id.
+
+### Fixed
+
+- **`epi doctor`'s Windows PATH repair never worked.** It called
+  `epi_postinstall.get_scripts_dir()` and `add_to_user_path_windows()`, and
+  neither function existed; the call site sat inside `except Exception: pass`,
+  so the command reported that `epi` was missing from PATH and then silently
+  did nothing. Both helpers now exist and the error is reported instead of
+  swallowed.
+- **`test_ci_install_deps_resolves_repo_ceilings` asserted three hardcoded
+  versions**, so every Dependabot dependency bump failed the release gate even
+  when `scripts/ci-install-deps.py` emitted the correct ceilings from
+  `pyproject.toml`. It now reads the dependencies from `pyproject.toml` and
+  checks each one appears in the script's output.
 
 
 ## [4.10.0] - 2026-11-12

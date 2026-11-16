@@ -91,10 +91,16 @@ def test_sigstore_action_is_pinned_to_a_real_release():
     assert refs, "the installer no longer Sigstore-signs its artifacts"
 
     for ref in refs:
-        assert re.fullmatch(r"v\d+\.\d+\.\d+", ref), (
-            f"sigstore/gh-action-sigstore-python@{ref} is not a release tag; "
-            "sigstore publishes no floating major (no bare `v3`), so the ref "
-            "cannot resolve and the job dies at action download"
+        # Either form resolves: a full release tag (v3.5.0) or a 40-hex commit
+        # SHA, which is what the workflows now pin. A floating major (a bare
+        # `v3`) is the bug this guards against - sigstore publishes no bare
+        # `v3`, so the job dies at action download.
+        assert re.fullmatch(r"v\d+\.\d+\.\d+", ref) or re.fullmatch(
+            r"[0-9a-f]{40}", ref
+        ), (
+            f"sigstore/gh-action-sigstore-python@{ref} is neither a full release "
+            "tag nor a commit SHA; sigstore publishes no floating major (no bare "
+            "`v3`), so the ref cannot resolve and the job dies at action download"
         )
 
 

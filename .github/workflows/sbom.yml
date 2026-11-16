@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the release tag
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # `tag` lets an already-published tag be built after the fact: the
           # workflow file is read from the dispatch ref, so pointing this at the
@@ -31,7 +31,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.11"
 
@@ -48,13 +48,13 @@ jobs:
           python -c "import json; d=json.load(open('sbom.cdx.json')); print('components:', len(d.get('components', [])))"
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: sbom-cdx
           path: sbom.cdx.json
 
       - name: Attach SBOM to GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
         if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         with:
           # action-gh-release refuses to guess when github.ref is not a tag
