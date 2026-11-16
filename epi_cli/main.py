@@ -2678,9 +2678,11 @@ def doctor(
                     scripts_dir = epi_postinstall.get_scripts_dir()
                     if scripts_dir and scripts_dir.exists():
                         if epi_postinstall.add_to_user_path_windows(scripts_dir):
-                            _fixed("PATH updated — restart terminal to apply")
-            except Exception:
-                pass
+                            _fixed("PATH updated - restart terminal to apply")
+            except Exception as exc:
+                # Surface it: swallowing this meant the repair never worked and
+                # nothing said so.
+                console.print(f"  [dim][-]  could not update PATH automatically ({exc})[/dim]")
 
     # ── 8. Gateway connectivity ───────────────────────────────────────────
     if gateway_url:
