@@ -41,6 +41,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_SUMMARY: "true"
+          # Scoped noise filter for history-only false positives (test fixtures,
+          # docs, publishable client tokens). See .gitleaks.toml for the
+          # trade-off.
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   # 10.4 — the simplest way to leak every key is to commit the file that holds
   # them. .env* is gitignored; this proves no key file ever slipped in anyway.

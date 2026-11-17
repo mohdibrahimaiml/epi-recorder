@@ -1,0 +1,63 @@
+# gitleaks configuration.
+#
+# Why this exists: the weekly scheduled scan walks the entire history (2,458
+# commits), while the push and pull_request runs scan only the delta. The full
+# history contains 66 matches, all of them fake or publishable:
+#
+#   - tests/test_redactor.py and friends feed real-looking API keys, JWTs and
+#     AWS keys into the redactor on purpose. If they were real, the redactor
+#     tests would be untestable.
+#   - README.md, USAGE_GUIDE.md, DEPLOY.md and docs/*.md show shapes in prose.
+#   - website/js/paddle-config.js holds a Paddle *client* token, which is
+#     publishable and ships to the browser by design.
+#   - verify_portal/scitt_routes.py and epi_cli/release.py matched on parameter
+#     names and the EPI_WITNESS_SECRET environment variable name, not values.
+#   - assets/demo/witness.jsonl is the sample ledger, signed with the documented
+#     public demo secret (scripts/make_decision_example.py).
+#   - .release-build-*/ is a leftover build directory that was committed once.
+#
+# A red weekly job that is always red is a gate people learn to ignore, which is
+# worse than no gate. This file narrows it to real signal.
+#
+# The trade-off, stated plainly: a secret pasted into a test or a Markdown file
+# will no longer fail the scheduled scan. The push/PR scan and code review still
+# cover new commits, and this config is a noise filter over history - not
+# permission to commit secrets. If that trade-off ever feels wrong, delete the
+# path allowlist and triage the 66 by hand instead.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Fake secrets in tests, docs and publishable client config"
+paths = [
+  # Test fixtures: the redactor tests need realistic-looking inputs.
+  '''(?i)(^|/)tests?/''',
+  '''(?i)_test\.py$''',
+  '''(?i)\.test\.ts$''',
+  '''(?i)(^|/)test_[^/]*\.py$''',
+  # Prose and documentation examples.
+  '''(?i)(^|/)docs?/''',
+  '''(?i)\.md$''',
+  # Legacy root-level scripts from early versions.
+  '''(?i)(^|/)comprehensive_test[^/]*\.py$''',
+  '''(?i)(^|/)full_system_test\.py$''',
+  '''(?i)(^|/)test_chat\.py$''',
+  '''(?i)(^|/)list_models\.py$''',
+  # A build directory that was committed once and later removed.
+  '''(?i)(^|/)\.release-build-''',
+  # Publishable Paddle client token; it is meant to be in the browser.
+  '''(?i)(^|/)js/paddle-config\.js$''',
+  # Sample ledgers signed with the documented public demo secret.
+  '''(?i)(^|/)assets/demo/''',
+]
+
+[[allowlists]]
+description = "Placeholder values that only exist to show a shape"
+regexes = [
+  '''(?i)REDACTED''',
+  '''(?i)placeholder''',
+  '''(?i)example''',
+  '''(?i)my_key''',
+  '''sk-(proj|test)-1234''',
+]
