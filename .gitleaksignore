@@ -1,0 +1,18 @@
+# gitleaks ignore list: one fingerprint per accepted finding.
+#
+# Format: <commit>:<file>:<rule>:<line>
+#
+# These three are the remainder after gitleaks.toml's path allowlist, and they
+# are false positives in historical commits:
+#
+#   - verify_portal/scitt_routes.py:43 in two old commits - the matched text is
+#     an identifier (`private_key: ...` in a type/assignment), not a value. The
+#     line at HEAD is `router = APIRouter()`.
+#   - epi_cli/release.py:152 - the matched text is a keyword argument
+#     (`key_name=key, signer=private_key`), not a value.
+#
+# Fingerprints are used rather than allowing the whole file, so a real secret
+# added to either file in future still fails the scan.
+1b4f8c83e3c45dd02442f892dff4d91f033c6672:verify_portal/scitt_routes.py:generic-api-key:43
+306569974987ccb601b367986ae6f61912d2ec8e:epi_cli/release.py:generic-api-key:152
+8c6b34d6b2450d94e5f3176e3afdf83a8d8c6170:verify_portal/scitt_routes.py:generic-api-key:43
