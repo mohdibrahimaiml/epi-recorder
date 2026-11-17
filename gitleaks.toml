@@ -36,6 +36,9 @@ useDefault = true
 description = "fake secrets in tests, docs and publishable client config"
 paths = [
   '''gitleaks\.toml''',
+  # This file contains fingerprint strings, which the generic-api-key rule reads
+  # as keys. The reference config allowlists its own config for the same reason.
+  '''(?i)(?:^|/)\.gitleaksignore$''',
   # Test fixtures: the redactor tests need realistic-looking inputs.
   '''(?i)(?:^|/)tests?/''',
   '''(?i)(?:^|/)test_[^/]*\.py$''',
