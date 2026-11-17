@@ -1,8 +1,8 @@
 # gitleaks configuration.
 #
-# Why this exists: the weekly scheduled scan walks the entire history (2,458
+# Why this exists: the weekly scheduled scan walks the entire history (2,461
 # commits), while the push and pull_request runs scan only the delta. The full
-# history contains 66 matches, all of them fake or publishable:
+# history contains 68 matches, all of them fake or publishable:
 #
 #   - tests/test_redactor.py and friends feed real-looking API keys, JWTs and
 #     AWS keys into the redactor on purpose. If they were real, the redactor
@@ -23,41 +23,44 @@
 # will no longer fail the scheduled scan. The push/PR scan and code review still
 # cover new commits, and this config is a noise filter over history - not
 # permission to commit secrets. If that trade-off ever feels wrong, delete the
-# path allowlist and triage the 66 by hand instead.
+# path allowlist and triage the 68 by hand instead.
+#
+# Note on the key name: the global allowlist is `[allowlist]` (single table).
+# `[[allowlists]]` is silently ignored, which is why the first version of this
+# file had no effect.
 
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "Fake secrets in tests, docs and publishable client config"
+[allowlist]
+description = "fake secrets in tests, docs and publishable client config"
 paths = [
+  '''gitleaks\.toml''',
   # Test fixtures: the redactor tests need realistic-looking inputs.
-  '''(?i)(^|/)tests?/''',
+  '''(?i)(?:^|/)tests?/''',
+  '''(?i)(?:^|/)test_[^/]*\.py$''',
   '''(?i)_test\.py$''',
   '''(?i)\.test\.ts$''',
-  '''(?i)(^|/)test_[^/]*\.py$''',
   # Prose and documentation examples.
-  '''(?i)(^|/)docs?/''',
+  '''(?i)(?:^|/)docs?/''',
   '''(?i)\.md$''',
   # Legacy root-level scripts from early versions.
-  '''(?i)(^|/)comprehensive_test[^/]*\.py$''',
-  '''(?i)(^|/)full_system_test\.py$''',
-  '''(?i)(^|/)test_chat\.py$''',
-  '''(?i)(^|/)list_models\.py$''',
+  '''(?i)(?:^|/)comprehensive_test[^/]*\.py$''',
+  '''(?i)(?:^|/)full_system_test\.py$''',
+  '''(?i)(?:^|/)test_chat\.py$''',
+  '''(?i)(?:^|/)list_models\.py$''',
+  '''(?i)(?:^|/)scripts/aiuc1_golden_artifact\.py$''',
   # A build directory that was committed once and later removed.
-  '''(?i)(^|/)\.release-build-''',
+  '''(?i)(?:^|/)\.release-build-''',
   # Publishable Paddle client token; it is meant to be in the browser.
-  '''(?i)(^|/)js/paddle-config\.js$''',
+  '''(?i)(?:^|/)js/paddle-config\.js$''',
   # Sample ledgers signed with the documented public demo secret.
-  '''(?i)(^|/)assets/demo/''',
+  '''(?i)(?:^|/)assets/demo/''',
 ]
-
-[[allowlists]]
-description = "Placeholder values that only exist to show a shape"
 regexes = [
   '''(?i)REDACTED''',
   '''(?i)placeholder''',
-  '''(?i)example''',
+  '''(?i)\bexample\b''',
   '''(?i)my_key''',
-  '''sk-(proj|test)-1234''',
+  '''sk-(?:proj|test)-1234''',
 ]
