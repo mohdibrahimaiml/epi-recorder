@@ -30,17 +30,37 @@ jobs:
   secret-scan:
     name: Secret scan (full history)
     runs-on: ubuntu-latest
+    env:
+      # Pinned on purpose: the binary is verified against the release checksums
+      # below, so bumping this is a deliberate act.
+      GITLEAKS_VERSION: "8.24.3"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
-      - name: gitleaks
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_ENABLE_SUMMARY: "true"
+      # The gitleaks *action* cannot use a config file: its Scan() builds
+      # `gitleaks detect` with no --config argument, and the CLI does not
+      # auto-detect one. That left no way to scope the full-history scan, which
+      # reports 66 known false positives. Running the CLI directly fixes that
+      # and drops a third-party action from the pipeline at the same time.
+      - name: Install gitleaks (pinned, checksum verified)
+        run: |
+          set -eu
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          asset="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$asset" "$base/$asset"
+          curl -sSfL -o checksums.txt "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${asset}\$" checksums.txt | sha256sum -c -
+          tar -xzf "$asset" gitleaks
+          ./gitleaks version
+
+      - name: gitleaks detect (full history)
+        run: |
+          ./gitleaks detect --redact -v --exit-code=2 \
+            --config gitleaks.toml \
+            --report-format=sarif --report-path=results.sarif
 
   # 10.4 — the simplest way to leak every key is to commit the file that holds
   # them. .env* is gitignored; this proves no key file ever slipped in anyway.
