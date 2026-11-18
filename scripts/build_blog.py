@@ -214,7 +214,7 @@ def _footer() -> str:
     stamp = f"v{version}" if version else ""
     return f"""<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
   <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS &middot; MIT License &middot; {stamp}</span>
+    <span>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; {stamp}</span>
     <span>
       <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
       <a href="https://github.com/mohdibrahimaiml/epi-recorder"

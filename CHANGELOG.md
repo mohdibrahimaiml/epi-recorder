@@ -4,6 +4,8 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+## [4.11.0] - 2026-11-18
+
 ### Security
 
 A pre-launch audit (85-check framework) was run across the repository. Findings,
