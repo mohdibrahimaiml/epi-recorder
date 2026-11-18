@@ -26,10 +26,16 @@ This is the marketing and in-browser verify surface. It is **not** a substitute 
 
 | Consumer | How it uses `website/` |
 |----------|-------------------------|
-| **Cloudflare Pages (production, `epilabs.org`)** | `npm run build` copies `website/` → `site/`; `wrangler.toml` publishes `site/` |
-| GitHub Pages (mirror/fallback) | `.github/workflows/deploy-website.yml` uploads `website/`; not the DNS origin for `epilabs.org` |
+| **Cloudflare Pages (production, `epilabs.org`)** | `npm run build` copies `website/` → `site/`; `wrangler.toml` publishes `site/` — the only deploy path |
 | Render verify portal static files | `python scripts/sync_website.py` → `verify_portal/static/` |
 | `epi-official/` | Sync **target**, never a source |
+
+The GitHub Pages workflow (`deploy-website.yml`) is gone. It uploaded
+`website/` to a second host where `_headers` is inert, so that copy had no CSP
+and no HSTS, and it was never the `epilabs.org` DNS origin. Checked live:
+`epilabs.org` answers with `server: cloudflare` and the `_headers` policy, so
+Cloudflare Pages is the publisher and the GitHub Pages copy was dead weight
+that could only ever have served a weaker site.
 
 **Always edit `website/` only**, then run:
 

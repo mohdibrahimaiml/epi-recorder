@@ -13,7 +13,12 @@ import { join, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const SRC = "website";
-const DESTINATIONS = ["site", "dist"];
+// Cloudflare Pages publishes `site/` and nothing else. `dist` used to be a
+// second copy of the same tree, which is both pointless and dangerous: `dist/`
+// is also where `python -m build` puts wheels, so a stray `npm run build`
+// could leave website files where twine and the publish workflow expect
+// packages. One output directory, one deploy path.
+const DESTINATIONS = ["site"];
 const BLOG_BUILDER = "scripts/build_blog.py";
 
 // Regenerate website/blog/ before the copy. The generator is standard-library

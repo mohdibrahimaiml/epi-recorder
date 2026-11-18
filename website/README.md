@@ -6,9 +6,13 @@ Canonical rules (same content, longer form): [docs/WEBSITE.md](../docs/WEBSITE.m
 
 | Consumer | How it uses `website/` |
 |----------|-------------------------|
-| **Cloudflare Pages (production, `epilabs.org`)** | `npm run build` copies this folder to `site/`; `wrangler.toml` publishes it |
-| GitHub Pages (mirror/fallback) | `.github/workflows/deploy-website.yml` uploads this folder; not the `epilabs.org` DNS origin |
+| **Cloudflare Pages (production, `epilabs.org`)** | `npm run build` copies this folder to `site/`; `wrangler.toml` publishes it — the only deploy path |
 | **Render verify portal static files** | `python scripts/sync_website.py` → `verify_portal/static/` |
+
+The GitHub Pages workflow was removed: it republished these files with
+`_headers` inert, i.e. with no CSP and no HSTS, and was never the `epilabs.org`
+DNS origin. A second publisher of the same content is a way to serve the site
+without its security headers, not a fallback.
 
 ## Edit here
 
