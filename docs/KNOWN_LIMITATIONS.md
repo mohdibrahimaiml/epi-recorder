@@ -1,7 +1,7 @@
 # Known Limitations
 
-Current release line: **4.10.0** (prepared; publish pending).
-Published on PyPI: **4.9.0**.
+Current release line: **4.11.0** (prepared; publish pending).
+Published on PyPI: **4.10.0**.
 Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
@@ -357,13 +357,13 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.10.0**, published on PyPI: **4.9.0** — 4.10.0 is
+Current release line: **4.11.0**, published on PyPI: **4.10.0** — 4.10.0 is
 prepared and its upload is pending. Once it goes up through **Trusted
-Publishing** after the signed tag (the same path as 4.9.0), both files carry
+Publishing** after the signed tag (the same path as 4.10.0), both files carry
 **PEP 740 attestations**; check with
-`https://pypi.org/integrity/epi-recorder/4.10.0/<file>/provenance`
-(HTTP 200). Until then, `pip install epi-recorder` still installs 4.9.0, so the
-site must not claim 4.10.0 commands are available. The **4.6.3** wheel has **no
+`https://pypi.org/integrity/epi-recorder/<version>/<file>/provenance`
+(HTTP 200). Until then, `pip install epi-recorder` installs 4.10.0, so the
+site must not claim 4.11.0 commands are available. The **4.6.3** wheel has **no
 PEP 740 attestations** because it was uploaded with the project API token; its
 provenance endpoint returns HTTP 404. It added signed display-layer
 verification, the viewer fail-closed fix (#141/#143), and the pack-time viewer

@@ -1,6 +1,6 @@
 # Framework Integrations in 5 Minutes
 
-**Product version:** 4.10.0. Framework adapters are part of EPI Enterprise. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
+**Product version:** 4.11.0. Framework adapters are part of EPI Enterprise. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
