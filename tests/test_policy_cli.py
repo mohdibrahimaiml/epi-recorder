@@ -441,3 +441,28 @@ def test_policy_validate_reports_schema_field_errors():
     assert "Policy schema is invalid" in printed
     assert "Validation Errors" in printed
     shutil.rmtree(tmpdir, ignore_errors=True)
+
+def test_a_typo_at_the_threshold_prompt_re_asks_instead_of_crashing(monkeypatch):
+    """`epi policy init` used float(Prompt.ask(...)) and died on a typo.
+
+    A person at the prompt gets the question again, not a ValueError traceback.
+    """
+    from epi_cli import policy as policy_mod
+
+    answers = iter(["not-a-number", "-5", "12,500"])
+    monkeypatch.setattr(policy_mod.Prompt, "ask", lambda *a, **k: next(answers))
+    monkeypatch.setattr(policy_mod.console, "print", lambda *a, **k: None)
+
+    assert policy_mod._ask_amount("Approval threshold amount", 10000.0) == 12500.0
+
+
+def test_the_loan_profile_uses_the_safe_amount_prompt(monkeypatch):
+    from epi_cli import policy as policy_mod
+
+    policy = {"rules": [{"id": "R003", "threshold_value": 10000.0}]}
+    monkeypatch.setattr(policy_mod.Confirm, "ask", lambda *a, **k: True)
+    monkeypatch.setattr(policy_mod, "_ask_amount", lambda message, default: 4200.0)
+
+    policy_mod._customize_profile_policy(policy, "finance.loan-underwriting", False)
+
+    assert policy["rules"][0]["threshold_value"] == 4200.0
