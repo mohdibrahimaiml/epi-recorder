@@ -8,7 +8,7 @@ All notable changes to EPI Recorder are documented here.
 
 A pre-launch audit (85-check framework) was run across the repository. Findings,
 evidence and per-item status live in the local, gitignored `AUDIT.md`; this
-section records what changed. **34 findings fixed, 8 open, 0 High.**
+section records what changed. **42 findings fixed, 0 open, 0 High.**
 
 - **OAuth redirect URI was a wildcard for unknown clients.** A client that
   registered no redirect URIs was accepted with *any* URI, so an authorization
@@ -28,8 +28,8 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   start with exactly one `/`, and the origin is re-asserted afterwards.
 - **Artifact downloads had no owner check.** The artifact id is `sha256[:16]`,
   a content hash rather than a capability, so a caller who saw someone else's
-  id could fetch their conversation. Ownership is now enforced; the `?t=` link
-  token still works.
+  id could fetch their conversation. Ownership is now enforced; a capability
+  link still works (it now carries its token in the URL fragment, see below).
 - **Retention could silently fail.** `purge_expired_artifacts` dropped its
   bookkeeping before deleting and swallowed the error, and a restart orphaned
   every sealed temp directory. Tracking is dropped only once the bytes are
@@ -85,6 +85,21 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   code that looked maintained. It now lives outside the repository, and
   `tests/test_verifier_single_source.py` no longer lists it as a copy to keep in
   sync — an assertion that could only ever run on the machine that had it.
+- **Share links no longer put a credential in a URL.** `view_url` and
+  `download_url` carried a 24-hour capability as `?t=<token>`, so the token
+  landed in the server's access log, in any proxy log in front of it, in `Referer`
+  and in browser history. `?t=` is gone. The capability now rides in the URL
+  fragment (`#k=…`), which a browser never sends to a server: the link lands on
+  a small page that POSTs the fragment to `POST /link/<id>`, receives an
+  `HttpOnly` cookie (same-origin, `SameSite=Lax`, 24 hours), and reloads the
+  same path with no secret in it. The record is still served with
+  `Content-Security-Policy: sandbox` and an opaque origin, and downloads keep
+  `Cache-Control: no-store`, now with `Referrer-Policy: no-referrer` as well.
+  Programmatic clients are unaffected — they authenticate with a Bearer token,
+  and an unauthenticated `/artifacts/` request still returns the 401 that makes
+  MCP hosts discover OAuth. Trade-off, stated plainly: a link now needs
+  JavaScript to open, because no-JS means no way to move a fragment into a
+  request without putting it back in the URL.
 - **The privacy page named one timestamp authority; sealing uses several.** It
   now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
   each receives only the hash, never the conversation.

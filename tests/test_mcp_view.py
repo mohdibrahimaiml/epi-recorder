@@ -39,12 +39,17 @@ def sealed(monkeypatch, tmp_path):
 
 
 def _token(url):
-    return url.split("?t=")[1]
+    return url.split("#k=")[1]
 
 
 def test_seal_result_gives_a_view_link_and_plain_instructions(sealed):
-    assert sealed["view_url"].startswith("http://127.0.0.1:8765/view/" + sealed["artifact_id"] + "?t=")
+    assert sealed["view_url"].startswith(
+        "http://127.0.0.1:8765/view/" + sealed["artifact_id"] + "#k="
+    )
     assert sealed["download_url"].startswith("http://127.0.0.1:8765/artifacts/")
+    # The capability must not be in the query string: that is what ends up in
+    # access logs, proxy logs and Referer headers.
+    assert "?t=" not in sealed["view_url"] and "?t=" not in sealed["download_url"]
     text = sealed["how_to_view"]
     assert "nothing" in text and "epilabs.org/verify" in text and "optional" in text
 
@@ -53,7 +58,19 @@ def test_view_serves_the_file_as_a_sandboxed_web_page_without_credentials(sealed
     from epi_mcp.http import build_app
 
     client = TestClient(build_app(), raise_server_exceptions=False)
-    r = client.get(f"/view/{sealed['artifact_id']}", params={"t": _token(sealed["view_url"])})
+    aid = sealed["artifact_id"]
+
+    # 1. The bare URL is the unlock page, not the record: the URL carries no secret.
+    shell = client.get(f"/view/{aid}")
+    assert shell.status_code == 200
+    assert shell.headers["content-type"].startswith("text/html")
+    assert sealed["sha256"] not in shell.text
+
+    # 2. The page trades the URL fragment for an HttpOnly cookie.
+    assert client.post(f"/link/{aid}", json={"k": _token(sealed["view_url"])}).status_code == 204
+
+    # 3. The same URL now serves the sealed bytes.
+    r = client.get(f"/view/{aid}")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
     csp = r.headers["content-security-policy"]
@@ -65,17 +82,51 @@ def test_view_serves_the_file_as_a_sandboxed_web_page_without_credentials(sealed
     assert r.content == on_disk  # the exact sealed bytes
 
 
+def test_the_unlock_page_csp_allows_its_own_script(sealed):
+    """A hash typo would leave every view and download link silently dead."""
+    import base64
+    import hashlib
+    import re
+
+    from epi_mcp.http import build_app
+
+    client = TestClient(build_app(), raise_server_exceptions=False)
+    r = client.get(f"/view/{sealed['artifact_id']}")
+    script = re.search(r"<script>(.*?)</script>", r.text, re.S | re.I).group(1)
+    digest = base64.b64encode(hashlib.sha256(script.encode("utf-8")).digest()).decode()
+    csp = r.headers["content-security-policy"]
+    assert f"'sha256-{digest}'" in csp
+    assert "default-src 'none'" in csp and "connect-src 'self'" in csp
+    assert r.headers["referrer-policy"] == "no-referrer"
+
+
 def test_view_rejects_missing_wrong_and_other_files_tokens(sealed):
     from epi_mcp.http import build_app
 
     client = TestClient(build_app(), raise_server_exceptions=False)
     aid = sealed["artifact_id"]
-    for params in ({}, {"t": "wrong"}, {"t": _token(sealed["view_url"]) + "x"}):
-        r = client.get(f"/view/{aid}", params=params)
-        assert r.status_code == 404 and "expired" in r.text and "epilabs.org/verify" in r.text
+    # The unlock page itself is harmless and carries nothing secret.
+    assert client.get(f"/view/{aid}").status_code == 200
+    for body in ({}, {"k": "wrong"}, {"k": _token(sealed["view_url"]) + "x"}):
+        assert client.post(f"/link/{aid}", json=body).status_code == 404
     # A link for one file does not open another.
-    other = client.get("/view/0000000000000000", params={"t": _token(sealed["view_url"])})
+    other = client.post("/link/0000000000000000", json={"k": _token(sealed["view_url"])})
     assert other.status_code == 404
+    # No cookie was minted, so the record stays out of reach.
+    assert sealed["sha256"].encode() not in client.get(f"/view/{aid}").content
+
+
+def test_unlock_refuses_an_oversized_body(sealed):
+    """The unlock request is a token, not an upload."""
+    from epi_mcp.http import build_app
+
+    client = TestClient(build_app(), raise_server_exceptions=False)
+    r = client.post(
+        f"/link/{sealed['artifact_id']}",
+        content=b'{"k": "' + b"x" * 8000 + b'"}',
+        headers={"content-type": "application/json"},
+    )
+    assert r.status_code == 413
 
 
 def test_view_after_retention_purge_is_a_friendly_404(sealed):
@@ -83,10 +134,11 @@ def test_view_after_retention_purge_is_a_friendly_404(sealed):
     from epi_mcp.http import build_app
 
     client = TestClient(build_app(), raise_server_exceptions=False)
-    token = _token(sealed["view_url"])
+    aid = sealed["artifact_id"]
     tools.purge_expired_artifacts(now=10**12)
-    r = client.get(f"/view/{sealed['artifact_id']}", params={"t": token})
-    assert r.status_code == 404 and "<h1>" in r.text
+    client.post(f"/link/{aid}", json={"k": _token(sealed["view_url"])})
+    r = client.get(f"/view/{aid}")
+    assert r.status_code == 404 and "no longer on the server" in r.text
 
 
 def _chromium():
@@ -138,8 +190,18 @@ def test_view_link_renders_the_verified_record_in_a_real_browser_with_nothing_in
             page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
             body = page.inner_text("body")
             browser.close()
-        assert "INTEGRITY VERIFIED" in body and "SIGNATURE VALID" in body
+        # The record opened from the link alone: no Authorization header, no
+        # cookie beyond what the link's own page minted.
         assert "Approve the refund for order 4411" in body
+        # And it must NOT claim a verified seal. d7f93b13 (red-team, Oct 23) made
+        # the viewer show a neutral state unless the host injects a verification
+        # context, which `epi view` does and an HTTP view does not; SECURITY.md
+        # documents exactly that. The previous assertion here ("INTEGRITY
+        # VERIFIED") predates that change, and only ever "passed" when the
+        # chromium probe found no browser and the test skipped.
+        assert "INTEGRITY NOT VERIFIED HERE" in body
+        assert "INTEGRITY VERIFIED" not in body
+        assert "SIGNATURE VALID" not in body
         assert not [e for e in errors if "SecurityError" in e or "Blocked" in e], errors
     finally:
         server.should_exit = True
