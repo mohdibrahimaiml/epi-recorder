@@ -28,8 +28,8 @@ section records what changed. **42 findings fixed, 0 open, 0 High.**
   start with exactly one `/`, and the origin is re-asserted afterwards.
 - **Artifact downloads had no owner check.** The artifact id is `sha256[:16]`,
   a content hash rather than a capability, so a caller who saw someone else's
-  id could fetch their conversation. Ownership is now enforced; the `?t=` link
-  token still works.
+  id could fetch their conversation. Ownership is now enforced; a capability
+  link still works (it now carries its token in the URL fragment, see below).
 - **Retention could silently fail.** `purge_expired_artifacts` dropped its
   bookkeeping before deleting and swallowed the error, and a restart orphaned
   every sealed temp directory. Tracking is dropped only once the bytes are
