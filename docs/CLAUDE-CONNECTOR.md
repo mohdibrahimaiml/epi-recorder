@@ -89,7 +89,7 @@ Full text: https://epi-mcp.onrender.com/privacy
 | The first request after a quiet period is slow | The service runs on free hosting and sleeps when idle. Open https://epi-mcp.onrender.com/support, wait up to a minute, then retry. |
 | "Session expired" | Reconnect the connector or start a new chat. |
 | Claude says sealing failed | Nothing was sealed. Retry, or use "Seal your last answer". |
-| The view link says it is expired or not valid | Use the exact link Claude returned, including everything after `?t=`. After 24 hours files are removed; upload the file you downloaded at https://epilabs.org/verify. |
+| The view link says it is expired or not valid | Use the exact link Claude returned, including everything after `#k=`. After 24 hours files are removed; upload the file you downloaded at https://epilabs.org/verify. |
 | Claude wrote a Markdown file instead | A Markdown or text file is not a signed record. Ask again: "Seal this chat with the EPI Evidence Sealer." |
 
 ## Support

@@ -553,11 +553,15 @@ def test_download_link_works_in_browser_and_verify_by_artifact_id(monkeypatch, t
     assert epi_verify_tool(sealed["artifact_id"])["signature_valid"] is True
 
     client = starlette_test.TestClient(build_app(), raise_server_exceptions=False)
-    path = sealed["download_url"].replace("https://example.test", "")
-    assert client.get(path).status_code == 200            # browser click
-    bare = f"/artifacts/{sealed['artifact_id']}"
-    assert client.get(bare).status_code == 401            # no secret, no file
-    assert client.get(bare + "?t=wrong").status_code == 401
+    aid = sealed["artifact_id"]
+    token = sealed["download_url"].split("#k=")[1]
+    # No cookie yet, so the bare URL is refused (API callers get the 401 that
+    # makes MCP hosts discover OAuth).
+    assert client.get(f"/artifacts/{aid}").status_code == 401
+    assert client.get(f"/artifacts/{aid}", params={"t": token}).status_code == 401
+    assert client.post(f"/link/{aid}", json={"k": "wrong"}).status_code == 404     # no secret, no file
+    assert client.post(f"/link/{aid}", json={"k": token}).status_code == 204       # the link's own step
+    assert client.get(f"/artifacts/{aid}").status_code == 200                     # browser download
 
 
 def test_chain_is_real_and_tamper_is_caught(monkeypatch, tmp_path):
@@ -1221,7 +1225,8 @@ def test_share_text_carries_the_exact_links_and_hash(monkeypatch, tmp_path):
         _current_subject.reset(tok)
     for part in (r["view_url"], r["download_url"], r["sha256"]):
         assert part in r["share_text"]
-    assert "?t=" in r["share_text"]
+    assert "#k=" in r["share_text"]
+    assert "?t=" not in r["share_text"]
 
 
 def test_every_tool_sets_all_three_hints_and_declares_its_auth():

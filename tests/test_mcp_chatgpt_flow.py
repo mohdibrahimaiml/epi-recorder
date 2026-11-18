@@ -139,7 +139,16 @@ def test_chatgpt_connects_lists_and_seals_over_oauth(live):
     # The seal works and hands back links a person can open from the chat.
     assert sealed["seal_check"]["signature_valid"] is True
     assert sealed["view_url"].startswith(f"{base}/view/") and sealed["download_url"].startswith(f"{base}/artifacts/")
-    page = httpx.get(sealed["view_url"], timeout=10)
+    # The capability is in the fragment, and the link's own page turns it into a
+    # cookie before the record is served -- so no secret is ever in a request URL.
+    aid = sealed["artifact_id"]
+    token = sealed["view_url"].split("#k=")[1]
+    shell = httpx.get(f"{base}/view/{aid}", timeout=10)
+    assert shell.status_code == 200 and shell.headers["content-type"].startswith("text/html")
+    assert token not in shell.text
+    with httpx.Client(timeout=10) as browser:
+        assert browser.post(f"{base}/link/{aid}", json={"k": token}).status_code == 204
+        page = browser.get(f"{base}/view/{aid}")
     assert page.status_code == 200 and page.headers["content-type"].startswith("text/html")
 
     # Later, ChatGPT refreshes the token and keeps working.
@@ -259,9 +268,16 @@ def test_a_messy_real_chat_seals_views_downloads_and_verifies_end_to_end(live, t
     assert by_id["integrity_ok"] and by_id["signature_valid"]
     assert timeline and diff
 
-    page = httpx.get(sealed["view_url"], timeout=20)
+    aid = sealed["artifact_id"]
+    with httpx.Client(timeout=20) as browser:
+        assert (
+            browser.post(f"{base}/link/{aid}", json={"k": sealed["view_url"].split("#k=")[1]})
+            .status_code
+            == 204
+        )
+        page = browser.get(f"{base}/view/{aid}")
+        got = browser.get(f"{base}/artifacts/{aid}")
     assert page.status_code == 200 and "text/html" in page.headers["content-type"]
-    got = httpx.get(sealed["download_url"], timeout=20)
     assert got.status_code == 200
     assert hashlib.sha256(got.content).hexdigest() == sealed["sha256"]
     saved = tmp_path / "record.epi"

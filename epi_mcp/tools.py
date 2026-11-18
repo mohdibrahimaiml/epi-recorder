@@ -431,8 +431,13 @@ def epi_seal_record_tool(
     _public = (_os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/")
     if _public:
         token = _issue_download_token(sealed["artifact_id"])
-        sealed["download_url"] = f"{_public}{sealed['download_path']}?t={token}"
-        sealed["view_url"] = f"{_public}/view/{sealed['artifact_id']}?t={token}"
+        # The capability rides in the URL fragment, not the query string: a
+        # fragment is never sent to a server, so it stays out of access logs,
+        # proxy logs and Referer headers. The link's page trades it for an
+        # HttpOnly cookie (POST /link/<id>), and the file itself is then fetched
+        # from a URL that carries no secret.
+        sealed["download_url"] = f"{_public}{sealed['download_path']}#k={token}"
+        sealed["view_url"] = f"{_public}/view/{sealed['artifact_id']}#k={token}"
         sealed["download_expires_in_seconds"] = DOWNLOAD_TTL_SECONDS
         sealed["share_text"] = (
             f"View: {sealed['view_url']}\n"

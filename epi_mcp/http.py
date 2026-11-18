@@ -15,13 +15,21 @@ Security posture (mirrors the gateway defaults):
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import os
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from starlette.routing import Route
 
 from epi_mcp.server import server
@@ -44,6 +52,10 @@ _CONSENT_PAGE_HEADERS = {
 def is_loopback_host(host: str) -> bool:
     h = (host or "").strip().lower()
     return h in {"localhost", "::1"} or h.startswith("127.")
+
+
+# Name of the HttpOnly cookie that a view/download link trades its fragment for.
+_LINK_COOKIE = "epi_link"
 
 
 class _BearerAuthMiddleware(BaseHTTPMiddleware):
@@ -70,22 +82,21 @@ class _BearerAuthMiddleware(BaseHTTPMiddleware):
                 subject = "operator"
         path = request.url.path
         if subject is None and path.startswith(("/artifacts/", "/view/")):
-            # Human download and view links carry their own expiring capability token.
+            # Human view and download links authenticate with an HttpOnly cookie
+            # that POST /link/<id> sets from the URL fragment. The capability is
+            # never in a request URL, so it cannot reach an access log, a proxy
+            # log or a Referer header.
             from epi_mcp.tools import download_token_valid
 
             aid = path.split("/", 2)[2] if path.count("/") >= 2 else ""
-            if download_token_valid(aid, request.query_params.get("t")):
+            if download_token_valid(aid, request.cookies.get(_LINK_COOKIE)):
                 subject = "download-link"
-            elif path.startswith("/view/"):
-                return HTMLResponse(
-                    "<html><body style=\"font-family:sans-serif;max-width:40em;margin:3em auto\">"
-                    "<h1>This link has expired or is not valid</h1>"
-                    "<p>Sealed files are kept for 24 hours. If you downloaded the file, "
-                    "open it by uploading it at <a href=\"https://epilabs.org/verify\">"
-                    "epilabs.org/verify</a>.</p></body></html>",
-                    status_code=404,
-                    headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
-                )
+            elif path.startswith("/view/") or "text/html" in (
+                request.headers.get("accept") or ""
+            ):
+                # A browser following a link: hand it the page that trades the
+                # fragment for the cookie. API callers still get the 401 below.
+                return _unlock_page()
         if subject is None and (path.startswith("/artifacts/") or path == "/mcp"):
             # The WWW-Authenticate challenge is what makes MCP hosts
             # (ChatGPT) discover OAuth and start the approval flow.
@@ -128,8 +139,48 @@ async def _download_artifact(request: Request):
         path,
         media_type="application/octet-stream",
         filename=path.name,
-        headers={"Cache-Control": "no-store"},
+        headers={
+            "Cache-Control": "no-store",
+            # Belt and braces: the capability is not in the URL any more, but a
+            # downloaded file opened later must still not leak where it came from.
+            "Referrer-Policy": "no-referrer",
+            "X-Robots-Tag": "noindex",
+        },
     )
+
+
+async def _link_unlock(request: Request):
+    """Turn a link's fragment token into an HttpOnly cookie.
+
+    The browser POSTs the fragment here (a fragment is never sent to a server on
+    its own), so the capability travels in a request body: not in a URL, not in
+    a log, not in a Referer. The cookie is what the subsequent GET carries.
+    """
+    from epi_mcp.tools import DOWNLOAD_TTL_SECONDS, download_token_valid
+
+    artifact_id = request.path_params.get("artifact_id", "")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    token = body.get("k") if isinstance(body, dict) else None
+    if not isinstance(token, str) or not download_token_valid(artifact_id, token):
+        return JSONResponse(
+            {"error": "This link has expired or is not valid."},
+            status_code=404,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        )
+    response = Response(status_code=204, headers={"Cache-Control": "no-store"})
+    response.set_cookie(
+        _LINK_COOKIE,
+        token,
+        max_age=DOWNLOAD_TTL_SECONDS,
+        path="/",
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+    return response
 
 
 async def _legal(request: Request):
@@ -292,6 +343,68 @@ def _seal_page(body: str, status: int = 200) -> HTMLResponse:
     )
 
 
+_UNLOCK_JS = r"""
+(function () {
+  var out = document.getElementById('m');
+  var m = (location.hash || '').match(/(?:^#|[&?])k=([^&]+)/);
+  var token = m ? decodeURIComponent(m[1]) : '';
+  var here = location.pathname;
+  // Drop the fragment before doing anything else: it must not sit in the
+  // address bar, in history entries or in a screenshot.
+  if (location.hash) { try { history.replaceState(null, '', here); } catch (e) {} }
+  if (!token) {
+    out.textContent = 'This link is missing its access key. Ask for a new link.';
+    return;
+  }
+  var parts = here.split('/').filter(Boolean);
+  var aid = parts[parts.length - 1];
+  fetch('/link/' + encodeURIComponent(aid), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ k: token })
+  }).then(function (r) {
+    if (!r.ok) { throw new Error('expired'); }
+    location.replace(here);
+  }).catch(function () {
+    out.textContent = 'This link has expired or is not valid. Sealed files are kept for 24 hours.';
+  });
+})();
+"""
+_UNLOCK_HASH = base64.b64encode(hashlib.sha256(_UNLOCK_JS.encode("utf-8")).digest()).decode()
+
+
+def _unlock_page() -> HTMLResponse:
+    """The page a view/download link lands on.
+
+    Links carry the capability in the fragment (`/view/<id>#k=...`), which the
+    browser never sends to a server. This page POSTs it to `/link/<id>`, receives
+    an HttpOnly cookie, and reloads the same path with nothing secret in the URL.
+    Without JavaScript nothing is shown and nothing is fetched.
+    """
+    return HTMLResponse(
+        "<!doctype html><html lang=en><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>Opening sealed record</title>"
+        f"<style>{_PAGE_CSS}</style></head><body>"
+        "<h1>Opening sealed record</h1>"
+        "<p id=m>One moment. This page needs JavaScript to open the link.</p>"
+        f"<script>{_UNLOCK_JS}</script>"
+        "</body></html>",
+        headers={
+            "Content-Security-Policy": (
+                f"default-src 'none'; script-src 'sha256-{_UNLOCK_HASH}'; "
+                "connect-src 'self'; base-uri 'none'; form-action 'none'; "
+                "frame-ancestors 'none'"
+            ),
+            "Cache-Control": "no-store",
+            "Referrer-Policy": "no-referrer",
+            "X-Robots-Tag": "noindex",
+            "X-Frame-Options": "DENY",
+        },
+    )
+
+
 def _seal_form(message: str = "", extra: str = "") -> str:
     import html as _html
 
@@ -408,7 +521,7 @@ async def _seal_post(request: Request):
     base = (os.environ.get("EPI_MCP_PUBLIC_URL") or "").strip().rstrip("/") or str(request.base_url).rstrip("/")
     aid = sealed["artifact_id"]
     token = _tools._issue_download_token(aid)
-    view, dl = f"{base}/view/{aid}?t={token}", f"{base}/artifacts/{aid}?t={token}"
+    view, dl = f"{base}/view/{aid}#k={token}", f"{base}/artifacts/{aid}#k={token}"
     counts = sealed.get("summary_counts", {}).get("by_kind", {})
     warns = "".join(f"<li>{_html.escape(w)}</li>" for w in sealed.get("warnings", []))
     how = {
@@ -721,6 +834,7 @@ def build_app() -> Starlette:
     routes = list(inner.routes) + [
         Route("/artifacts/{artifact_id}", _download_artifact),
         Route("/view/{artifact_id}", _view_artifact),
+        Route("/link/{artifact_id}", _link_unlock, methods=["POST"]),
         Route("/privacy", _legal),
         Route("/terms", _legal),
         Route("/support", _legal),

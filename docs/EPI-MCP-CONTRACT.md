@@ -92,7 +92,7 @@ An *agent run* uses the same events (`tool.call`, `tool.response`, `agent.decisi
 
 ## 5. Delivery and verification
 
-- Delivery is by link: `view_url` (browser view, nothing to install) and `download_url`. Both carry an unguessable `?t=` token and stop working after 24 hours; the server then deletes its copy. `share_text` holds the links and hash exactly as they work. A plugin should show them verbatim and must not rebuild a link from the SHA-256.
+- Delivery is by link: `view_url` (browser view, nothing to install) and `download_url`. Both carry an unguessable capability after `#k=` and stop working after 24 hours; the server then deletes its copy. The `#k=` part is a URL fragment, so a browser never sends it to a server: the landing page posts it once for an HttpOnly cookie and then loads the record from a URL with no secret in it. That keeps the token out of access logs, proxy logs and `Referer` headers. `share_text` holds the links and hash exactly as they work. A plugin should show them verbatim and must not rebuild a link from the SHA-256.
 - A sealed file verifies offline with `epi verify record.epi` or at `https://epilabs.org/verify`. No EPI server is needed.
 - Verification on the server is a separate call. The seal result already contains a self-check (`seal_check`), but a plugin that wants an independent confirmation should call `epi_verify` with the `artifact_id`.
 - Verify reports integrity and signature, not "37 messages, 14 tool calls". Counts come from `summary_counts` in the seal result and from `epi_export_summary`.

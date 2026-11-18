@@ -85,6 +85,21 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   code that looked maintained. It now lives outside the repository, and
   `tests/test_verifier_single_source.py` no longer lists it as a copy to keep in
   sync — an assertion that could only ever run on the machine that had it.
+- **Share links no longer put a credential in a URL.** `view_url` and
+  `download_url` carried a 24-hour capability as `?t=<token>`, so the token
+  landed in the server's access log, in any proxy log in front of it, in `Referer`
+  and in browser history. `?t=` is gone. The capability now rides in the URL
+  fragment (`#k=…`), which a browser never sends to a server: the link lands on
+  a small page that POSTs the fragment to `POST /link/<id>`, receives an
+  `HttpOnly` cookie (same-origin, `SameSite=Lax`, 24 hours), and reloads the
+  same path with no secret in it. The record is still served with
+  `Content-Security-Policy: sandbox` and an opaque origin, and downloads keep
+  `Cache-Control: no-store`, now with `Referrer-Policy: no-referrer` as well.
+  Programmatic clients are unaffected — they authenticate with a Bearer token,
+  and an unauthenticated `/artifacts/` request still returns the 401 that makes
+  MCP hosts discover OAuth. Trade-off, stated plainly: a link now needs
+  JavaScript to open, because no-JS means no way to move a fragment into a
+  request without putting it back in the URL.
 - **The privacy page named one timestamp authority; sealing uses several.** It
   now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
   each receives only the hash, never the conversation.
