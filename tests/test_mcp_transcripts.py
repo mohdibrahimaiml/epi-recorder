@@ -154,9 +154,13 @@ def test_uploaded_export_is_sealed_viewable_and_verifies(client):
     assert r.status_code == 200 and "Sealed" in r.text and "from the assistant" in r.text
     assert "1 from you, 1 from the assistant" in r.text
     view, dl = _links(r.text)
-    page = client.get(view)
+    # The links carry the capability in the URL fragment, so the page trades it
+    # for a cookie first; only then are the record and the file served.
+    aid = view.split("#")[0].rstrip("/").split("/")[-1]
+    assert client.post(f"/link/{aid}", json={"k": view.split("#k=")[1]}).status_code == 204
+    page = client.get(view.split("#")[0])
     assert page.status_code == 200 and "content-security-policy" in page.headers
-    saved = client.get(dl).content
+    saved = client.get(dl.split("#")[0]).content
     from epi_core.container import EPIContainer  # noqa: F401
 
     assert saved[:4] == b"<!--"
