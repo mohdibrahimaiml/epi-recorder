@@ -331,16 +331,36 @@ def _get_rule(policy: dict, rule_id: str) -> Optional[dict]:
     return None
 
 
+def _ask_amount(message: str, default: float) -> float:
+    """Ask for a non-negative amount, re-asking instead of raising on a typo.
+
+    `Prompt.ask` returns the raw string, so a mis-typed threshold used to reach
+    `float()` and crash `epi policy init` with a ValueError traceback. A person
+    at a prompt should get the question again.
+    """
+    default_text = str(int(default)) if float(default).is_integer() else str(default)
+    while True:
+        raw = Prompt.ask(message, default=default_text)
+        try:
+            value = float(str(raw).replace(",", "").strip())
+        except (TypeError, ValueError):
+            console.print(f"[red]{raw!r} is not a number - enter an amount such as 10000.[/red]")
+            continue
+        if value < 0:
+            console.print("[red]The amount cannot be negative.[/red]")
+            continue
+        return value
+
+
 def _customize_profile_policy(policy: dict, profile_name: str, yes: bool) -> dict:
     if profile_name == "finance.loan-underwriting":
         if yes or Confirm.ask("Should high-value approvals require human approval?", default=True):
-            threshold = "10000" if yes else Prompt.ask(
-                "Approval threshold amount",
-                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
-            )
             rule = _get_rule(policy, "R003")
             if rule is not None:
-                rule["threshold_value"] = float(threshold)
+                threshold = 10000.0 if yes else _ask_amount(
+                    "Approval threshold amount", float(rule["threshold_value"])
+                )
+                rule["threshold_value"] = threshold
         else:
             _remove_rule(policy, "R003")
 
@@ -355,13 +375,12 @@ def _customize_profile_policy(policy: dict, profile_name: str, yes: bool) -> dic
             _remove_rule(policy, "R002")
 
         if yes or Confirm.ask("Should large refunds require human approval?", default=True):
-            threshold = "5000" if yes else Prompt.ask(
-                "Refund threshold amount",
-                default=str(int(_get_rule(policy, "R003")["threshold_value"])),
-            )
             rule = _get_rule(policy, "R003")
             if rule is not None:
-                rule["threshold_value"] = float(threshold)
+                threshold = 5000.0 if yes else _ask_amount(
+                    "Refund threshold amount", float(rule["threshold_value"])
+                )
+                rule["threshold_value"] = threshold
         else:
             _remove_rule(policy, "R003")
 
