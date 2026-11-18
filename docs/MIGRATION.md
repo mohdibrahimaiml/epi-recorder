@@ -32,9 +32,9 @@ re-seal and no migration. What changed is around approvals.
   old link was an unauthenticated GET that a mail scanner could trigger on its
   own. Re-issue approvals after upgrading; new links expire after
   `EPI_APPROVAL_LINK_TTL_HOURS` (default 72).
-- **New seals are stamped 4.7.0**, so `spec_version` on files you seal from now
-  on moves 4.6.3 → 4.7.0. Verification dispatches on the value **in the file**,
-  so this changes nothing about artifacts you already have.
+- **Seals made by 4.7.0 are stamped 4.7.0**, so `spec_version` moved 4.6.3 →
+  4.7.0 for files sealed from then on. Verification dispatches on the value
+  **in the file**, so this changes nothing about artifacts you already have.
 
 ## Rule 0: never "fix" an old file by re-sealing it
 

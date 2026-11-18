@@ -11,7 +11,6 @@ on:
     paths:
       - "epi_core/storage_sink.py"
       - "epi_recorder/api.py"
-      - "epi_gateway/main.py"
       - "epi_cli/cloud.py"
       - "tests/test_storage_*.py"
       - "pyproject.toml"

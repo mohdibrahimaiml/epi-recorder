@@ -223,4 +223,4 @@ analytics.generate_report("performance_report.html")
 
 ## License
 
-MIT
+Apache-2.0 from 4.10.0 (MIT up to 4.9.0). See the repository `LICENSE`.

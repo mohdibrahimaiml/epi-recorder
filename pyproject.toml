@@ -182,7 +182,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 norecursedirs = ["tmp*", ".gen_tmp", ".tmp", ".pytest_cache", "htmlcov"]
-addopts = "-v --cov=epi_core --cov=epi_cli --cov=epi_gateway --cov=epi_recorder --cov=pytest_epi --cov-report=term-missing --cov-report=html"
+addopts = "-v --cov=epi_core --cov=epi_cli --cov=epi_recorder --cov=pytest_epi --cov-report=term-missing --cov-report=html"
 markers = [
     "unit: fast unit and adapter tests",
     "integration: multi-component offline tests",

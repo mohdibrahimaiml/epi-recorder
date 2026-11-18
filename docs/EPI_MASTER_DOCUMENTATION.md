@@ -84,7 +84,7 @@ Say these out loud in a security review. They are product facts, not caveats hid
 | `epi_core/` | Container, canonical hash, Ed25519, redaction, policy/fault analysis, TSA verify |
 | `epi_cli/` | `epi` command: record, verify, view, policy, keys, witness, **cloud** |
 | `web_viewer/` + `epi_viewer_static/` | Offline case UI baked into the file |
-| `epi_gateway/` | Optional **self-hosted** capture/review (`epi gateway serve`) |
+| `epi_gateway/` (in `epi-enterprise`) | Optional **self-hosted** capture/review (`epi gateway serve`) - paid |
 | `website/` | epilabs.org |
 | `verify_portal/` | Legacy hosted verify/share API on Render. Login moved to Cloud. `epi share` falls back to it only while the Cloud upload route is unavailable; MCP and some telemetry paths still use it ([CLOUD.md](./CLOUD.md)). |
 

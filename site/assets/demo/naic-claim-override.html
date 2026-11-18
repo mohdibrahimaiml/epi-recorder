@@ -428,10 +428,10 @@
       <div class="proof-list">
         <div class="detail-row"><dt>Integrity</dt><dd><span class="status-pill tone-approved">Record has not been modified</span></dd></div>
         <div class="detail-row"><dt>Signature</dt><dd>Verified signature - 6090c0d94782bb06</dd></div>
-        <div class="detail-row"><dt>Archive SHA-256</dt><dd><code>80735cddd05b11800c70de88607a3d283fa77ad30597183d0970daa5df5e7384</code></dd></div>
+        <div class="detail-row"><dt>Archive SHA-256</dt><dd>Printed by <code>epi verify</code> for the file you downloaded</dd></div>
         <div class="detail-row"><dt>Verify locally</dt><dd>epi verify naic-claim-override.epi --require-human-approval</dd></div>
         <div class="detail-row"><dt>Verify in browser</dt><dd>https://epilabs.org/verify</dd></div>
-        <div class="detail-row"><dt>Approver key to pin</dt><dd>3dd96efc0ce10a03</dd></div>
+        <div class="detail-row"><dt>Approver key to pin</dt><dd>Printed by <code>epi verify</code> as the reviewer fingerprint</dd></div>
       </div>
       <p class="footnote">The raw execution record in <code>steps.jsonl</code> remains the ground truth. This Decision Record is a readable summary of the sealed artifact.</p>
     </section>
@@ -442,6 +442,7 @@
       <div class="detail-list">
         <div class="detail-row"><dt>Workflow ID</dt><dd>d06d2b84-f537-43e8-a0bd-1b0f2ee73dad</dd></div><div class="detail-row"><dt>Created at</dt><dd>2026-11-08 18:19 UTC</dd></div><div class="detail-row"><dt>Signer</dt><dd>6090c0d94782bb06</dd></div><div class="detail-row"><dt>Analysis status</dt><dd>complete</dd></div><div class="detail-row"><dt>Analysis error</dt><dd>None</dd></div><div class="detail-row"><dt>Files sealed in manifest</dt><dd>9</dd></div><div class="detail-row"><dt>Policy profile</dt><dd>custom.guided</dd></div><div class="detail-row"><dt>Rule count</dt><dd>1</dd></div><div class="detail-row"><dt>Primary finding</dt><dd>No fault detected in the recorded execution.</dd></div>
       </div>
+      <p class="footnote">The payload below is an illustrative composite from the 2026-11-08 build: it shows fields such as <code>release</code> and <code>seal_chain</code> that this sample does not carry, so its version, workflow id and hashes are not the bytes in the download. Verify the file itself with <code>epi verify</code>.</p>
       <details>
         <summary>Open technical payload</summary>
         <pre>{

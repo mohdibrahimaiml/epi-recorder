@@ -79,7 +79,7 @@ way the viewer could reach out. Both the **outer** polyglot HTML and the
 **inner** `viewer.html` were checked.
 
 > The samples shipped **today** are **data-only**: the same path is the 4.10.0
-> file, SHA-256 `6a286fcf51a189327d2fa6baafe3a3b285a029dcc1f71197c6a7e37500a9720e`,
+> file, SHA-256 `d852078f975c1c21316d621398aa4790470afd0ed57a2b56e1517f9348dfe357`,
 > and it carries no `viewer.html` member at all (it opens in `epi view` or on
 > `/verify`). The scan below still describes the viewer code that gets inlined
 > when a self-opening file *is* requested (`web_viewer/app.js`).

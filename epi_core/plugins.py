@@ -2,8 +2,9 @@
 
 Why this module exists
 ----------------------
-The open-core split keeps the trust layer (format, verifier, recorder, gateway,
-witness receiver) MIT, and keeps commercial additions out of the published
+The open-core split keeps the trust layer (format, verifier, recorder, witness
+receiver) open source - MIT up to 4.9.0, Apache-2.0 from 4.10.0 - and keeps
+commercial additions (the team gateway, framework adapters) out of the published
 wheel. Those additions still need somewhere to attach. This is that seam, and
 nothing more:
 
