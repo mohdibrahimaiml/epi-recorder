@@ -36,14 +36,15 @@ relationship**, not per AI agent: agents are fair use on every plan.
 |------|-------|------------------------|---------------------|-----------|-----|
 | Free | $0 | 1 | 10 / year | 30 days | self-serve, 7-day share links |
 | Design Partner (first 5) | $750 / month, locked 24 months, or $7,500 upfront | 5 | 2,000 / year | 7 years while subscribed | invoiced |
-| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | Paddle |
-| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | Paddle |
+| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | invoiced |
+| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | invoiced |
 | Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
 
-Prices are USD and exclude taxes. Startup and Growth are paid by card in
-**Billing** in the dashboard (Paddle); Design Partner, Enterprise and add-on
-relationships are invoiced directly. Limits are per workspace. A share link is
-a reviewer trust link and does not count toward the relationship limit.
+Prices are USD and exclude taxes. **Every plan is invoiced today.** Pick the plan
+in the dashboard or email mohdibrahim@epilabs.org and we send an invoice; the
+plan is set on your workspace once it is paid. Self-serve card checkout is not
+enabled yet. Limits are per workspace. A share link is a reviewer trust link and
+does not count toward the relationship limit.
 
 Retention lasts while the subscription is active. After cancelling, the customer
 has **90 days to export everything**; downgrading to Free applies that 90-day
