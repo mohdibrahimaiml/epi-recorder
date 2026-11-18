@@ -8,7 +8,7 @@ All notable changes to EPI Recorder are documented here.
 
 A pre-launch audit (85-check framework) was run across the repository. Findings,
 evidence and per-item status live in the local, gitignored `AUDIT.md`; this
-section records what changed. **34 findings fixed, 8 open, 0 High.**
+section records what changed. **42 findings fixed, 0 open, 0 High.**
 
 - **OAuth redirect URI was a wildcard for unknown clients.** A client that
   registered no redirect URIs was accepted with *any* URI, so an authorization
