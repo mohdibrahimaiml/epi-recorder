@@ -56,6 +56,9 @@ def is_loopback_host(host: str) -> bool:
 
 # Name of the HttpOnly cookie that a view/download link trades its fragment for.
 _LINK_COOKIE = "epi_link"
+# The unlock request is {"k": "<token>"}; a few hundred bytes at most. Refuse
+# anything larger instead of parsing it.
+_LINK_MAX_BODY = 4096
 
 
 class _BearerAuthMiddleware(BaseHTTPMiddleware):
@@ -159,6 +162,13 @@ async def _link_unlock(request: Request):
     from epi_mcp.tools import DOWNLOAD_TTL_SECONDS, download_token_valid
 
     artifact_id = request.path_params.get("artifact_id", "")
+    declared = request.headers.get("content-length")
+    if declared is not None and (not declared.isdigit() or int(declared) > _LINK_MAX_BODY):
+        return JSONResponse(
+            {"error": "Request too large."},
+            status_code=413,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        )
     try:
         body = await request.json()
     except Exception:

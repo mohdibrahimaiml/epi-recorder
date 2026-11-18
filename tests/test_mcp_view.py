@@ -116,6 +116,19 @@ def test_view_rejects_missing_wrong_and_other_files_tokens(sealed):
     assert sealed["sha256"].encode() not in client.get(f"/view/{aid}").content
 
 
+def test_unlock_refuses_an_oversized_body(sealed):
+    """The unlock request is a token, not an upload."""
+    from epi_mcp.http import build_app
+
+    client = TestClient(build_app(), raise_server_exceptions=False)
+    r = client.post(
+        f"/link/{sealed['artifact_id']}",
+        content=b'{"k": "' + b"x" * 8000 + b'"}',
+        headers={"content-type": "application/json"},
+    )
+    assert r.status_code == 413
+
+
 def test_view_after_retention_purge_is_a_friendly_404(sealed):
     from epi_mcp import tools
     from epi_mcp.http import build_app
