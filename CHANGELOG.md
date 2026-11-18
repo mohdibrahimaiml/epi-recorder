@@ -67,6 +67,24 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   control (blocked, reported, `disposition: enforce`).
   `tests/test_website_headers.py` now fails if a Report-Only policy,
   `'unsafe-eval'` or a third-party font host comes back.
+- **One deploy path.** `.github/workflows/deploy-website.yml` republished
+  `website/` to GitHub Pages, where `_headers` is inert: the same content, on a
+  second host, with no CSP and no HSTS. `epilabs.org` answers with
+  `server: cloudflare` and the `_headers` policy, so Cloudflare Pages is the
+  publisher; the GitHub Pages copy was dead weight that could only ever have
+  served a weaker site. The workflow is deleted.
+- **The site build wrote a second output tree.** `scripts/cf-pages-build.mjs`
+  copied the site to `dist/` as well as `site/`, and `dist/` is also where
+  `python -m build` puts wheels, so a stray `npm run build` could leave website
+  files where `twine check dist/*` and the publish workflow expect packages. It
+  writes `site/` only now, and a test pins that.
+- **A gitignored duplicate of the viewer is archived, not left to rot.**
+  `website-v2/js/viewer.js` interpolated sealed-artifact fields into
+  `innerHTML`. The tree was never tracked, never deployed, and could not be
+  patched by CI, so it was only ever a machine-local copy of security-relevant
+  code that looked maintained. It now lives outside the repository, and
+  `tests/test_verifier_single_source.py` no longer lists it as a copy to keep in
+  sync — an assertion that could only ever run on the machine that had it.
 - **The privacy page named one timestamp authority; sealing uses several.** It
   now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
   each receives only the hash, never the conversation.

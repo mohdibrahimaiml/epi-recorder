@@ -1,8 +1,8 @@
 """Ensure only website/js/epi-verify-core.js is the source of truth.
 
-Six copies diverged (js/, website/js/, site/js/, verify_portal/static/js/,
-epi-official/js/, website-v2/js/) with different crypto implementations.
-This test fails if any epi-verify-core.js in the repo differs from
+The verifier had diverged across several trees (js/, website/js/, site/js/,
+verify_portal/static/js/, epi-official/js/) with different crypto
+implementations. This test fails if any copy in the repo differs from
 website/js/epi-verify-core.js after CRLF normalization.
 
 Canonical source: website/js/epi-verify-core.js (GitHub Pages deploys website/ only).
@@ -17,12 +17,13 @@ CANONICAL = ROOT / "website" / "js" / "epi-verify-core.js"
 
 # Paths that were previously hand-copied duplicates and are now deleted/generated.
 # If any of these reappear, they must byte-match the canonical file.
+# website-v2/ is not listed: it was gitignored local scratch, never a repo tree,
+# so an entry here only ever ran on the machine that happened to have it.
 LEGACY_COPIES = [
     ROOT / "js" / "epi-verify-core.js",
     ROOT / "site" / "js" / "epi-verify-core.js",
     ROOT / "verify_portal" / "static" / "js" / "epi-verify-core.js",
     ROOT / "epi-official" / "js" / "epi-verify-core.js",
-    ROOT / "website-v2" / "js" / "epi-verify-core.js",
 ]
 
 

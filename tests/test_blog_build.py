@@ -57,6 +57,18 @@ def test_cloudflare_build_regenerates_the_blog():
     assert '"blog"' in build and "index.html" in build
 
 
+def test_build_writes_the_pages_output_dir_only():
+    """One output tree. `dist/` is where `python -m build` puts wheels.
+
+    A second copy of the website in `dist/` is not just dead weight: the publish
+    workflow runs `twine check dist/*`, so a stray website file there turns a
+    release step into a failure -- or worse, gets uploaded.
+    """
+    build = (ROOT / "scripts" / "cf-pages-build.mjs").read_text(encoding="utf-8")
+    assert '"dist"' not in build, "cf-pages-build.mjs must not write a second output tree"
+    assert 'DESTINATIONS = ["site"]' in build
+
+
 def test_blog_builder_needs_no_extra_packages():
     source = (ROOT / "scripts" / "build_blog.py").read_text(encoding="utf-8")
     assert "import jinja2" not in source
