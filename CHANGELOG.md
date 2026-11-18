@@ -45,12 +45,28 @@ section records what changed. **34 findings fixed, 8 open, 0 High.**
   anonymous callers. All three return 404, and every response now carries
   HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`
   and a report-only CSP.
-- **The site CSP enforces** `frame-ancestors`, `base-uri`, `form-action` and
-  `object-src`. `script-src`, `style-src` and `connect-src` remain report-only
-  until jszip's `setImmediate` polyfill (`new Function`) is resolved. A new
-  `/csp-report` function accepts violations (capped body, query strings
-  stripped) so "enforce after a week of clean reports" is measurable instead of
-  assumed.
+- **The site CSP now enforces the whole policy, not four directives.**
+  `script-src`, `style-src` and `connect-src` were held back by two assumptions;
+  both were measured. jszip's `setImmediate` polyfill calls `new Function` only
+  on a branch its own code never reaches: in a real browser under
+  `default-src 'none'; script-src 'self'`, `generateAsync`, `loadAsync` and
+  `.async()` all succeed with zero violations, while a control
+  `new Function("return 1")` throws `EvalError` — so no `'unsafe-eval'` is
+  needed and the viewer keeps working. The ~100 `font-src` violations per page
+  view were Bunny Fonts' 50 `@font-face` rules, every one resolving to
+  `cdn.jsdelivr.net`; Google's stylesheet did the same through
+  `fonts.gstatic.com`. The fonts are now self-hosted from `/fonts` (10 woff2
+  files, latin + latin-ext, Fontsource 5.3.0, OFL licence included), so
+  `font-src 'self'`. `cdn.jsdelivr.net`, `fonts.bunny.net`, `fonts.gstatic.com`,
+  `fonts.googleapis.com`, `cdn.paddle.com`, `cdnjs.cloudflare.com` and
+  `public.profitwell.com` are gone from the policy — nothing loaded them, and
+  Paddle checkout is retired. One enforcing policy ships instead of an
+  enforcing one plus a Report-Only twin whose allow-list had drifted. Verified
+  by crawling all 37 pages of the built `site/` with the exact response header
+  and a report sink counting violations: 0, with an injected inline script as a
+  control (blocked, reported, `disposition: enforce`).
+  `tests/test_website_headers.py` now fails if a Report-Only policy,
+  `'unsafe-eval'` or a third-party font host comes back.
 - **The privacy page named one timestamp authority; sealing uses several.** It
   now names FreeTSA, DigiCert and the three OpenTimestamps calendars, and says
   each receives only the hash, never the conversation.

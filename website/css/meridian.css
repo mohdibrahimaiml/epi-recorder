@@ -4,7 +4,7 @@
    Dark-first forensics aesthetic. Replaces the legacy CSS stack.
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('fonts.css');
 
 /* ═══ TOKENS — DARK (default) ═══ */
 :root {

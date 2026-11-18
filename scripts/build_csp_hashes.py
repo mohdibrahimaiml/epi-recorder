@@ -2,10 +2,12 @@
 """Build the script-src hash list for website/_headers (WP-SEC-3).
 
 Every executable inline <script> block (no src=) is hashed over its exact
-served bytes; the hashes replace the __SCRIPT_SRC_HASHES__ placeholder in
-the Content-Security-Policy line of website/_headers (single line — header
-continuation lines cannot hold comments). Mirrors pick the file up via
+served bytes; the hashes go into the script-src directive of the enforcing
+Content-Security-Policy line. Mirrors pick the file up via
 scripts/sync_website.py; Cloudflare Pages serves it as HTTP headers.
+
+The builder rewrites only the 'sha256-...' tokens of script-src, so the rest
+of the policy stays exactly as written by hand.
 
 Run after any website/ change that touches inline scripts:
   python scripts/build_csp_hashes.py && python scripts/sync_website.py
@@ -31,6 +33,8 @@ EXECUTABLE_TYPES = {None, "text/javascript", "module", "application/ld+json"}
 
 SCRIPT_RE = re.compile(r"<script(?![^>]*\bsrc=)([^>]*)>(.*?)</script>", re.S | re.I)
 TYPE_RE = re.compile(r'type\s*=\s*["\']?([^"\'\s>]+)', re.I)
+CSP_RE = re.compile(r"^  Content-Security-Policy:[ \t]*(.+)$", re.M)
+HASH_RE = re.compile(r"'sha256-[A-Za-z0-9+/=]+'")
 
 
 def iter_inline_scripts():
@@ -57,28 +61,30 @@ def main() -> int:
         print(f"ERROR: {HEADERS} missing", file=sys.stderr)
         return 1
     text = HEADERS.read_text(encoding="utf-8", errors="ignore")
-    replacement = " ".join(f"'sha256-{h}'" for h in sorted(hashes))
-    lines = text.splitlines(keepends=True)
-    csp_idx = [i for i, l in enumerate(lines) if "Content-Security-Policy-Report-Only" in l]
-    if len(csp_idx) != 1:
-        print("ERROR: expected exactly one Report-Only CSP line", file=sys.stderr)
+    m = CSP_RE.search(text)
+    if not m:
+        print("ERROR: expected exactly one enforcing Content-Security-Policy line", file=sys.stderr)
         return 1
-    i = csp_idx[0]
-    if PLACEHOLDER in lines[i]:
-        lines[i] = lines[i].replace(PLACEHOLDER, replacement)
-    else:
-        # Re-run: refresh ONLY the hash run inside the CSP line. Never touch
-        # anything else (a naive whole-file split once scattered hashes into
-        # a comment — see WP-SEC-3 notes).
-        lines[i] = re.sub(r"'sha256-[A-Za-z0-9+/=]+' ?", "", lines[i]).replace(
-            "  ", " "
-        )
-        anchor = "https://public.profitwell.com"
-        assert anchor in lines[i], "script-src anchor missing"
-        lines[i] = lines[i].replace(anchor, anchor + " " + replacement, 1)
-    text = "".join(lines)
+
+    policy = m.group(1)
+    directives = [d.strip() for d in policy.split(";") if d.strip()]
+    script_idx = next(
+        (i for i, d in enumerate(directives) if d.split(" ")[0] == "script-src"), None
+    )
+    if script_idx is None:
+        print("ERROR: no script-src directive in the enforcing policy", file=sys.stderr)
+        return 1
+
+    tokens = [
+        t
+        for t in HASH_RE.sub(" ", directives[script_idx]).split()
+        if t and t != PLACEHOLDER
+    ]
+    directives[script_idx] = " ".join(tokens + [f"'sha256-{h}'" for h in sorted(hashes)])
+
+    text = text[: m.start(1)] + "; ".join(directives) + text[m.end(1) :]
     stray = [
-        n for n, l in enumerate(text.splitlines()) if l.startswith("#") and "sha256" in l
+        n for n, line in enumerate(text.splitlines()) if line.startswith("#") and "sha256" in line
     ]
     if stray or PLACEHOLDER in text:
         print(f"ERROR: corrupt _headers after build (stray={stray})", file=sys.stderr)

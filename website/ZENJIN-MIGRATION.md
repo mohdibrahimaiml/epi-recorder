@@ -72,7 +72,7 @@ Legend: **REDESIGN** = replaced by zenjin page · **KEEP** = copy production fil
 
 **Plumbing (must exist or production breaks):**
 
-- `_headers` — HSTS, nosniff, frame deny, CSP (Report-Only, sha256 hashes)
+- `_headers` - HSTS, nosniff, frame deny, enforcing CSP with sha256 hashes
 - `_redirects` — `/pricing`, `/viewer`, `/verify`, `/enterprise/`, `/t/*`
 - `_routes.json` — `{"version":1,"include":["/*"],"exclude":[]}`
 - `functions/` — `_proxy.js`, `api/[[path]].js`, `scitt/`, `.well-known/`, `v1/`, `_middleware.js`
@@ -129,8 +129,9 @@ Legend: **REDESIGN** = replaced by zenjin page · **KEEP** = copy production fil
 
 - **Mixed design during transition.** Kept pages still use `site.css` and the old
   nav. Acceptable only while the new nav does not link them.
-- **CSP.** Inline timeline will be blocked if CSP moves from Report-Only to
-  enforcing without new hashes.
+- **CSP.** The policy enforces, so a new inline script is blocked until its hash
+  is in `_headers`: re-run `scripts/build_csp_hashes.py`, or
+  `tests/test_website_headers.py` fails first.
 - **Service worker.** Network-first HTML means stale HTML is unlikely; shared JS
   is byte-identical, so the cache is safe. Still bump `CACHE_NAME` so old caches
   are dropped.
@@ -175,7 +176,7 @@ Render is untouched. Merge to `main` only after §8 passes.
 - [ ] `/account`, `/login`, `/terms`, `/privacy`, `/refund`, `/portal` load
 - [ ] `/use-cases`, `/enterprise`, `/integrations`, `/status`, `/t/acme-demo/`, `/cases/` load
 - [ ] `/pricing` → 301 `/plans`; `/verify` → 301 `/verify/`; `/viewer` → 301 `/verify/`
-- [ ] headers present: HSTS, `X-Frame-Options: DENY`, CSP report-only
+- [ ] headers present: HSTS, `X-Frame-Options: DENY`, enforcing CSP
 - [ ] `sw.js` cache name bumped; no stale asset errors in console
 - [ ] `sitemap.xml` / `robots.txt` list the new URLs
 - [ ] Lighthouse: no console errors, LCP sane with the video preload=metadata

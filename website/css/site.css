@@ -5,8 +5,8 @@
    The website is the same species as the artifact.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Fonts via Bunny Fonts - privacy-first CDN, no IP logging, no cookies */
-@import url('https://fonts.bunny.net/css?family=fraunces:400,500,700|inter:400,500,600,700|jetbrains-mono:400,500,700&display=swap');
+/* Fonts are self-hosted from /fonts (see css/fonts.css): no third-party CDN. */
+@import url('fonts.css');
 
 /* ── Tokens ─────────────────────────────────────────────────────── */
 :root{

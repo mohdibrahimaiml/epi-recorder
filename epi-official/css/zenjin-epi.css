@@ -4,7 +4,7 @@
    Inter Variable + Instrument Serif + JetBrains Mono · OKLCH Jewel Accents
    ========================================================================== */
 
-@import url('https://fonts.bunny.net/css?family=instrument-serif:400,400i|inter:300,400,500,600|jetbrains-mono:400,500,600&display=swap');
+@import url('fonts.css');
 
 :root {
   color-scheme: dark;
@@ -49,7 +49,7 @@
   --acc-audit: #6366f1;                    /* Indigo: Annex IV / AIUC-1 / Claims */
 
   /* Typography Stacks */
-  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: "Instrument Serif", Georgia, Cambria, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 

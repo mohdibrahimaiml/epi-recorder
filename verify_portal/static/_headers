@@ -1,26 +1,35 @@
 # WP-SEC-3: Cloudflare Pages headers (applies to every path via "/").
 # NOTE: GitHub Pages ignores this file. If these headers are absent on
 # https://epilabs.org/ after deploy, the site is NOT served by Cloudflare
-# Pages -- stop and report instead of continuing to the enforcing CSP.
+# Pages -- stop and report instead of continuing.
 #
 # Script hashes below were computed by scripts/build_csp_hashes.py over
 # LF-normalized inline script text (the HTML parser normalizes CRLF to LF
 # before CSP hashing). Re-run the builder after any website/ change that
 # touches inline scripts.
 #
-# Two-tier CSP, on purpose:
-#   * Content-Security-Policy (enforcing) carries only directives that cannot
-#     break rendering if a resource is missed: framing, base-uri, form-action
-#     and plugins. These take effect immediately.
-#   * Content-Security-Policy-Report-Only carries the full policy, including
-#     script-src, style-src and connect-src. It is not enforced yet because
-#     jszip (website/js/jszip.min.js and the copy inlined in
-#     website/assets/viewer.html) ships a setImmediate polyfill that calls
-#     `new Function`, which a CSP without 'unsafe-eval' blocks. Enforcing
-#     script-src before that is resolved would break the viewer. Promote the
-#     remaining directives once jszip is replaced or the polyfill path is
-#     proven unreachable in the browser, and add a report collector so a
-#     "clean run" is measurable rather than assumed.
+# One enforcing policy, no Report-Only shadow. The two reasons enforcement was
+# previously deferred were both measured, and both turned out to be fixable:
+#
+#   * jszip. website/js/jszip.min.js ships a setImmediate polyfill that calls
+#     `new Function`, but only on the non-function branch; JSZip's own call
+#     passes a function, so nothing is ever evaluated. Proven in a real
+#     browser under `default-src 'none'; script-src 'self'`: generateAsync,
+#     loadAsync and .async() all succeed with zero violations, while a control
+#     `new Function("return 1")` throws EvalError -- so the probe could detect
+#     a violation and did not. 'unsafe-eval' is not needed.
+#   * fonts. The ~100 font-src violations per page view came from Bunny's
+#     stylesheet: 50 @font-face rules, every one resolving to
+#     cdn.jsdelivr.net (woff + woff2). Google's stylesheet did the same via
+#     fonts.gstatic.com. The fonts are now self-hosted from /fonts via
+#     css/fonts.css, so font-src is 'self' and no font CDN sees a visitor.
+#
+# The only third-party script left is Cloudflare Web Analytics, which the
+# edge injects; it is allowlisted explicitly instead of being left implicit.
+#
+# Paddle hosts were dropped: checkout is retired (see _redirects) and no page
+# loads paddle.js. If checkout returns, add https://cdn.paddle.com to
+# script-src and https://*.paddle.com to frame-src/connect-src.
 # Trust pages (M2): never indexed, never leak a referrer (tokens in #k=).
 /t/*
   X-Robots-Tag: noindex, nofollow
@@ -31,6 +40,4 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://*.paddle.com")
   X-Frame-Options: DENY
-  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri /csp-report
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://cdn.paddle.com https://cdnjs.cloudflare.com https://public.profitwell.com 'sha256-+rIgBRsOtKPK9VbqTBZ1pAFmxpoigOkZYyImZjQbBkM=' 'sha256-1F7D9t3Tu6rOrHy7/NBtlYz80zpIru+rgkJLzDFHSvU=' 'sha256-ACrq0zhftubPUm0PuV8XmGQiVssOtKNxfFm75h3Ww+Y=' 'sha256-B2AFdh5A7a0pX551unAWHu1gJZLrEC2xnZy3zniiSIc=' 'sha256-H3qGJK3ARyItrhpT/s1g6DmFqQqvS2MElMwd+AsMMEY=' 'sha256-LZCwlhbQMfqjSQddEFixTxQrizNg9ABdD3eWGzSxGdc=' 'sha256-Ld7CZhw3MZ2+i7a5dTzvnyZTYzI30iSco3Pdzwog0GI=' 'sha256-XY5IekF5sTCRPqz1AaIPFQ35t1eDNIPPZTmU4lrJWec=' 'sha256-YXS3bnPaopBEbpjyNMvAYVwihlqOfuvqzgRmUqe0OoQ=' 'sha256-gVpS6pFw3fNtnOS/gFru5OmpxX2hhMxhnP/XXItOedI=' 'sha256-gbsM4rD0h4X/WPjSEjo0qowCoTfeZf0X1yMG5FdKKPM=' 'sha256-lQpb2Van4u0Y/SK9lNCMGDspH+r0cEsleCDoklxUWXM=' 'sha256-oFOxW/tqVZz69B4C4IJQyAxipXW7iJvjXQoa4xrhgEg=' 'sha256-pQ3S7tNFFlkTYNiOrCzPggy7TSyV6gnRqPHAhanOfdw=' 'sha256-rMfkFFWoB2W1/Zx+4bgHim0WC7vKRVrq6FTeZclH1Z4=' 'sha256-rpnSwhkKjuib7IgWgkXjz0LulaNGfC746NmVcR0cr9E=' 'sha256-waZxLqYqAkS0thdocOrMoUkhR1hEdRnTG90lHtyb3h0=' 'sha256-wqin3Lm/DZfkTUJ7RlEBSZ04r4IO8r7i7OmKPOSfU04=' 'sha256-DTtOBKbZodt5FVuCDI8MGRGWhAGOFrjZvbAEvvDqgek='; style-src 'self' 'unsafe-inline' https://cdn.paddle.com https://fonts.bunny.net https://fonts.googleapis.com; img-src 'self' data: https:; font-src 'self' https://fonts.bunny.net https://fonts.gstatic.com; connect-src 'self' https://*.paddle.com https://cloud.epilabs.org; frame-src https://*.paddle.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri /csp-report
-*/
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com 'sha256-+rIgBRsOtKPK9VbqTBZ1pAFmxpoigOkZYyImZjQbBkM=' 'sha256-1F7D9t3Tu6rOrHy7/NBtlYz80zpIru+rgkJLzDFHSvU=' 'sha256-ACrq0zhftubPUm0PuV8XmGQiVssOtKNxfFm75h3Ww+Y=' 'sha256-B2AFdh5A7a0pX551unAWHu1gJZLrEC2xnZy3zniiSIc=' 'sha256-DTtOBKbZodt5FVuCDI8MGRGWhAGOFrjZvbAEvvDqgek=' 'sha256-H3qGJK3ARyItrhpT/s1g6DmFqQqvS2MElMwd+AsMMEY=' 'sha256-LZCwlhbQMfqjSQddEFixTxQrizNg9ABdD3eWGzSxGdc=' 'sha256-Ld7CZhw3MZ2+i7a5dTzvnyZTYzI30iSco3Pdzwog0GI=' 'sha256-XY5IekF5sTCRPqz1AaIPFQ35t1eDNIPPZTmU4lrJWec=' 'sha256-YXS3bnPaopBEbpjyNMvAYVwihlqOfuvqzgRmUqe0OoQ=' 'sha256-gVpS6pFw3fNtnOS/gFru5OmpxX2hhMxhnP/XXItOedI=' 'sha256-gbsM4rD0h4X/WPjSEjo0qowCoTfeZf0X1yMG5FdKKPM=' 'sha256-lQpb2Van4u0Y/SK9lNCMGDspH+r0cEsleCDoklxUWXM=' 'sha256-oFOxW/tqVZz69B4C4IJQyAxipXW7iJvjXQoa4xrhgEg=' 'sha256-pQ3S7tNFFlkTYNiOrCzPggy7TSyV6gnRqPHAhanOfdw=' 'sha256-rMfkFFWoB2W1/Zx+4bgHim0WC7vKRVrq6FTeZclH1Z4=' 'sha256-rpnSwhkKjuib7IgWgkXjz0LulaNGfC746NmVcR0cr9E=' 'sha256-waZxLqYqAkS0thdocOrMoUkhR1hEdRnTG90lHtyb3h0=' 'sha256-wqin3Lm/DZfkTUJ7RlEBSZ04r4IO8r7i7OmKPOSfU04='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://cloud.epilabs.org https://epi-verify-portal.onrender.com https://cloudflareinsights.com; frame-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri /csp-report
