@@ -142,8 +142,8 @@ signals. Nothing is derived or sent before telemetry is opted in.
 `epi cloud login` is entirely optional and only required for cloud-only features such as registry, cloud sync, team collaboration, and enterprise features. When you log in:
 
 - EPI uses the EPI Cloud device flow (RFC 8628): the terminal shows a short code you type at `cloud.epilabs.org/auth/device`. `epi auth login` is an alias of the same flow.
-- A push-only key for EPI Cloud is stored locally in `~/.epi/cloud.json` (mode 0600). (`~/.epi/auth.json` is a leftover local-dev token file, not the Cloud login.)
-- Telemetry events may include `user_id` and `org_id` so usage can be linked to your account.
+- A push-only key for EPI Cloud is stored locally in `~/.epi/cloud.json` (mode 0600). (`~/.epi/auth.json` is a leftover local-dev token file, not the Cloud login, and telemetry never reads it.)
+- Telemetry is linked to your account **only** when you opt in with `epi telemetry enable --join-pilot --link-telemetry`. With that opt-in, events carry `org_id` (and `user_id` when the account provides one) read from `cloud.json`. Without it, no account identifier is attached, whether or not you are logged in.
 
 You can log out at any time with `epi auth logout` (clears `cloud.json`). There is no `epi login` / `epi logout` command.
 

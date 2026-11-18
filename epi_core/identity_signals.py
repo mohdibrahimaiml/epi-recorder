@@ -115,21 +115,47 @@ def get_github_org() -> str | None:
     return get_identity_signals().get("github_org")
 
 
-def _get_auth_identity() -> dict[str, str]:
-    """Read locally saved EPI Cloud identity, if any."""
+def _consented_to_link_account() -> bool:
+    """True only after `epi telemetry enable --join-pilot --link-telemetry`.
+
+    The pilot signup is the only writer of that flag, so the account fields
+    below stay off for anyone who never agreed to them.
+    """
     try:
-        path = _state_dir() / "auth.json"
+        from epi_core.telemetry import pilot_signup_path
+
+        path = pilot_signup_path()
+        if not path.exists():
+            return False
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return bool(data.get("link_telemetry"))
+    except Exception:
+        return False
+
+
+def _get_auth_identity() -> dict[str, str]:
+    """Account fields for telemetry, only with the pilot opt-in.
+
+    Reads `cloud.json`, the credential `epi cloud login` writes. The legacy
+    `auth.json` is deliberately not read: doing so attached account
+    identifiers to events for users who never consented to it.
+    """
+    if not _consented_to_link_account():
+        return {}
+    try:
+        path = _state_dir() / "cloud.json"
         if not path.exists():
             return {}
         data = json.loads(path.read_text(encoding="utf-8"))
-        result: dict[str, str] = {}
-        if data.get("user_id"):
-            result["user_id"] = str(data["user_id"])
-        if data.get("org"):
-            result["org_id"] = str(data["org"])
-        return result
     except Exception:
         return {}
+    result: dict[str, str] = {}
+    org = data.get("org_id") or data.get("org")
+    if org:
+        result["org_id"] = str(org)
+    if data.get("user_id"):
+        result["user_id"] = str(data["user_id"])
+    return result
 
 
 def attach_identity_signals(metadata: dict[str, Any] | None) -> dict[str, Any]:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -81,3 +82,46 @@ def test_org_signals_can_be_opted_out(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(identity_signals, "_get_auth_identity", lambda: {"user_id": "usr_123"})
     result = identity_signals.attach_identity_signals({"command": "test"})
     assert result == {"command": "test", "user_id": "usr_123"}
+
+
+def test_account_fields_need_the_pilot_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("EPI_HOME", str(tmp_path))
+    # The legacy login file must never be enough on its own.
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"token": "t", "user_id": "usr_1", "org": "org_1"}), encoding="utf-8"
+    )
+    (tmp_path / "cloud.json").write_text(
+        json.dumps({"org_id": "org_2", "api_key": "epik_x"}), encoding="utf-8"
+    )
+    assert identity_signals._get_auth_identity() == {}
+    assert "user_id" not in identity_signals.attach_identity_signals({})
+
+
+def test_account_fields_come_from_cloud_json_after_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("EPI_HOME", str(tmp_path))
+    (tmp_path / "pilot_signup.json").write_text(
+        json.dumps({"link_telemetry": True}), encoding="utf-8"
+    )
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"token": "t", "user_id": "usr_legacy", "org": "org_legacy"}), encoding="utf-8"
+    )
+    (tmp_path / "cloud.json").write_text(
+        json.dumps({"org_id": "org_cloud", "api_key": "epik_x"}), encoding="utf-8"
+    )
+    identity = identity_signals._get_auth_identity()
+    assert identity == {"org_id": "org_cloud"}
+
+
+def test_attach_sends_no_account_fields_without_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("EPI_HOME", str(tmp_path))
+    (tmp_path / "auth.json").write_text(
+        json.dumps({"token": "t", "user_id": "usr_1", "org": "org_1"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(identity_signals, "get_identity_signals", lambda: {})
+    assert identity_signals.attach_identity_signals({"command": "test"}) == {"command": "test"}
