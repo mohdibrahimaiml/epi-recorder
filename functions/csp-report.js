@@ -1,13 +1,15 @@
 /**
  * CSP violation report sink.
  *
- * The site ships `Content-Security-Policy-Report-Only` for script-src,
- * style-src and connect-src. That is only useful if the reports land somewhere,
- * otherwise "enforce it after a week of clean reports" is unmeasurable. This
- * accepts them and logs a bounded one-line summary to the Pages function log,
- * which is enough to see whether the policy is ready to enforce.
+ * The site ships an enforcing `Content-Security-Policy` whose `report-uri`
+ * points here. Enforcement makes reports matter more, not less: a blocked
+ * resource is still lost to the visitor, so the only way to notice is for the
+ * browser to say so. This accepts them and logs a bounded one-line summary to
+ * the Pages function log, which Cloudflare exposes through real-time logs /
+ * Logpush. A durable sink would need a storage binding (KV/D1/Analytics
+ * Engine) on the Pages project; the log line is the shape such a sink wants.
  *
- * Deliberately stores nothing and logs no query strings: a document URL can
+ * Stores nothing and logs no query strings: a document URL can
  * carry a token (`/t/<id>#k=` pages), and the point of the report is the
  * directive, not the visitor.
  */

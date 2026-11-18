@@ -9,8 +9,8 @@ share token in the `X-EPI-Share-Token` header, so an attacker-supplied
   witness-lines fetch, pack download, and every event POST), and
 * let the attacker serve arbitrary content back as the "trust page".
 
-The site's Content-Security-Policy is **Report-Only** (`website/_headers`), so
-nothing else would stop it.
+The enforcing CSP (`website/_headers`) would also block the foreign origin, but
+an allowlist can grow; the host guard has to hold on its own.
 
 The override is therefore honoured only on a local host. These tests pin that:
 the public hostname must ignore it, and the local dev host must still honour

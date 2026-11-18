@@ -42,8 +42,10 @@
     // forward the victim's reviewer credential to the attacker (and let the
     // attacker serve arbitrary content back as the trust page).
     //
-    // The site's Content-Security-Policy is Report-Only, so nothing else
-    // would stop it (red-team W-01).
+    // The host guard below is the primary defence (red-team W-01). The CSP
+    // allowlist is now enforcing and would also block the foreign origin, but
+    // a policy that is expected to grow must not be the only thing standing
+    // between a reviewer and a stolen share token.
     if (!override) return '';
     var host = (window.location.hostname || '').toLowerCase();
     var isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
