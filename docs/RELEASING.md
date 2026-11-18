@@ -106,6 +106,28 @@ an impostor site. It is not Windows SmartScreen reputation — first-time
 downloads may still show a SmartScreen prompt until reputation builds. Say
 that honestly if a customer asks.
 
+## After the upload lands (same day)
+
+The release *state* lives in the copy, not just the number: four files say
+"prepared; publish pending" until the upload exists. Flip all of them in one PR
+once PyPI shows the version and its attestations.
+
+1. `website/index.html` — change `v4.11.0 · PyPI publish pending` to
+   `v4.11.0 on PyPI`. `tests/test_website_claims.py` accepts exactly one of the
+   two strings, so a half-done flip fails the gate rather than shipping.
+2. `README.md` — "Current release: **v4.11.0** (prepared; PyPI publish pending)"
+   becomes "(published)".
+3. `docs/KNOWN_LIMITATIONS.md` — "Current release line: **4.11.0**, published on
+   PyPI: **4.10.0** … upload is pending" becomes published-on-PyPI 4.11.0 with
+   the pending sentence removed.
+4. `docs/RELEASING.md` — add the new `**4.11.0 status (date): published.**`
+   block, with the tag signature and the attestation check.
+5. `python scripts/sync_website.py` so `site/`, `epi-official/` and
+   `verify_portal/static/` carry the same bytes.
+
+Leaving step 1 undone is the failure this list exists to prevent: the site would
+advertise a version that pip cannot install.
+
 ## Windows installer
 
 Pushing the `v*` tag also triggers **Build Windows Installer**, which
