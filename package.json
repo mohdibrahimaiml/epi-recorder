@@ -8,8 +8,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "ai": "^7.0.170"
   }
 }
