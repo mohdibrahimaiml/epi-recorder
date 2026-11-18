@@ -1,13 +1,18 @@
 /* EPI Labs contact/booking form.
-   Endpoint: set window.EPI_CONTACT_ENDPOINT to a Formspree/own-API URL that
-   accepts POST with JSON {name,email,company,role,interest,message}.
-   Until configured, submit falls back to a prefilled mailto: (honest, no fake success). */
+   Transport is mailto-first: submit validates, then opens the visitor's mail
+   client with every field prefilled. No request leaves the page, so nothing can
+   be blocked at the edge and the form cannot report success it did not have.
+
+   window.EPI_CONTACT_ENDPOINT stays empty on purpose. Setting it to a URL that
+   accepts POST {name,email,company,tier,use_case} re-enables the fetch path.
+   Do NOT point it at /api/contact: that path is proxied to the legacy Render
+   portal and is answered by a Cloudflare managed challenge (HTTP 429,
+   "Just a moment…"), so the fetch fails for every real visitor. A same-origin
+   Pages Function would be challenged the same way unless the WAF rule changes. */
 (function () {
   "use strict";
 
-  // ── Configure this to activate server-side submission ──────────
-  // Same-origin: Cloudflare Pages proxies /api/* to the FastAPI verify portal.
-  window.EPI_CONTACT_ENDPOINT = "/api/contact";
+  window.EPI_CONTACT_ENDPOINT = "";
 
   function $(s, c) { return (c || document).querySelector(s); }
 
@@ -39,11 +44,17 @@
 
     // The portal expects {name,email,company,tier,use_case}; map the form's
     // role/interest/message fields onto that contract so nothing is dropped.
-    function payload() {
+    // Everything the mailto needs (interest, message) is kept separately in
+    // fields(), because the portal shape renames and merges those away.
+    function fields() {
       var d = {};
       form.querySelectorAll("input,select,textarea").forEach(function (f) {
         if (f.name) d[f.name] = f.value.trim();
       });
+      return d;
+    }
+
+    function payload(d) {
       return {
         name: d.name || "",
         email: d.email || "",
@@ -55,13 +66,14 @@
 
     function mailtoFallback(d) {
       var subject = "[epilabs.org] " + (d.interest || "Inquiry") + " — " + (d.name || "website");
-      var body =
-        "Name: " + (d.name || "") + "\n" +
-        "Email: " + (d.email || "") + "\n" +
-        "Company: " + (d.company || "") + "\n" +
-        "Role: " + (d.role || "") + "\n" +
-        "Interested in: " + (d.interest || "") + "\n\n" +
-        (d.message || "");
+      var body = [
+        d.name ? "Name: " + d.name : "",
+        d.email ? "Email: " + d.email : "",
+        d.company ? "Company: " + d.company : "",
+        d.role ? "Role: " + d.role : "",
+        d.interest ? "Interested in: " + d.interest : "",
+        d.message ? "\n" + d.message : ""
+      ].filter(Boolean).join("\n");
       window.location.href = "mailto:mohdibrahim@epilabs.org?subject=" +
         encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
     }
@@ -72,7 +84,7 @@
         show("err", "Please fill the required fields (valid email included).");
         return;
       }
-      var d = payload();
+      var d = fields();
 
       if (!window.EPI_CONTACT_ENDPOINT) {
         // Honest fallback: open the visitor's mail client, prefilled.
@@ -87,7 +99,7 @@
       fetch(window.EPI_CONTACT_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify(d)
+        body: JSON.stringify(payload(d))
       }).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         form.reset();
@@ -133,7 +145,7 @@
 
       if (!window.EPI_CONTACT_ENDPOINT) {
         // Honest fallback: no fake success. Point to direct email.
-        show("Waitlist backend not configured yet — email <a href=\"mailto:mohdibrahim@epilabs.org?subject=Control%20Plane%20early%20access\">" +
+        show("Join by email — write to <a href=\"mailto:mohdibrahim@epilabs.org?subject=Control%20Plane%20early%20access\">" +
           "mohdibrahim@epilabs.org</a> with \u201Cearly access\u201D and you're on the list.");
         return;
       }
