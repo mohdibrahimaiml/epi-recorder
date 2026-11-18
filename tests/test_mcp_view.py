@@ -92,7 +92,7 @@ def test_the_unlock_page_csp_allows_its_own_script(sealed):
 
     client = TestClient(build_app(), raise_server_exceptions=False)
     r = client.get(f"/view/{sealed['artifact_id']}")
-    script = re.search(r"<script>(.*?)</script>", r.text, re.S).group(1)
+    script = re.search(r"<script>(.*?)</script>", r.text, re.S | re.I).group(1)
     digest = base64.b64encode(hashlib.sha256(script.encode("utf-8")).digest()).decode()
     csp = r.headers["content-security-policy"]
     assert f"'sha256-{digest}'" in csp
@@ -177,8 +177,18 @@ def test_view_link_renders_the_verified_record_in_a_real_browser_with_nothing_in
             page.locator("#boot-overlay").wait_for(state="hidden", timeout=20000)
             body = page.inner_text("body")
             browser.close()
-        assert "INTEGRITY VERIFIED" in body and "SIGNATURE VALID" in body
+        # The record opened from the link alone: no Authorization header, no
+        # cookie beyond what the link's own page minted.
         assert "Approve the refund for order 4411" in body
+        # And it must NOT claim a verified seal. d7f93b13 (red-team, Oct 23) made
+        # the viewer show a neutral state unless the host injects a verification
+        # context, which `epi view` does and an HTTP view does not; SECURITY.md
+        # documents exactly that. The previous assertion here ("INTEGRITY
+        # VERIFIED") predates that change, and only ever "passed" when the
+        # chromium probe found no browser and the test skipped.
+        assert "INTEGRITY NOT VERIFIED HERE" in body
+        assert "INTEGRITY VERIFIED" not in body
+        assert "SIGNATURE VALID" not in body
         assert not [e for e in errors if "SecurityError" in e or "Blocked" in e], errors
     finally:
         server.should_exit = True
