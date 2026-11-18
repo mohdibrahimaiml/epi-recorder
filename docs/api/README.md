@@ -1,9 +1,11 @@
 # Gateway API surface (machine-readable)
 
-`openapi.gateway.json` is **generated from the running code**, not hand-written:
+`openapi.gateway.json` is **generated from the running code**, not hand-written.
+The gateway ships in the paid `epi-enterprise` package, not in this repository:
 
 ```bash
-python -c "import json; from epi_gateway.main import app; json.dump(app.openapi(), open('docs/api/openapi.gateway.json','w'), indent=2)"
+pip install epi-enterprise   # from the private index, with a licence
+python -c "import json; from epi_enterprise.gateway.main import app; json.dump(app.openapi(), open('docs/api/openapi.gateway.json','w'), indent=2)"
 ```
 
 Regenerate it whenever gateway routes change; do not hand-edit. The EPI Cloud

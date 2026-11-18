@@ -35,10 +35,10 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 |---|---|---|
 | `epi_recorder/` | Python SDK: `record()` sessions, LLM/framework wrappers | `from epi_recorder import record` |
 | `epi_core/` | Container pack/unpack, canonical hashing, signing, verification, policy/fault analysis | Library (`EPIContainer` in `epi_core/container.py`); no CLI script |
-| `epi_cli/` | The `epi` command (record, verify, view, policy, gateway, share, **cloud**) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
+| `epi_cli/` | The `epi` command (record, verify, view, policy, share, **cloud**) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
 | `web_viewer/` | Canonical browser UI for reviewing Decision Records | Opened by `epi view` |
 | `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
-| `epi_gateway/` | Self-hosted capture, review, approval and share runtime | `epi gateway serve` |
+| `epi_gateway/` (in `epi-enterprise`) | Self-hosted capture, review, approval and share runtime - paid, not in this repository | `epi gateway serve` |
 | `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |
 | `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** `epi share` default upload, some `/api/*` proxies, telemetry and MCP keep-warm still hit Render — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |
 | `pytest_epi/` | Pytest plugin: attach `.epi` evidence to tests | `pytest --epi` |
@@ -49,7 +49,7 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 
 ## Open core: what is free and what is paid
 
-The trust layer is free forever and MIT: the `.epi` format, `epi verify`, the viewer, the recorder, the gateway, the customer-side witness receiver, and every offline proof check. Verification never requires an account, a licence, or a network connection.
+The trust layer is free and open source - MIT up to 4.9.0, Apache-2.0 from 4.10.0: the `.epi` format, `epi verify`, the viewer, the recorder, the customer-side witness receiver, and every offline proof check. The team gateway and the framework adapters are commercial (`epi-enterprise`). Verification never requires an account, a licence, or a network connection.
 
 The operating layer is the paid product and is not in this repository: the hosted service (multi-tenancy, hosting, retention, admin), billing and entitlements, and **EPI Enterprise** - the private `epi-enterprise` package that adds `epi audit`, `epi annex`, `epi notify`, `epi chat`, the `epi enterprise` kit and their regulatory mappings. The checker and the approver stay free: `epi verify`, `epi approvers`, `epi review`, single-user `epi oversight report` and `epi org bundle` are in the public CLI and need no licence. The paid commands are discovered through the `epi.plugins` entry point and require a signed offline licence; the public CLI is complete without them. Keeping that code private protects future development; it does **not** make the earlier published versions secret.
 

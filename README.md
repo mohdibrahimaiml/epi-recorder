@@ -212,14 +212,15 @@ not a Cedar bundle. Details:
 
 ## Open core: what is free, what is paid
 
-**Free forever, Apache-2.0, in this repository:** the `.epi` format, `epi verify`, the viewer, the recorder
-and its integrations, the gateway, the customer-side witness (`epi witness serve` / `report`), the
-policy engine, `epi approvers`, `epi review`, single-user `epi oversight report`, `epi org bundle`,
-and every offline proof check.
+**Free and open source (Apache-2.0 from 4.10.0; MIT up to 4.9.0), in this repository:** the `.epi`
+format, `epi verify`, the viewer, the recorder, the customer-side witness (`epi witness serve` /
+`report`), the policy engine, `epi approvers`, `epi review`, single-user `epi oversight report`,
+`epi org bundle`, and every offline proof check.
 
 **Paid, and not in this repository:** *EPI Enterprise* (`epi audit`, `epi annex`, `epi notify`,
-`epi chat`, regulatory mappings) and *EPI Cloud* (hosted witnessing, trust pages, retention, team
-review). The Cloud client and witness protocol stay open so anyone can build a compatible service.
+`epi chat`, the team gateway and `epi connect`, the framework adapters, regulatory mappings) and
+*EPI Cloud* (hosted witnessing, trust pages, retention, team review). The Cloud client and witness
+protocol stay open so anyone can build a compatible service.
 
 **The promise that makes the file worth anything:** `epi verify` will never require an account, a
 licence, a server or a network connection. `scripts/audit_wheel.py` and
@@ -238,8 +239,9 @@ epi demo            # record, seal, upload for that customer
 # then create a share link on cloud.epilabs.org
 ```
 
-Free workspace: 1 customer, 1 share link, 50 stored runs, 30 days. Team and Business are arranged
-directly — there is no public checkout. Recording and verification never depend on Cloud.
+Free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year and 30-day storage.
+Startup and Growth are self-serve; Enterprise is arranged directly - there is no public checkout.
+Recording and verification never depend on Cloud.
 
 ## Security defaults
 

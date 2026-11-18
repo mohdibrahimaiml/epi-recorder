@@ -357,7 +357,7 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.11.0**, published on PyPI: **4.10.0** — 4.10.0 is
+Current release line: **4.11.0**, published on PyPI: **4.10.0** - 4.11.0 is
 prepared and its upload is pending. Once it goes up through **Trusted
 Publishing** after the signed tag (the same path as 4.10.0), both files carry
 **PEP 740 attestations**; check with
