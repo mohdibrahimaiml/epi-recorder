@@ -29,7 +29,7 @@ This specification defines:
 - Conformance requirements for implementers
 
 It is the authoritative reference for independent implementations. The
-reference implementation is available under the MIT license at
+reference implementation is available under the Apache-2.0 license at
 https://github.com/mohdibrahimaiml/epi-recorder.
 
 ---

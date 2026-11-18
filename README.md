@@ -172,9 +172,10 @@ The base install is small: it records, seals and verifies. Framework support is 
 | `epi-recorder[all]` | everything except the dev/test toolchains |
 
 The team gateway (`epi gateway serve`, `epi connect`) and the framework
-adapters (LangChain, LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry,
-Guardrails) ship in the paid `epi-enterprise` package. The base install
-above records, seals and verifies.
+adapters for LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry and Guardrails
+ship in the paid `epi-enterprise` package. The LangChain callback stays here, in
+`epi_recorder.adapters.langchain`, because it predates the split and works with
+the base install. The wheels above record, seal and verify.
 
 ```python
 # pip install "epi-recorder[openai]"
@@ -218,7 +219,8 @@ format, `epi verify`, the viewer, the recorder, the customer-side witness (`epi 
 `epi org bundle`, and every offline proof check.
 
 **Paid, and not in this repository:** *EPI Enterprise* (`epi audit`, `epi annex`, `epi notify`,
-`epi chat`, the team gateway and `epi connect`, the framework adapters, regulatory mappings) and
+`epi chat`, the team gateway and `epi connect`, the framework adapters beyond
+LangChain, regulatory mappings) and
 *EPI Cloud* (hosted witnessing, trust pages, retention, team review). The Cloud client and witness
 protocol stay open so anyone can build a compatible service.
 

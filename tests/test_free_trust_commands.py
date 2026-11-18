@@ -2,7 +2,7 @@
 
 These commands are the customer side of the trust story: pin the approver's
 key, sign the approval, read the customer's own record, and verify the
-company's key history offline. They stay in the free, MIT core.
+company's key history offline. They stay in the free core.
 """
 
 from __future__ import annotations

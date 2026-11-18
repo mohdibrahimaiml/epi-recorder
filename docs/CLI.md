@@ -107,7 +107,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 
 | Command | Purpose |
 | --- | --- |
-| `epi gateway serve` | Start the open-source AI capture gateway for low-friction developer adoption. |
+| `epi gateway serve` | Start the EPI Enterprise capture gateway. Shipped in `epi-enterprise`, not in the free package. |
 | `epi gateway export` | Export one shared gateway-backed case to a portable `.epi` Decision Record. |
 | `epi export trace <file.epi>` | Emit a TRACE v0.2 log-import Trust Record bound to the `.epi` hash. Signing: `--key` → sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. A **signed** export also requires `--transcript-uri <durable URL>`; add `--no-sign` for a local unsigned record. Embedded `cnf.jwk` proves internal consistency, not a trusted issuer. `policy.bundle_hash` hashes `policy.json`, not Cedar (`enforcement_mode: declared`). `appraisal.status` is `none`. |
 | `epi connect open` | Start the local browser review workspace and connector bridge together. |
