@@ -19,7 +19,7 @@ from .mapping_report import create_report, finalize_report, add_exact, add_dropp
 from .transforms import (
     map_event_type, map_action, map_outcome, map_agent_did, build_step_content
 )
-from .schemas import AGTExportEntry, AGTFileAuditEntry, MappingReport, FieldMapping
+from .schemas import AGTCloudEvent, AGTExportEntry, AGTFileAuditEntry, MappingReport, FieldMapping
 
 
 def import_agt(
@@ -48,22 +48,29 @@ def import_agt(
     # Step 1: Detect format and load entries
     artifact_type, raw_entries = detect_file_format(source)
 
-    # Step 2: Parse entries into typed models (preserves unknown fields via extra="allow")
+    # Step 2: Detect AGT version. A CloudEvents envelope carries no AGT version,
+    # so the entry-shape heuristic must not guess one from it.
+    agt_version = (
+        "unknown"
+        if artifact_type == AGTArtifactType.CLOUDEVENTS
+        else detect_agt_version(raw_entries)
+    )
+
+    # Step 3: Initialize the mapping report, then parse entries into typed
+    # models (extra="allow" preserves fields a future AGT version adds).
+    report = create_report(agt_version)
     entries = []
     for raw in raw_entries:
         try:
-            if "signature" in raw or "content_hash" in raw:
+            if artifact_type == AGTArtifactType.CLOUDEVENTS:
+                entries.append(_cloudevent_to_entry(raw, report))
+            elif "signature" in raw or "content_hash" in raw:
                 entries.append(AGTFileAuditEntry(**raw))
             else:
                 entries.append(AGTExportEntry(**raw))
         except Exception as exc:
             raise AGTArtifactError(f"Malformed AGT entry: {exc}") from exc
 
-    # Step 3: Detect AGT version
-    agt_version = detect_agt_version(raw_entries)
-
-    # Step 4: Initialize mapping report
-    report = create_report(agt_version)
     report.total_source_fields = sum(len(e.model_dump()) for e in entries)
 
     # Step 5: Build EPI steps from entries
@@ -91,6 +98,68 @@ def import_agt(
 
     finalize_report(report)
     return epi_path, report
+
+
+def _cloudevent_to_entry(raw: dict, report: MappingReport) -> AGTExportEntry:
+    """Map one CloudEvents v1.0 envelope onto the AGT AuditEntry shape.
+
+    AGT's CloudEvents export puts the audit payload in ``data`` and the identity
+    in the envelope. Nothing is invented: when the envelope carries no action or
+    outcome, the entry says the event was captured (``audit`` / ``recorded``)
+    and the mapping report records that as synthesized.
+    """
+    ce = AGTCloudEvent(**raw)
+    data = dict(ce.data or {})
+
+    generated: list[tuple[str, str, str]] = []
+
+    action = str(data.pop("action", "") or "").strip()
+    if not action:
+        action = "audit"
+        generated.append(
+            ("action", action, "CloudEvents envelope carries no AGT action; recorded as 'audit'.")
+        )
+
+    outcome = str(data.pop("outcome", "") or "").strip()
+    if not outcome:
+        outcome = "recorded"
+        generated.append(
+            (
+                "outcome",
+                outcome,
+                "CloudEvents envelope carries no AGT outcome; the event is recorded, not adjudicated.",
+            )
+        )
+
+    resource = data.pop("resource", None)
+
+    entry: dict = {
+        "entry_id": ce.id,
+        "timestamp": ce.time,
+        "event_type": ce.type,
+        "agent_did": ce.source,
+        "action": action,
+        "outcome": outcome,
+        "data": data,
+        # Envelope fields with no AGT equivalent are carried, not dropped.
+        "cloudevent": ce.model_dump(mode="json", exclude={"data"}),
+    }
+    if resource is not None:
+        entry["resource"] = resource
+
+    for name, value, note in generated:
+        report.field_mappings.append(
+            FieldMapping(
+                source_field="(envelope)",
+                target_field=name,
+                mapping_type="synthesized",
+                source_value="",
+                target_value=value,
+                notes=note,
+            )
+        )
+
+    return AGTExportEntry(**entry)
 
 
 def _entry_to_step(

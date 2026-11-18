@@ -66,6 +66,64 @@ class TestImportExtraFields:
         assert report.preserved_count >= 3  # federation_context, data_classification, etc.
 
 
+class TestImportCloudEvents:
+    def test_cloudevents_envelope_imports(self, tmp_path, fixture_agt_cloudevents):
+        source = tmp_path / "cloudevents.json"
+        source.write_text(json.dumps(fixture_agt_cloudevents))
+
+        epi_path, report = import_agt(source, output_dir=tmp_path)
+
+        with zipfile.ZipFile(epi_path) as zf:
+            steps = [json.loads(l) for l in zf.read("steps.jsonl").decode().strip().split("\n")]
+
+        assert len(steps) == len(fixture_agt_cloudevents)
+        first = steps[0]
+        assert first["governance"]["agent_did"] == fixture_agt_cloudevents[0]["source"]
+        assert first["content"]["agt_entry_id"] == fixture_agt_cloudevents[0]["id"]
+        # The envelope itself is carried, not replaced by the mapped fields.
+        assert first["content"]["agt_unknown_fields"]["cloudevent"]["specversion"] == "1.0"
+        # No AGT version exists in a CloudEvents envelope; do not invent one.
+        assert report.agt_version_detected == "unknown"
+
+    def test_cloudevents_action_and_outcome_are_kept_when_present(self, tmp_path):
+        events = [
+            {
+                "specversion": "1.0",
+                "type": "ai.agentmesh.policy.evaluated",
+                "source": "did:web:refund-agent.example.com",
+                "id": "ce-100",
+                "time": "2026-05-15T10:00:00Z",
+                "data": {"action": "deny", "outcome": "denied", "policy_name": "refunds"},
+            }
+        ]
+        source = tmp_path / "cloudevents.json"
+        source.write_text(json.dumps(events))
+
+        epi_path, report = import_agt(source, output_dir=tmp_path)
+
+        with zipfile.ZipFile(epi_path) as zf:
+            steps = [json.loads(l) for l in zf.read("steps.jsonl").decode().strip().split("\n")]
+
+        assert steps[0]["governance"]["action"] == "denied"
+        assert steps[0]["governance"]["outcome"] == "blocked"
+
+    def test_cloudevent_without_time_is_rejected(self, tmp_path):
+        events = [
+            {
+                "specversion": "1.0",
+                "type": "ai.agentmesh.tool.invoked",
+                "source": "did:web:agent.example.com",
+                "id": "ce-101",
+                "data": {"tool": "crm_lookup"},
+            }
+        ]
+        source = tmp_path / "cloudevents.json"
+        source.write_text(json.dumps(events))
+
+        with pytest.raises(AGTArtifactError):
+            import_agt(source, output_dir=tmp_path)
+
+
 class TestImportMalformed:
     def test_malformed_entry(self, tmp_path, fixture_agt_malformed):
         source = tmp_path / "audit_bad.json"
