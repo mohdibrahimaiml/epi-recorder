@@ -245,10 +245,10 @@ def test_with_approval_demo_shows_a_named_human_signer(
     assert "Human approval: signed by refund-manager" in result.output, result.output
     assert "exit 0" in result.output, result.output
     # The catch, said out loud at the end of the command.
-    assert (
-        "Other machines will show 'signed, approver not trusted here' until they "
-        "pin this key - that is by design."
-    ) in result.output, result.output
+    flat = " ".join(result.output.split())
+    assert "That check used the demo's own approver registry." in flat, result.output
+    assert "including a plain 'epi verify' on this machine" in flat, result.output
+    assert "EPI_TRUSTED_APPROVERS_DIR=" in flat, result.output
 
     epi = demo_cwd / "epi-recordings" / "demo_refund.epi"
     # The demo pins its approver only inside the demo working directory.

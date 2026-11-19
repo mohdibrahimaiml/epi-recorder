@@ -35,14 +35,16 @@ relationship**, not per AI agent: agents are fair use on every plan.
 | Plan | Price | Customer relationships | Evidence Room files | Retention | How |
 |------|-------|------------------------|---------------------|-----------|-----|
 | Free | $0 | 1 | 10 / year | 30 days | self-serve, 7-day share links |
-| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | invoiced |
-| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | invoiced |
+| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | card in the dashboard, or invoice |
+| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | card in the dashboard, or invoice |
 | Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
 
-Prices are USD and exclude taxes. **Every paid plan is invoiced today.** Email
-mohdibrahim@epilabs.org and we send an invoice; the plan is set on your workspace
-once it is paid. Card checkout for these plans is not live yet: a sandbox Paddle
-catalog exists, the live one still holds the July Starter/Pro/Advanced prices.
+Prices are USD and exclude taxes. An owner upgrades in the EPI Cloud dashboard:
+pick Startup or Growth under Billing and pay by card in the Paddle checkout
+(Paddle.com is the Merchant of Record). The webhook moves the workspace to the
+plan when the payment clears. A workspace that already has a subscription
+manages it under Manage billing; to switch between Startup and Growth, email
+mohdibrahim@epilabs.org. Invoicing is still available on request.
 Limits are per workspace. A share link is a reviewer trust link and does not
 count toward the relationship limit.
 

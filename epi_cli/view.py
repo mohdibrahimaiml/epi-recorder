@@ -48,11 +48,10 @@ def _print_share_hint() -> None:
     console.print("")
     console.print("[bold]Share / review this case file:[/bold]")
     console.print("  [cyan]epi export-html <file.epi>[/cyan] standalone HTML — no install required")
-    console.print("  [cyan]epi share <file.epi>[/cyan]       hosted link that opens in any browser")
+    console.print("  [cyan]epi share <file.epi>[/cyan]       7-day download link anyone can check")
     console.print(
         "  [cyan]https://epilabs.org/verify[/cyan]  browser check, no install (device-local)"
     )
-    console.print("  [cyan]epi connect open[/cyan]           local team review workspace")
 
 
 def _resolve_epi_file(name_or_path: str) -> Path:

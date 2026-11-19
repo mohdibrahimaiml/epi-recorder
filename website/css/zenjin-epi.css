@@ -2394,3 +2394,6 @@ html[data-theme="light"] .z-stage__pill {
 .z-mobile-menu__group summary{cursor:pointer;padding:.55rem 0;font-family:var(--mono);font-size:.9rem;color:var(--text-secondary)}
 .z-mobile-menu__group summary::-webkit-details-marker{display:none}
 .z-mobile-menu__group a{padding-left:1rem;font-size:.85rem;color:var(--text-muted)}
+
+/* Contact form validation (plans page loads only this stylesheet) */
+.cform input.invalid,.cform select.invalid,.cform textarea.invalid{border-color:var(--bad,#f43f5e);box-shadow:0 0 0 1px var(--bad,#f43f5e)}

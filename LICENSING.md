@@ -10,7 +10,7 @@ Everything in this repository is licensed under the **Apache License, Version
 2.0** (`LICENSE`, with attribution in `NOTICE`). That includes:
 
 - the `.epi` format and the verifier;
-- the recorder, viewer, gateway and integrations;
+- the recorder and viewer, the OpenAI/Anthropic wrappers, the LangChain callback and pytest plugin;
 - the customer-side witness receiver (`epi witness serve` / `epi witness report`);
 - `epi approvers`, `epi review`, single-user `epi oversight report`;
 - `epi org bundle` (create and verify the customer's own key history);
@@ -31,8 +31,10 @@ in the public history before this file changed.
 
 ## Proprietary - not in this repository
 
-- **EPI Enterprise** (`epi-enterprise`): `epi audit`, `epi annex`, `epi notify`,
-  `epi chat`, the `epi enterprise` kit, role bindings, and their report and
+- **EPI Enterprise** (`epi-enterprise`): the team gateway (`epi gateway serve`,
+  `epi connect`), the framework adapters and `epi integrate` (LangGraph, LiteLLM,
+  OpenTelemetry and others), the guardrails runtime, `epi audit`, `epi annex`,
+  `epi notify`, `epi chat`, the `epi enterprise` kit, role bindings, and their report and
   regulatory mappings. It lives in the private repository, declares
   `LicenseRef-Proprietary`, carries a proprietary `LICENSE`, and is marked
   `Private :: Do Not Upload`.

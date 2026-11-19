@@ -826,7 +826,7 @@ def _demo_done_lines(
     elif pushed:
         lines.append(f"Next: open {_demo_cloud_url()} and create a share link for your customer")
     else:
-        lines.append("Next: run epi cloud login, then epi demo again to share it")
+        lines.append("Next: epi share <file> to send it (no account needed)")
     return lines
 
 
@@ -977,9 +977,16 @@ def _run_fast_demo(
         # Say the catch out loud: the demo pins its approver inside the demo
         # directory, so anywhere else the same file reads "signed, approver not
         # trusted here" until that machine pins the key.
+        _demo_keys, _demo_approvers = _demo_approver_paths()
         console.print(
-            "  [dim]Other machines will show 'signed, approver not trusted here' "
-            "until they pin this key - that is by design.[/dim]",
+            "  [dim]That check used the demo's own approver registry. Outside the demo - "
+            "including a plain 'epi verify' on this machine - the file reads 'signed, "
+            "approver not trusted here' until the approver's key is pinned with "
+            "'epi approvers add'. That is by design. To repeat the demo's check:[/dim]",
+            soft_wrap=True,
+        )
+        console.print(
+            f"  [cyan]EPI_TRUSTED_APPROVERS_DIR=\"{_demo_approvers}\" epi verify <file> --require-human-approval[/cyan]",
             soft_wrap=True,
         )
 

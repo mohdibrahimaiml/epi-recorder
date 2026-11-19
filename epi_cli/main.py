@@ -47,9 +47,6 @@ Everyday:
   epi share <file.epi>
   epi doctor
 
-Team review:
-  epi connect open
-
 In code:
   from epi_recorder import record, wrap_openai
   with record("my_agent.epi"):
@@ -285,11 +282,11 @@ def main_callback(
     # Auto-register .epi file association (idempotent — skips if already done)
     _auto_repair_windows_association(interactive=interactive, command_name=ctx.invoked_subcommand)
 
-    # Ensure a stable install_id exists locally on first run (no network call).
-    # If telemetry is enabled, emit a cli_started event.
+    # If telemetry is enabled, emit a cli_started event. No install_id is
+    # created here: build_event() makes one only after the user opts in, as
+    # docs/TELEMETRY-PRIVACY.md promises.
     try:
         from epi_core import telemetry as telemetry_core
-        telemetry_core.get_install_id(create=True)
         telemetry_core.track_event(
             "cli_started",
             {"command": ctx.invoked_subcommand or "unknown", "source": "cli"},
@@ -318,11 +315,8 @@ def show_help():
   [green]epi import agt <bundle-or-dir-or-manifest> --out sample.epi[/green]
   [green]epi verify sample.epi[/green]
 
-[bold]No-install trial:[/bold]
-  Open the Colab notebook from the README
-
-[bold]Review cases with your team:[/bold]
-  [green]epi connect open[/green]
+[bold]Share a sealed file (no account needed):[/bold]
+  [green]epi share my_agent.epi[/green]
 
 [bold]Add to your code:[/bold]
   [green]from epi_recorder import record, wrap_openai[/green]
@@ -2636,8 +2630,6 @@ def doctor(
         "rich": "terminal output",
     }
     optional = {
-        "uvicorn": "gateway server (needed for epi gateway serve)",
-        "fastapi": "gateway server (needed for epi gateway serve)",
         "openai": "OpenAI SDK wrapper",
         "anthropic": "Anthropic SDK wrapper",
         "litellm": "LiteLLM integration",
@@ -2733,7 +2725,6 @@ def doctor(
         if unfixed:
             console.print(f"  [yellow]{unfixed} issue(s) need manual attention (see above).[/yellow]")
     console.print()
-    console.print(f"  [dim]Tip: run with --gateway http://localhost:8787 to also check your gateway.[/dim]")
     console.print()
 
 
@@ -2750,6 +2741,10 @@ PAID_COMMANDS: dict[str, str] = {
     "debug": "EPI Enterprise",
     "analyze": "EPI Enterprise",
     "export-summary": "EPI Enterprise",
+    "audit": "EPI Enterprise",
+    "annex": "EPI Enterprise",
+    "notify": "EPI Enterprise",
+    "chat": "EPI Enterprise",
 }
 
 PAID_COMMAND_HINT = "is part of {plan} and above. See https://epilabs.org/plans"
@@ -2922,9 +2917,8 @@ def status():
 
     # ── Signing key ───────────────────────────────────────────────────────────
     try:
-        from epi_cli.keys import get_default_key_path
-        key_path = get_default_key_path()
-        if key_path.exists():
+        from epi_core.keys import KeyManager
+        if KeyManager().has_key("default"):
             console.print("[green]✅  Signing:[/green]    Default signing key present")
         else:
             console.print(

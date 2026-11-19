@@ -106,7 +106,7 @@ def test_share_success_prints_hosted_url(tmp_path):
 
     assert result.exit_code == 0, result.output
     assert "https://epilabs.org/cases/?id=abc123" in result.stdout
-    assert "no epi install needed" in result.stdout.lower()
+    assert "no account or install needed" in result.stdout.lower()
     mock_open.assert_called_once_with("https://epilabs.org/cases/?id=abc123")
 
 
