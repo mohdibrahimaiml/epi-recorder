@@ -20,7 +20,7 @@ Anyone may implement `.epi` file producers and consumers conforming to this spec
 
 ## Reference Implementation
 
-The Python package `epi-recorder` (MIT license) is the canonical
+The Python package `epi-recorder` (Apache-2.0) is the canonical
 reference implementation. It is not required for conformance — any
 implementation passing the test vectors produces valid `.epi` files.
 
@@ -30,7 +30,7 @@ implementation passing the test vectors produces valid `.epi` files.
 
 ## License
 
-This specification is an open standard, licensed under the MIT License. Implementations may
+This specification is an open standard, licensed under the Apache License 2.0. Implementations may
 carry their own licensing terms. The `.epi` format itself carries no
 intellectual property restrictions — it is a documented file format.
 

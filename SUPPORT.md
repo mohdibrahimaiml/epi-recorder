@@ -10,7 +10,7 @@ paid tier with contractual uptime yet.
 
 | Surface | Status | Help channel |
 |---|---|---|
-| `epi-recorder` open source (record / seal / `epi verify` / viewer) | Supported, MIT | GitHub issues |
+| `epi-recorder` open source (record / seal / `epi verify` / viewer) | Supported, Apache-2.0 | GitHub issues |
 | EPI Cloud (witness, trust links, Evidence Room) | **Free beta** - self-serve, works, expect changes | Email (below) + GitHub issues |
 | Legacy hosted paths (`epi share` default upload, MCP on Render) | Best-effort, frozen | GitHub issues |
 | Spec implementers (`docs/spec/`) | Supported via test vectors | GitHub issues |

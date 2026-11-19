@@ -1,10 +1,10 @@
 # Framework Integrations in 5 Minutes
 
-**Product version:** 4.11.0. Framework adapters are part of EPI Enterprise. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
+**Product version:** 4.11.0. Most framework adapters are part of EPI Enterprise; the LangChain callback is in the free package. Wrappers capture **calls they wrap**. They do not prove every model call in the process was captured.
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
-Framework adapters ship with **EPI Enterprise** (EPI Cloud Startup and above): `pip install "epi-enterprise[litellm]"`, `pip install "epi-enterprise[langchain]"`, or `pip install "epi-enterprise[opentelemetry]"`. The free `epi-recorder` install records, seals and verifies; it does not include these adapters.
+Framework adapters ship with **EPI Enterprise** (EPI Cloud Startup and above): `pip install "epi-enterprise[litellm]"`, `pip install "epi-enterprise[langchain]"`, or `pip install "epi-enterprise[opentelemetry]"`. The free `epi-recorder` install records, seals and verifies and includes the LangChain callback (`epi_recorder.adapters.langchain`); LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry and Guardrails need the paid package.
 
 ## Fast comparison
 

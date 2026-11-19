@@ -1,6 +1,6 @@
 # EPI Architecture
 
-EPI (Evidence Packaged Infrastructure) turns an AI agent's run into a signed, tamper-evident `.epi` evidence file: a portable container holding the run's step timeline, environment snapshot, file hashes and an Ed25519 signature, which anyone can re-check offline with `epi verify` and no account, API key, or network access.
+EPI (Evidence Packaged Infrastructure) turns an AI agent's run into a signed, tamper-evident `.epi` evidence file: a portable container holding the run's step timeline, environment snapshot, file hashes and an Ed25519 signature, which anyone can re-check offline with `epi verify` and no account, API key, or network access. Tamper-evident, not tamper-proof: any change to the sealed bytes breaks the check, but nothing stops someone editing a copy.
 
 Two surfaces live in this repo, plus one hosted service that deliberately does not:
 
@@ -49,7 +49,7 @@ Console entry points are declared in `pyproject.toml` `[project.scripts]` (`epi`
 
 ## Open core: what is free and what is paid
 
-The trust layer is free and open source - MIT up to 4.9.0, Apache-2.0 from 4.10.0: the `.epi` format, `epi verify`, the viewer, the recorder, the customer-side witness receiver, and every offline proof check. The team gateway and the framework adapters are commercial (`epi-enterprise`). Verification never requires an account, a licence, or a network connection.
+The trust layer is free and open source - MIT up to 4.9.0, Apache-2.0 from 4.10.0: the `.epi` format, `epi verify`, the viewer, the recorder, the customer-side witness receiver, and every offline proof check. The team gateway and the framework adapters beyond the LangChain callback are commercial (`epi-enterprise`). Verification never requires an account, a licence, or a network connection.
 
 The operating layer is the paid product and is not in this repository: the hosted service (multi-tenancy, hosting, retention, admin), billing and entitlements, and **EPI Enterprise** - the private `epi-enterprise` package that adds `epi audit`, `epi annex`, `epi notify`, `epi chat`, the `epi enterprise` kit and their regulatory mappings. The checker and the approver stay free: `epi verify`, `epi approvers`, `epi review`, single-user `epi oversight report` and `epi org bundle` are in the public CLI and need no licence. The paid commands are discovered through the `epi.plugins` entry point and require a signed offline licence; the public CLI is complete without them. Keeping that code private protects future development; it does **not** make the earlier published versions secret.
 

@@ -6,7 +6,7 @@ it. **Try to break those claims.** If you do, we publish it, fix it, and credit
 you.
 
 This is a **credit-only** challenge. There is no money and no bug bounty —
-[GOVERNANCE.md](GOVERNANCE.md) says so, and it stays that way. What you get is a
+[GOVERNANCE.md](docs/GOVERNANCE.md) says so, and it stays that way. What you get is a
 public write-up, a fix, and your name in the hall of fame below.
 
 ## What counts as a break
