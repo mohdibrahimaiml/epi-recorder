@@ -39,11 +39,12 @@ relationship**, not per AI agent: agents are fair use on every plan.
 | Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | invoiced |
 | Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
 
-Prices are USD and exclude taxes. **Every plan is invoiced today.** Pick the plan
-in the dashboard or email mohdibrahim@epilabs.org and we send an invoice; the
-plan is set on your workspace once it is paid. Self-serve card checkout is not
-enabled yet. Limits are per workspace. A share link is a reviewer trust link and
-does not count toward the relationship limit.
+Prices are USD and exclude taxes. **Every paid plan is invoiced today.** Email
+mohdibrahim@epilabs.org and we send an invoice; the plan is set on your workspace
+once it is paid. Card checkout for these plans is not live yet: a sandbox Paddle
+catalog exists, the live one still holds the July Starter/Pro/Advanced prices.
+Limits are per workspace. A share link is a reviewer trust link and does not
+count toward the relationship limit.
 
 Retention lasts while the subscription is active. After cancelling, the customer
 has **90 days to export everything**; downgrading to Free applies that 90-day
