@@ -2482,7 +2482,7 @@ function setupAttestationForm(caseData) {
       return;
     }
 
-    statusEl.textContent = 'Cryptographically sealing artifact…';
+    statusEl.textContent = 'Saving your review note…';
     statusEl.className = 'sign-status-msg';
 
     setTimeout(async () => {
@@ -2498,11 +2498,11 @@ function setupAttestationForm(caseData) {
 
       try {
         await downloadReviewedArtifact(caseData, review);
-        statusEl.textContent = 'Artifact sealed. Download started.';
+        statusEl.textContent = 'Review note saved to a downloaded copy. It is not signed, and the original seal is unchanged. For a signed approval, use epi approvers.';
         statusEl.className = 'sign-status-msg ok';
       } catch (err) {
         console.error('Seal failed:', err);
-        statusEl.textContent = 'Seal failed: ' + (err.message || 'Could not build artifact');
+        statusEl.textContent = 'Save failed: ' + (err.message || 'Could not build artifact');
         statusEl.className = 'sign-status-msg err';
       }
     }, 600);
