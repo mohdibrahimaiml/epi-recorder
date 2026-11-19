@@ -200,10 +200,10 @@ API keys in prompts and headers are redacted before they reach the file.
 | OpenAI | `wrap_openai(OpenAI())` |
 | Anthropic | `wrap_anthropic(Anthropic())` |
 | LangChain | `EpiCallbackHandler(session)` inside `with record(...) as session` |
-| LiteLLM | `EPICallback` |
+| LiteLLM | `EPICallback` (EPI Enterprise) |
 | pytest | `pytest --epi` — one `.epi` per failing test in `./test-evidence/` (`--epi-on-pass` keeps passes too) |
 | Microsoft AGT | `epi import agt <path>` |
-| Any HTTP client | `epi gateway serve` records traffic without the SDK |
+| Any HTTP client | `epi gateway serve` records traffic without the SDK (EPI Enterprise) |
 
 **TRACE export** (`epi export trace`) produces a self-consistent Level 0 record. Signing order is
 `--key` → the key that sealed the `.epi` → `TRACE_PRIVATE_KEY_PEM` → ephemeral. `policy.enforcement_mode`

@@ -79,7 +79,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | `epi share <file.epi>` | Upload a hosted browser link for a portable Decision Record. |
 | `epi migrate <file.epi> --out <new.epi>` | Convert between legacy ZIP and envelope `.epi` container formats. |
 | `epi init --github-action` | Create a starter demo and optional CI evidence workflow. |
-| `epi integrate <target>` | Generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, AGT, or guardrails. |
+| `epi integrate <target>` | EPI Enterprise: generate safe examples for pytest, LangChain, LiteLLM, OpenTelemetry, AGT, or guardrails. |
 | `epi telemetry status|enable|disable|test` | Manage privacy-first opt-in telemetry and pilot signup. |
 | `epi analyze <file.epi>` | Show fault-analysis output without opening the case view. |
 | `epi ls` | List local recordings. |
@@ -254,8 +254,9 @@ Behavior:
 
 ---
 
-## `epi integrate <target>`
+## `epi integrate <target>` (EPI Enterprise)
 
+Part of the paid `epi-enterprise` package; the free CLI explains this and points to the plans page.
 Generates integration examples for existing projects without rewriting user agent code.
 
 ```bash

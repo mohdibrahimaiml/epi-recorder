@@ -137,7 +137,7 @@ def _share_offline(
 
 def share(
     file: Path = typer.Argument(..., exists=False, dir_okay=False, help="Path to the .epi file to share."),
-    expires: int = typer.Option(7, "--expires", min=1, max=7, help="Days until the share link expires (Free plan caps at 7, default 7, max 30)."),
+    expires: int = typer.Option(7, "--expires", min=1, max=7, help="Days until the share link expires (1 to 7, default 7)."),
     json_output: bool = typer.Option(False, "--json", help="Print the share response as JSON."),
     no_open: bool = typer.Option(False, "--no-open", help="Do not open the hosted share link in your browser."),
     local: bool = typer.Option(False, "--local", help="Share offline to local directory instead of uploading to cloud."),
@@ -255,7 +255,7 @@ def share(
     console.print("")
     console.print(f"[cyan]{response_payload['url']}[/cyan]")
     console.print("")
-    console.print("Opens in any browser. No EPI install needed.")
+    console.print("Anyone with the link can download the file and check it at https://epilabs.org/verify - no account or install needed.")
     console.print(f"Link expires in {expires} days.")
     if inspection.signature_valid is None:
         console.print("[dim]This artifact is unsigned but its integrity was checked locally before upload.[/dim]")

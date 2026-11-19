@@ -123,7 +123,8 @@ class TestViewCommandVariations:
             assert result.exit_code == 0
             assert len(opened_urls) > 0
             assert "https://epilabs.org/verify" in result.stdout
-            assert "epi connect open" in result.stdout
+            assert "epi connect open" not in result.stdout
+            assert "7-day download link" in result.stdout
 
 
 class TestCLIHelpMessages:
@@ -159,14 +160,14 @@ class TestCLIHelpMessages:
         result = runner.invoke(app, ["--help"])
 
         assert result.exit_code == 0
-        assert "connect open" in result.stdout.lower()
+        assert "connect open" not in result.stdout.lower()  # Enterprise-only, not advertised
 
     def test_custom_help_mentions_connect_open(self):
         """epi help should mention the local team review path."""
         result = runner.invoke(app, ["help"])
 
         assert result.exit_code == 0
-        assert "epi connect open" in result.stdout.lower()
+        assert "epi connect open" not in result.stdout.lower()  # Enterprise-only, not advertised
 
 
 class TestVersionCommand:

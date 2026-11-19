@@ -6,18 +6,19 @@ from epi_cli.main import app
 runner = CliRunner()
 
 
-def test_telemetry_status_creates_install_id_locally(tmp_path):
-    """First CLI run creates an install_id locally but does not enable telemetry or send anything."""
+def test_telemetry_status_does_not_create_install_id_before_opt_in(tmp_path):
+    """Pre-opt-in runs create no identifier (docs/TELEMETRY-PRIVACY.md) and send nothing."""
     result = runner.invoke(app, ["telemetry", "status"], env={"EPI_HOME": str(tmp_path)})
 
     assert result.exit_code == 0
     assert "Enabled: no" in result.output
     config_path = tmp_path / "telemetry.json"
-    assert config_path.exists() is True
-    import json
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    assert config.get("install_id")
-    assert config.get("enabled") is not True
+    if config_path.exists():
+        import json
+
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        assert not config.get("install_id")
+        assert config.get("enabled") is not True
 
 
 def test_telemetry_enable_with_pilot_signup(monkeypatch, tmp_path):

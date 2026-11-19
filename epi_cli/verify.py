@@ -2943,7 +2943,7 @@ def verify_command(
                 who = getattr(_latest_review, "reviewed_by", None) or "reviewer"
                 console.print(
                     f"\n[dim]Human review present (by {who}). "
-                    f"Full binding check: [cyan]epi verify {epi_file.name} --review[/cyan][/dim]"
+                    f"Full binding check: [cyan]epi verify \"{epi_file}\" --review[/cyan][/dim]"
                 )
 
         # ========== WRITE REPORT FILE ==========
@@ -3571,9 +3571,9 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             )
         if _gaps:
             content_lines.append(f"  - Known gaps:   {len(_gaps)} declared (not captured by this recording)")
-            for _g in _gaps[:3]:
+            for _g in (_gaps if verbose else _gaps[:3]):
                 content_lines.append(f"      · {str(_g)[:100]}")
-            if len(_gaps) > 3:
+            if len(_gaps) > 3 and not verbose:
                 content_lines.append(f"      · … {len(_gaps) - 3} more (epi verify -v)")
 
     # Checkpoints — specific messages, never generic alone.
