@@ -36,6 +36,12 @@ PRESERVE_UNDER_STATIC = {
     "render.yaml",  # if present
 }
 
+# Never copy these into verify_portal/static. The portal must not answer /docs
+# (tests/test_verify_portal.py asserts 404, because a docs page hands an
+# unauthenticated caller a map of the API). epilabs.org/docs is served by
+# Cloudflare Pages from site/, not by the legacy Render portal.
+SKIP_UNDER_STATIC = {"docs"}
+
 
 # Only README.md may ship as Markdown in the public outputs. Internal *.md
 # files (e.g. outreach/sales templates) must never be copied to a deployed
@@ -47,14 +53,24 @@ def _is_excluded_public_md(path: Path) -> bool:
     return path.suffix.lower() == ".md" and path.name not in PUBLIC_MD_ALLOWLIST
 
 
-def _copy_tree(src: Path, dest: Path, *, preserve_top: set[str] | None = None) -> int:
+def _copy_tree(
+    src: Path,
+    dest: Path,
+    *,
+    preserve_top: set[str] | None = None,
+    skip_top: set[str] | None = None,
+) -> int:
     preserve_top = preserve_top or set()
+    skip_top = skip_top or set()
     if not src.is_dir():
         raise SystemExit(f"Source missing: {src}")
     dest.mkdir(parents=True, exist_ok=True)
     count = 0
     for path in src.rglob("*"):
         if path.is_dir():
+            continue
+        rel = path.relative_to(src)
+        if skip_top and rel.parts and rel.parts[0] in skip_top:
             continue
         # skip junk
         if path.name.startswith(".") and path.name not in {".nojekyll"}:
@@ -64,7 +80,6 @@ def _copy_tree(src: Path, dest: Path, *, preserve_top: set[str] | None = None) -
                 continue
         if _is_excluded_public_md(path):
             continue
-        rel = path.relative_to(src)
         out = dest / rel
         out.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -116,19 +131,38 @@ def _purge_excluded_public_files() -> None:
             print(f"Removed {stale.relative_to(ROOT)} (internal file, not for public output)")
 
 
+def _purge_portal_private_pages() -> None:
+    """Delete copies of pages the portal must not serve.
+
+    A sync never deletes, so an earlier run that copied website/docs/ into
+    verify_portal/static/ would keep answering /docs — the one path the portal
+    test requires to be absent.
+    """
+    for base in TARGETS:
+        if base.name != "static":
+            continue
+        stale = base / "docs"
+        if stale.is_dir():
+            shutil.rmtree(stale, ignore_errors=True)
+            print(f"Removed {stale.relative_to(ROOT)} (portal must not serve /docs)")
+
+
 def sync() -> None:
     if not SOURCE.is_dir():
         raise SystemExit(f"Canonical website/ not found at {SOURCE}")
 
     total = 0
     for dest in TARGETS:
-        preserve = PRESERVE_UNDER_STATIC if dest.name == "static" else set()
-        n = _copy_tree(SOURCE, dest, preserve_top=preserve)
+        is_portal = dest.name == "static"
+        preserve = PRESERVE_UNDER_STATIC if is_portal else set()
+        skip = SKIP_UNDER_STATIC if is_portal else set()
+        n = _copy_tree(SOURCE, dest, preserve_top=preserve, skip_top=skip)
         print(f"Synced {n} files -> {dest.relative_to(ROOT)}")
         total += n
 
     _purge_stale_pricing_dirs()
     _purge_excluded_public_files()
+    _purge_portal_private_pages()
 
     # Sync .well-known canonical to root and assets mirrors (drift fixed P3)
     for mirror in [ROOT / ".well-known", ROOT / "assets" / "well-known"]:
