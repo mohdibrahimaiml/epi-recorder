@@ -10,6 +10,7 @@
 var dz=document.getElementById('dropZoneEl'),fi=document.getElementById('fileInput'),dr=document.getElementById('dropResult');
 var EPI_MIMETYPE='application/vnd.epi+zip',EPI_ENVELOPE_MAGIC='<!--';
 
+function damagedHtml(e){var m=String((e&&e.message)||e||'');return '<strong>This file is damaged or was changed after sealing. Don&rsquo;t rely on it.</strong>'+'<br><span style="opacity:.7;font-size:.85em">Ask the sender for the original file. Technical detail: '+esc(m)+'</span>';}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 function reportDOM(report){
@@ -693,7 +694,7 @@ async function processFile(f){
     try{zipBuf=extractZIPPayload(u8,containerFmt)}
     catch(ex){showResult('fail','<strong>Could not locate ZIP payload</strong><br>'+esc(ex.message));return}
     var zip;
-    try{zip=await JSZip.loadAsync(zipBuf)}catch(e){showResult('fail','<strong>ZIP extraction failed</strong><br>'+esc(e.message)+' (container: '+containerFmt+')');return}
+    try{zip=await JSZip.loadAsync(zipBuf)}catch(e){showResult('fail',damagedHtml(e));return}
 
     var report={facts:{structure_ok:false,integrity_ok:false,signature_valid:null,has_signature:false,mismatches:{},chain_ok:true,sequence_ok:true,completeness_ok:true,transparency_ok:null},identity:{status:'UNKNOWN',name:null,detail:null,registry_verified:false,public_key_id:null},metadata:{spec_version:'?',workflow_id:'?',created_at:'?',files_checked:0,verifier_version:'browser',steps_count:null},trust_level:'NONE',trust_message:''};
 
@@ -834,7 +835,7 @@ async function processFile(f){
       report.trust_message='The file was changed after it was sealed — do not rely on it.';
     }
     showReport(report,'');
-  }catch(e){showResult('fail','<strong>Verification error</strong><br>'+esc(e.message))}
+  }catch(e){showResult('fail',damagedHtml(e))}
 }
 
 
