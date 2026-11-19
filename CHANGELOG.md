@@ -151,6 +151,35 @@ section records what changed. **42 findings fixed, 0 open, 0 High.**
   when `scripts/ci-install-deps.py` emitted the correct ceilings from
   `pyproject.toml`. It now reads the dependencies from `pyproject.toml` and
   checks each one appears in the script's output.
+- **`epi import agt` rejected every CloudEvents export.** The detector recognised
+  a CloudEvents v1.0 envelope, but the importer ignored the detected type and
+  parsed every entry as an AGT AuditEntry, so a real export failed with six
+  "Field required" errors. Envelopes are now mapped explicitly (`id`/`time`/
+  `type`/`source` -> entry id/timestamp/event type/agent DID), the envelope is
+  kept under `agt_unknown_fields.cloudevent`, and a missing action, outcome or
+  AGT version is reported as synthesized or unknown rather than guessed.
+- **The free/paid line was wrong in both directions.** The README, ARCHITECTURE
+  and the framework guide called every framework adapter paid while the
+  LangChain callback shipped in the free wheel (and the same guide told readers
+  to import it); `docs/CLI.md` called the gateway open source. The line now names
+  the paid adapters individually and leaves LangChain where it is.
+- **Four MIT notices survived the 4.10.0 relicense** in `SUPPORT.md`, the spec
+  README/HTML/Markdown and `docs/epi-verifier/package.json`, even though that
+  package's own README already said Apache-2.0. Historical "MIT up to 4.9.0"
+  statements stay; they are true.
+- **The buy path did not work.** `/plans` promised card checkout while
+  `/billing/checkout` returned 503 (no Paddle price configured), and the contact
+  form POSTed to `/api/contact`, which Cloudflare answers with a managed
+  challenge (HTTP 429), so every real submission ended in "Could not send
+  automatically". Paid plans are now invoiced, the dashboard offers "Upgrade by
+  invoice", and the contact form opens a prefilled mail client carrying every
+  field (the portal-shaped payload had been dropping the interest and message).
+- **https://epilabs.org/docs returned 404** while PyPI's Documentation link
+  pointed at it since 4.10.0. There is now a real documentation page, and every
+  target on it is a file in this repository.
+- **Small drift**: the spec HTML announced v4.7.0 while the spec Markdown said
+  4.11.0; the homepage terminal demo greeted visitors with v4.4.0; `site.css`
+  was cached as `?v=15` on seven pages and `?v=16` on two.
 
 
 ## [4.10.0] - 2026-11-12
