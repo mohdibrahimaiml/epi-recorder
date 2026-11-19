@@ -495,8 +495,15 @@ def witness_capabilities(entries: list[dict[str, Any]] | None = None) -> dict[st
 
 
 def format_witness_capabilities(caps: dict[str, str]) -> str:
-    """One line for `epi witness status` / `epi cloud status`."""
-    return ", ".join(f"{label} {caps.get(label, '?')}" for label in ("seals", "heartbeats", "releases", "approvals"))
+    """One line for `epi witness status` / `epi cloud status`, with a key
+    for whichever marks it uses (a bare '?' reads like an error)."""
+    marks = [caps.get(label, "?") for label in ("seals", "heartbeats", "releases", "approvals")]
+    line = ", ".join(
+        f"{label} {mark}" for label, mark in zip(("seals", "heartbeats", "releases", "approvals"), marks)
+    )
+    legend = {"✓": "✓ accepted", "✗": "✗ refused", "?": "? none sent yet"}
+    used = [legend[m] for m in ("✓", "✗", "?") if m in marks]
+    return f"{line}  ({', '.join(used)})" if used else line
 
 
 def _post_once(

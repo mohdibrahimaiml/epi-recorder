@@ -39,6 +39,10 @@ PRIMARY_SHARE_API_URL = "https://cloud.epilabs.org"
 MAX_LOCAL_SHARE_BYTES = 5 * 1024 * 1024
 
 
+
+def _days(n: int) -> str:
+    return "1 day" if n == 1 else f"{n} days"
+
 def _resolve_share_api_base_url(explicit: str | None) -> str:
     return str(explicit or os.getenv("EPI_SHARE_API_URL") or PRIMARY_SHARE_API_URL).rstrip("/")
 
@@ -129,7 +133,7 @@ def _share_offline(
     console.print("[green][OK][/green] Artifact saved to offline share directory")
     console.print(f"[cyan]{dest_path.as_uri()}[/cyan]")
     console.print(f"[dim]Local path: {dest_path}[/dim]")
-    console.print(f"[dim]Link expires in {expires} days.[/dim]")
+    console.print(f"[dim]Link expires in {_days(expires)}.[/dim]")
     if inspection.signature_valid is None:
         console.print("[dim]This artifact is unsigned but its integrity was checked locally before saving.[/dim]")
     raise typer.Exit(0)
@@ -245,20 +249,19 @@ def share(
     except Exception:
         pass
 
-    try:
-        from epi_cli.telemetry_hint import maybe_print_telemetry_hint
-        maybe_print_telemetry_hint(console, "share")
-    except Exception:
-        pass
-
     console.print("Uploading... [green]done[/green]")
     console.print("")
     console.print(f"[cyan]{response_payload['url']}[/cyan]")
     console.print("")
     console.print("Anyone with the link can download the file and check it at https://epilabs.org/verify - no account or install needed.")
-    console.print(f"Link expires in {expires} days.")
+    console.print(f"Link expires in {_days(expires)}.")
     if inspection.signature_valid is None:
         console.print("[dim]This artifact is unsigned but its integrity was checked locally before upload.[/dim]")
+    try:
+        from epi_cli.telemetry_hint import maybe_print_telemetry_hint
+        maybe_print_telemetry_hint(console, "share")
+    except Exception:
+        pass
     if not no_open:
         try:
             webbrowser.open(response_payload["url"])

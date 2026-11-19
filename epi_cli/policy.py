@@ -477,7 +477,31 @@ def _build_custom_starter_policy(
     )
 
 
+def _explain_no_terminal(fn):
+    """Guided setup asks questions; with no terminal to ask in (CI, a pipe,
+    an agent) Rich hits end-of-input and the user only saw "Aborted.".
+    Say what to run instead."""
+    import functools
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except EOFError:
+            console.print(
+                "\n[red][FAIL][/red] epi policy init asks questions, and there is no terminal to answer them in."
+            )
+            console.print(
+                "[dim]Run it without prompts: epi policy init --yes, or pick a rulebook: "
+                "epi policy init --profile insurance.claim-denial --yes[/dim]"
+            )
+            raise typer.Exit(2)
+
+    return wrapper
+
+
 @app.command("init")
+@_explain_no_terminal
 def init(
     output: str = typer.Option(POLICY_FILENAME, "--output", "-o", help="Output path for the policy file"),
     profile: Optional[str] = typer.Option(

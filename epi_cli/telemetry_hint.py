@@ -21,29 +21,49 @@ def _hints_disabled() -> bool:
     return str(os.getenv("EPI_TELEMETRY_HINTS") or "").strip().lower() in {"0", "false", "no", "off"}
 
 
-def maybe_print_telemetry_hint(console: Console, context: HintContext) -> None:
-    """Show a contextual opt-in CTA without creating identifiers or local state."""
+def _cloud_connected() -> bool:
+    """True when `epi cloud login` already connected this computer."""
+    try:
+        from epi_cli.cloud import load_config
 
-    if _hints_disabled() or telemetry_core.is_enabled() or not _is_interactive():
+        cfg = load_config()
+        return bool(cfg.get("url") and (cfg.get("org_id") or cfg.get("org")))
+    except Exception:
+        return False
+
+
+_LEADS: dict[str, str] = {
+    "verify": "You just verified an EPI artifact.",
+    "integrate": "You just set up an EPI integration path.",
+    "demo": "Your first EPI demo is ready.",
+    "share": "You just shared an EPI artifact.",
+    "init": "Your first EPI artifact is ready.",
+}
+
+
+def maybe_print_telemetry_hint(console: Console, context: HintContext) -> None:
+    """Show one short, accurate next step without creating identifiers or local state.
+
+    The offer is EPI Cloud (hosted witnessing and customer share links); it is
+    skipped once this computer is connected, and telemetry stays opt-in.
+    """
+
+    if _hints_disabled() or not _is_interactive():
+        return
+    cloud = not _cloud_connected()
+    telemetry = not telemetry_core.is_enabled()
+    if not (cloud or telemetry):
         return
 
     console.print()
-    if context == "verify":
-        console.print("[bold]You just verified an EPI artifact.[/bold]")
-        console.print("Want a dashboard for artifact history and compliance report exports?")
-    elif context == "integrate":
-        console.print("[bold]You just set up an EPI integration path.[/bold]")
-        console.print("Want early access to framework roadmap input, dashboard features, and priority support?")
-    elif context == "demo":
-        console.print("[bold]Your first EPI demo is ready.[/bold]")
-        console.print("Want early access to the artifact dashboard, compliance reports UI, and priority support?")
-    elif context == "share":
-        console.print("[bold]You just shared an EPI artifact.[/bold]")
-        console.print("Want a team workspace with shared case inbox, audit trails, and compliance dashboards?")
-    else:
-        console.print("[bold]Your first EPI artifact is ready.[/bold]")
-        console.print("Want early access to artifact dashboard, compliance reports UI, and priority support?")
-
-    console.print("[dim]EPI is running locally. No telemetry is sent unless you opt in.[/dim]")
-    console.print("  [cyan]epi telemetry enable[/cyan]                 share non-content usage (org signals optional)")
-    console.print("  [cyan]epi telemetry enable --join-pilot[/cyan]    join the pilot for dashboard/support access")
+    console.print(f"[bold]{_LEADS.get(context, _LEADS['init'])}[/bold]")
+    if cloud:
+        console.print(
+            "Give a customer a witnessed copy they open in a browser: "
+            "[cyan]epi cloud login[/cyan] (free workspace, optional)."
+        )
+    if telemetry:
+        console.print(
+            "[dim]EPI runs locally and sends no telemetry unless you opt in: "
+            "epi telemetry enable[/dim]"
+        )
