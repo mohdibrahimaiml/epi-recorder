@@ -22,11 +22,12 @@ This maintainer-safe quickstart uses the checked-in sample bundles and demo file
 
 ## 2. Import AGT Evidence
 
-`epi import agt` now accepts three EPI-side input forms:
+`epi import agt` now accepts four input forms:
 
 - a neutral AGT bundle JSON
 - a raw AGT evidence directory
 - an EPI-owned AGT import manifest JSON
+- an AGT CloudEvents v1.0 export (one envelope, or an array of them)
 
 From the repo root, all of these work:
 
@@ -34,7 +35,14 @@ From the repo root, all of these work:
 epi import agt examples/agt/sample_bundle.json --out sample.epi
 epi import agt examples/agt/evidence-dir --out sample.epi
 epi import agt examples/agt/manifest-input/agt_import_manifest.json --out sample.epi
+epi import agt your-cloudevents-export.json --out sample.epi
 ```
+
+A CloudEvents envelope maps `id` to the entry id, `time` to the timestamp,
+`type` to the event type and `source` to the agent DID; the envelope itself is
+kept under `agt_unknown_fields.cloudevent`. Envelopes carry no AGT version, so
+the mapping report says `unknown` rather than guessing one - and no action or
+outcome, so it records `audit` / `recorded` and marks both as synthesized.
 
 Those commands convert exported AGT evidence into a normal `.epi` artifact that works with the rest of the EPI toolchain.
 
