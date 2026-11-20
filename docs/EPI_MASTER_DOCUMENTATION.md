@@ -71,7 +71,7 @@ Say these out loud in a security review. They are product facts, not caveats hid
 - A listing in a public key registry is **not** a pin. Reviewers pin keys themselves.
 - `epi-register` without `--service` embeds a **local, self-issued** SCITT receipt, not an independent ledger entry.
 - Browser viewer crypto checks integrity/signature in-page; RFC 3161 timestamp **validation** is done by `epi verify`, not by the viewer (the viewer says so).
-- EPI Cloud in 4.11.0 is a **free self-serve beta**: anyone can sign in and create a workspace. The public plans page does not sell a hosted-verification subscription; paid Team/Business tiers are arranged directly.
+- EPI Cloud in 4.11.0 has a **free self-serve workspace**: anyone can sign in and create one. Startup ($500/month) and Growth ($2,000/month) are bought by card in the dashboard; Enterprise is arranged directly.
 - `record()` timestamps are taken on the signed repack, so they bind the signing key and attest that **the contents, sealed by that key, existed no later than T** (`imprinted_public_key` present). Pre-change seals (`imprinted_public_key` null) attest contents-only existence ([KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md)).
 
 ---
@@ -136,7 +136,7 @@ Then create a **customer-scoped** share/trust link on the Cloud dashboard. The r
 
 Witness receipts are hash-only. Full files in the Evidence Room are only what the vendor uploaded. Customer-bucket credentials never go to EPI Cloud ([STORAGE.md](./STORAGE.md), [CLOUD.md](./CLOUD.md)).
 
-Free Cloud plan: **1 customer relationship, 10 stored files a year, 30 days of storage, one 7-day share link**. Paid plan numbers (when entitled): Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000 (7-year); Enterprise as agreed. Verification is not metered. Cloud checkout is not self-serve on the public site.
+Free Cloud plan: **1 customer relationship, 10 stored files a year, 30 days of storage, one 7-day share link**. Startup ($500/month or $5,000/year): 3 customers / 1,000 files a year / 1-year retention. Growth ($2,000/month or $20,000/year): 15 customers / 10,000 files a year / kept while subscribed. Enterprise: as agreed. Verification is not metered. Startup and Growth are bought by card in the Cloud dashboard, or by invoice on request.
 
 ---
 

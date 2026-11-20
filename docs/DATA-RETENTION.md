@@ -12,10 +12,20 @@ wherever you put them, and `epi verify` runs offline.
 
 | Plan | Customers | Stored runs | Retention | Share links |
 |------|-----------|-------------|-----------|-------------|
-| Free | 1 | 10 | 30 days | 1 (7 days) |
-| Team | 5 | 5,000 / month | 1 year | 10 |
-| Business | 15 | 25,000 / month | 7 years | unlimited |
-| Enterprise | as entitled | as entitled | as entitled | as entitled |
+| Free | 1 | 10 a year | 30 days | 1 (7 days) |
+| Startup | 3 | 1,000 a year | 1 year | unlimited |
+| Growth | 15 | 10,000 a year | kept while subscribed | unlimited |
+| Enterprise | custom | custom | custom | custom |
+
+Two rules follow from the plan change code:
+
+- **After a paid plan ends** (cancel, or a failed payment that runs past its
+  14-day grace), existing files get a 90-day export window. They are not
+  deleted immediately.
+- **Upgrading extends existing files** to the longer limit, so a payment never
+  leaves a file on a shorter clock. A paid-to-paid downgrade (Growth to
+  Startup) never shortens a file either: files uploaded under Growth keep their
+  "kept while subscribed" deadline and only new files use the new plan.
 
 Verification is never metered and witness receipts are hash-only. Evidence
 Room files max 25 MB each. Expiry is enforced, not promised: every upload
