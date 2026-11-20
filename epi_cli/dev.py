@@ -827,7 +827,13 @@ def _demo_done_lines(
     elif pushed:
         lines.append(f"Next: open {_demo_cloud_url()} and create a share link for your customer")
     else:
-        lines.append("Next: epi share <file> to send it (no account needed)")
+        # Print the real path so the next step can be copied and run as is.
+        target = "<file>"
+        if epi_path is not None:
+            from rich.markup import escape as _escape
+            raw = str(epi_path)
+            target = _escape(f'"{raw}"' if " " in raw else raw)
+        lines.append(f"Next: epi share {target} to send it (no account needed)")
     return lines
 
 

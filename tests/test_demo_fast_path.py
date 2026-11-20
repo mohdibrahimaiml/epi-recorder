@@ -150,7 +150,7 @@ def test_demo_done_lines_pushed_uses_saved_host(demo_cwd: Path):
     assert pushed.count("Next:") == 1
     assert "Done." in pushed
     missing = "\n".join(_demo_done_lines(epi_path=_Path("a.epi"), pushed=False, witness="none"))
-    assert "Next: epi share <file> to send it (no account needed)" in missing
+    assert "Next: epi share a.epi to send it (no account needed)" in missing
     assert missing.count("Next:") == 1
     assert "share link" not in missing
 
@@ -214,7 +214,11 @@ def test_demo_decision_line_cut_on_word_boundary(tmp_path: Path):
 def test_demo_end_panel_when_not_logged_in(demo_cwd: Path):
     result = runner.invoke(cli_app, ["demo", "--no-browser"])
     assert result.exit_code == 0, result.output
-    assert "Next: epi share <file> to send it (no account needed)" in result.output
+    # The panel wraps long temp paths, so compare with the box drawing removed.
+    flat = " ".join(result.output.replace("│", " ").split())
+    assert "to send it (no account needed)" in flat
+    assert "epi share <file>" not in flat
+    assert "Next: epi share " in flat and "demo_refund.epi" in flat
     assert "share link" not in result.output
     assert "[EPI demo]" not in result.output
     assert "x custom" not in result.output

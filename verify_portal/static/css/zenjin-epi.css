@@ -1441,7 +1441,9 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
 
 .z-tri-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr): a wide code block scrolls inside its card instead of
+     stretching the column past a phone screen. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 64rem) {
@@ -1453,7 +1455,7 @@ html[data-theme="light"] .z-decision-tab[aria-selected="true"] {
 /* Four-card variant used by the reviewer-questions section (2x2 on desktop). */
 .z-quad-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 64rem) {

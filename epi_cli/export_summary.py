@@ -992,6 +992,23 @@ def _build_html_summary(
     color: var(--muted);
     font-size: 0.92rem;
   }}
+  /* Hashes, ids and key fingerprints are long unbroken strings. */
+  .summary-tile strong, .detail-row dd, td {{ overflow-wrap: anywhere; }}
+  /* Reviewers open these on phones: stack the grids and keep tables inside the card. */
+  @media (max-width: 760px) {{
+    .page {{ width: calc(100% - 24px); padding: 12px 0 32px; }}
+    .record-card {{ padding: 18px; border-radius: 18px; }}
+    h1 {{ font-size: 2rem; }}
+    h2 {{ font-size: 1.35rem; }}
+    .summary-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }}
+    .detail-list {{ grid-template-columns: minmax(0, 1fr); gap: 0; }}
+    .cover-top {{ flex-direction: column-reverse; }}
+    table {{ display: block; overflow-x: auto; }}
+    .timeline-top {{ flex-wrap: wrap; }}
+  }}
+  @media (max-width: 420px) {{
+    .summary-grid {{ grid-template-columns: minmax(0, 1fr); }}
+  }}
   @media print {{
     body {{ background: white; }}
     .page {{ width: auto; margin: 0; padding: 0; }}
