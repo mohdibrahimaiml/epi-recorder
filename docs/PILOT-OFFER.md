@@ -47,6 +47,7 @@ For an EU bank customer, the DORA Art. 28/30 evidence mapping and a draft contra
 | Verification session | We walk the named reviewer through checking a file offline or in a browser, and record the outcome in writing |
 | Review pack | Record specification, rule mapping, audit summary, and Annex IV-style documentation where it applies |
 | Handover | Your team runs it without us; 30 days of email support after handover |
+| Hosting | 3 months of EPI Cloud Startup from kickoff, so the reviewer pack and witness live in a hosted Evidence Room. After that, keep it on Startup or Growth, or move to self-hosting |
 
 ## Qualification rule
 
@@ -74,6 +75,7 @@ If there is no named party, the readiness assessment is the right first step —
 - **Invoiced in full at the start.** The engagement is paid up front, not on completion.
 - **Access within 5 working days.** We start once the invoice clears and the workflow owner is available.
 - **30 days of email support after handover.** Email, not on-call or embedded support.
+- **3 months of EPI Cloud Startup included** with the full engagement (not the assessment). It renews only if you choose a paid plan.
 
 ## What this proves — and what it does not
 
