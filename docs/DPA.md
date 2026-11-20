@@ -2,14 +2,14 @@
 
 **Product version:** 4.11.0. Related: [SUBPROCESSORS](./SUBPROCESSORS.md),
 [DATA-RETENTION](./DATA-RETENTION.md). **Not legal advice.** This is a
-starting-point DPA for EPI Cloud private-beta pilots. Both sides should have
+starting-point DPA for paid EPI Cloud plans. Both sides should have
 counsel review it before signing. If it conflicts with a signed agreement,
 the signed agreement wins.
 
 ## 1. Subject matter and duration
 
 EPI Labs processes customer data to provide EPI Cloud (witness receipts,
-trust links, Evidence Room storage, login) for the duration of the pilot or
+trust links, Evidence Room storage, login) for the duration of the
 subscription, plus the retention windows in [DATA-RETENTION](./DATA-RETENTION.md).
 
 ## 2. Nature, purpose, and types of data
@@ -52,7 +52,7 @@ regex-based and not exhaustive ([KNOWN_LIMITATIONS](./KNOWN_LIMITATIONS.md)).
 
 Listed in [SUBPROCESSORS](./SUBPROCESSORS.md). A new sub-processor is added
 there before it receives customer data; object in writing within 14 days and
-we will work in good faith on an alternative or wind the pilot down.
+we will work in good faith on an alternative or end the agreement.
 
 ## 6. International transfers
 
@@ -63,8 +63,8 @@ region-pinned deployment — that is a scoping conversation, not a default.
 
 ## 7. Liability and order of precedence
 
-Liability caps follow the pilot agreement or, absent one, are limited to fees
-paid in the preceding 3 months. Order of precedence: signed pilot/MSA terms,
+Liability caps follow the agreement or, absent one, are limited to fees
+paid in the preceding 3 months. Order of precedence: signed MSA terms,
 then this DPA, then the docs. Nothing here limits liability that cannot be
 limited by law.
 
@@ -85,10 +85,10 @@ choices and completions below. The full SCC text prevails over this summary.
   beneficiaries as provided in the SCCs; complaints to `mohdibrahim@epilabs.org`
   first, then the competent authority.
 - **Clause 13 (supervision):** the authority of the customer's establishment;
-  if none in the EU/EEA, as agreed in the pilot terms (TBD per customer).
-- **Clause 17/18 (law/forum):** as agreed in the pilot terms (TBD per
+  if none in the EU/EEA, as agreed in the agreement (TBD per customer).
+- **Clause 17/18 (law/forum):** as agreed in the agreement (TBD per
   customer); absent agreement, the law of Ireland.
-- **Annex I.A (parties):** controller = you (details in the pilot terms);
+- **Annex I.A (parties):** controller = you (details in the agreement);
   processor = EPI Labs (contact `mohdibrahim@epilabs.org`).
 - **Annex I.B (transfer details):** categories and purposes per §2 above;
   hash-only witness receipts, vendor-selected evidence files (max 25 MB),

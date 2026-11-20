@@ -1,18 +1,21 @@
-/* EPI Labs contact/booking form.
-   Transport is mailto-first: submit validates, then opens the visitor's mail
-   client with every field prefilled. No request leaves the page, so nothing can
-   be blocked at the edge and the form cannot report success it did not have.
+/* EPI Labs contact form.
+   Transport is POST-first: the message goes to the EPI Cloud Worker, which
+   stores it for the founder. If that request fails for any reason, the form
+   falls back to opening the visitor's mail client with every field prefilled,
+   so a message is never silently lost and the page never claims a delivery
+   that did not happen.
 
-   window.EPI_CONTACT_ENDPOINT stays empty on purpose. Setting it to a URL that
-   accepts POST {name,email,company,tier,use_case} re-enables the fetch path.
-   Do NOT point it at /api/contact: that path is proxied to the legacy Render
-   portal and is answered by a Cloudflare managed challenge (HTTP 429,
-   "Just a moment…"), so the fetch fails for every real visitor. A same-origin
-   Pages Function would be challenged the same way unless the WAF rule changes. */
+   window.EPI_CONTACT_ENDPOINT is the Worker's public contact route. Do NOT
+   point it at /api/contact: that path is proxied to the legacy Render portal
+   and is answered by a Cloudflare managed challenge (HTTP 429, "Just a
+   moment…"), so the fetch fails for every real visitor. */
 (function () {
   "use strict";
 
-  window.EPI_CONTACT_ENDPOINT = "";
+  window.EPI_CONTACT_ENDPOINT = "https://cloud.epilabs.org/contact";
+  // The waitlist is a different list with a different owner; keep it on email
+  // until it has its own route.
+  window.EPI_WAITLIST_ENDPOINT = "";
 
   function $(s, c) { return (c || document).querySelector(s); }
 
@@ -42,10 +45,9 @@
       return ok;
     }
 
-    // The portal expects {name,email,company,tier,use_case}; map the form's
-    // role/interest/message fields onto that contract so nothing is dropped.
-    // Everything the mailto needs (interest, message) is kept separately in
-    // fields(), because the portal shape renames and merges those away.
+    // The Worker's /contact route expects
+    // {name, work_email, company, interest, message, website}. `website` is a
+    // honeypot: it is visually hidden and must stay empty.
     function fields() {
       var d = {};
       form.querySelectorAll("input,select,textarea").forEach(function (f) {
@@ -55,12 +57,18 @@
     }
 
     function payload(d) {
+      var extra = [
+        d.role ? "Role: " + d.role : "",
+        d.who ? "Who is asking: " + d.who : "",
+        d.deadline ? "Deadline: " + d.deadline : ""
+      ].filter(Boolean).join("\n");
       return {
         name: d.name || "",
-        email: d.email || "",
+        work_email: d.email || "",
         company: d.company || "",
-        tier: d.interest || "",
-        use_case: [d.role, d.message].filter(Boolean).join("\n")
+        interest: d.interest || "",
+        message: [d.message || "", extra].filter(Boolean).join("\n\n"),
+        website: d.website || ""
       };
     }
 
@@ -103,12 +111,17 @@
       }).then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         form.reset();
-        show("ok", "Thanks — message received. You'll hear back within one business day.");
-      }).catch(function () {
-        show("err", "Could not send automatically. " +
-          "Email <a href=\"mailto:mohdibrahim@epilabs.org\">mohdibrahim@epilabs.org</a> directly — it works.");
         btn.disabled = false;
         btn.textContent = btnLabel;
+        show("ok", "Thanks — message received. You'll hear back within one business day.");
+      }).catch(function () {
+        // Delivery is not confirmed, so say so and hand over to email.
+        show("warn", "We could not send it automatically. Opening your email client " +
+          "with the message prefilled&hellip; (Or write directly to " +
+          "<a href=\"mailto:mohdibrahim@epilabs.org\">mohdibrahim@epilabs.org</a>.)");
+        btn.disabled = false;
+        btn.textContent = btnLabel;
+        mailtoFallback(d);
       });
     });
   }
@@ -143,7 +156,7 @@
       }
       email.classList.remove("invalid");
 
-      if (!window.EPI_CONTACT_ENDPOINT) {
+      if (!window.EPI_WAITLIST_ENDPOINT) {
         // Honest fallback: no fake success. Point to direct email.
         show("Join by email — write to <a href=\"mailto:mohdibrahim@epilabs.org?subject=Control%20Plane%20early%20access\">" +
           "mohdibrahim@epilabs.org</a> with \u201Cearly access\u201D and you're on the list.");
@@ -152,7 +165,7 @@
 
       btn.disabled = true;
       btn.textContent = "…";
-      fetch(window.EPI_CONTACT_ENDPOINT, {
+      fetch(window.EPI_WAITLIST_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
         // Same /api/contact contract; tier marks it as a waitlist lead.

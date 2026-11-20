@@ -2734,20 +2734,20 @@ PAID_COMMANDS: dict[str, str] = {
     # disappearing behind Click's bare "No such command". When the
     # epi-enterprise plugin is installed the real command is registered and
     # this hook never fires.
-    "enterprise": "EPI Enterprise",
-    "gateway": "EPI Enterprise",
-    "connect": "EPI Enterprise",
-    "integrate": "EPI Enterprise",
-    "debug": "EPI Enterprise",
-    "analyze": "EPI Enterprise",
-    "export-summary": "EPI Enterprise",
-    "audit": "EPI Enterprise",
-    "annex": "EPI Enterprise",
-    "notify": "EPI Enterprise",
-    "chat": "EPI Enterprise",
+    "enterprise": "the licensed epi-enterprise package",
+    "gateway": "the licensed epi-enterprise package",
+    "connect": "the licensed epi-enterprise package",
+    "integrate": "the licensed epi-enterprise package",
+    "debug": "the licensed epi-enterprise package",
+    "analyze": "the licensed epi-enterprise package",
+    "export-summary": "the licensed epi-enterprise package",
+    "audit": "the licensed epi-enterprise package",
+    "annex": "the licensed epi-enterprise package",
+    "notify": "the licensed epi-enterprise package",
+    "chat": "the licensed epi-enterprise package",
 }
 
-PAID_COMMAND_HINT = "is part of {plan} and above. See https://epilabs.org/plans"
+PAID_COMMAND_HINT = "is in {plan} (Growth, Enterprise and the full engagement). See https://epilabs.org/plans"
 
 
 def _registered_names() -> set[str]:

@@ -10,9 +10,8 @@ and the standing rule for everything else.
 - **Cloud funnel coherence.** The public site and the Cloud app must describe
   the same access model: a free, self-serve workspace with visible limits
   (1 customer relationship, 1 share link, 10 files a year, 30 days), an optional onboarding
-  checklist, and paid Team/Business tiers that are not sold through a public
-  checkout yet.
-- **One plan ladder.** Free / Team / Business / Enterprise in `plans.ts`,
+  checklist, and Startup and Growth sold by card in the dashboard.
+- **One plan ladder.** Free / Startup / Growth / Enterprise in `plans.ts`,
   the dashboard, `/plans`, `CLOUD.md` and `DATA-RETENTION.md`. Legacy
   workspace ids are mapped on read, never migrated in place.
 - **One deploy path per surface.** `website/` -> `site/` -> Cloudflare Pages;

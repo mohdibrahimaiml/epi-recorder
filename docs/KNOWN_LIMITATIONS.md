@@ -230,13 +230,14 @@ regardless of any hosted service.
 
 ---
 
-## Plans and billing (no self-serve checkout)
+## Plans and billing
 
-Cloud is a **free self-serve beta**. Entitlements, in customers: Free 1 customer;
-Team 5 customers / 5,000 stored runs (1-year retention); Business 15 / 25,000
-(7-year); Enterprise as agreed. Verification is never limited or charged, and Cloud checkout is not
-self-serve on the public site — the old hosted-verification subscriptions are
-not for sale. (The legacy `free` / `hosted` / `team` / `enterprise`
+Cloud has a **free self-serve workspace**. Entitlements, in customer
+relationships: Free 1; Startup 3 / 1,000 files a year (1-year retention);
+Growth 15 / 10,000 (kept while subscribed); Enterprise as agreed. Startup is
+$500/month or $5,000/year and Growth $2,000/month or $20,000/year; both are
+bought by card in the dashboard, or by invoice on request. Verification is
+never limited or charged. (The legacy `free` / `hosted` / `team` / `enterprise`
 hosted-check counters still exist in `verify_portal/tier_gating.py` for the
 retired self-serve path; do not quote them as current pricing.) Plan changes go
 through the Cloud founder admin page and are audit-logged. Product rules:

@@ -172,7 +172,7 @@ def test_fresh_venv_gateway_serve_names_the_paid_plan(fresh_venv: tuple[Path, Pa
     result = _run_in_fresh_venv(fresh_venv, ["gateway", "serve"])
     combined = result.stdout + result.stderr
     assert result.returncode == 2
-    assert "EPI Enterprise" in combined
+    assert "epi-enterprise package" in combined
     assert "https://epilabs.org/plans" in combined
 
 
@@ -182,7 +182,7 @@ def test_fresh_venv_connect_open_names_the_paid_plan(fresh_venv: tuple[Path, Pat
     result = _run_in_fresh_venv(fresh_venv, ["connect", "open", "--no-browser"])
     combined = result.stdout + result.stderr
     assert result.returncode == 2
-    assert "EPI Enterprise" in combined
+    assert "epi-enterprise package" in combined
     assert "https://epilabs.org/plans" in combined
 
 

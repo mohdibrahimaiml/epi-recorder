@@ -7,7 +7,9 @@ not an aspiration. It changes when reality does.
 
 - **Maintainer:** mohdibrahimaiml (repo owner). Final say on scope, releases,
   and security.
-- **Paid tiers:** Team, Business and Enterprise are arranged directly; there is no public checkout yet. Free is self-serve ([plans page](https://epilabs.org/plans)).
+- **Paid tiers:** Startup, Growth and Enterprise. Startup and Growth are bought
+  by card in the EPI Cloud dashboard; Enterprise is arranged directly. Free is
+  self-serve ([plans page](https://epilabs.org/plans)).
   Partners get founding terms and direct feedback calls; they advise, they
   do not vote.
 - **Decisions with lasting cost** are recorded as [ADRs](./adr/README.md).
