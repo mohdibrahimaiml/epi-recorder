@@ -6,6 +6,37 @@ All notable changes to EPI Recorder are documented here.
 
 ## [4.11.0] - 2026-11-18
 
+### Fixed in pre-release QA (a new user, installed from GitHub)
+
+- **`epi cloud push` uploaded altered files and called them valid.** The
+  Worker never unzips, so its `Seal: valid` covered the manifest signature
+  only; a file whose `steps.jsonl` was edited after sealing went up as
+  "valid". Push now runs the offline integrity and signature check first and
+  refuses (exit 1, nothing sent) a file that fails it. The success line says
+  the contents were checked on this computer.
+- `epi cloud keys push` accepts the PEM `.pub` that `epi keys generate`
+  writes (still Ed25519 public keys only; a private key is refused by name).
+- `epi cloud keys list` / `storage show` with a computer's key answered
+  "Sign in first." The server now lets a workspace's own key read both
+  (public keys and secret-free metadata); owner-only changes explain that a
+  workspace owner must make them.
+- Before login, `epi cloud status` / `push` say "not connected to EPI Cloud
+  yet. Run: epi cloud login" instead of "Missing url, org, key".
+- `epi cloud login` says the code lasts 10 minutes and, when it expires, that
+  nothing was saved and to run login again.
+- `epi cloud use` help no longer claims a browser login can switch customer,
+  and accepts names with spaces without quotes.
+- Witness status lines explain their marks (`✓ accepted, ? none sent yet`),
+  and push names witness states in words (`not witnessed yet`, not
+  `not_in_witness`).
+- The hint after `verify` / `share` pitched a retired "pilot dashboard"; it
+  now points at EPI Cloud (`epi cloud login`), stays quiet once connected, and
+  prints after the share link instead of before it.
+- `epi share` says "1 day", not "1 days".
+- `epi policy init` with no terminal (CI, a pipe) said only "Aborted."; it now
+  says to use `--yes` or `--profile`.
+
+
 ### Security
 
 A pre-launch audit (85-check framework) was run across the repository. Findings,

@@ -408,3 +408,71 @@ def test_resolve_creds_prefers_flags_over_env_over_file(home, monkeypatch):
     assert creds["url"] == "https://env" and creds["org"] == "o-file"
     creds = resolve_creds("https://flag", "o-flag", "k-flag")
     assert creds == {"url": "https://flag", "org": "o-flag", "key": "k-flag"}
+
+
+def _tampered_copy(tmp_path: Path) -> Path:
+    """SAMPLE with one step edited after sealing; manifest (and its signature) untouched."""
+    import zipfile
+
+    out = tmp_path / "tampered.epi"
+    with zipfile.ZipFile(SAMPLE) as src, zipfile.ZipFile(out, "w") as dst:
+        for info in src.infolist():
+            data = src.read(info.filename)
+            if info.filename == "steps.jsonl":
+                data = data.replace(b"}", b' }', 1)
+            dst.writestr(info, data)
+    return out
+
+
+def test_push_refuses_a_file_changed_after_sealing(fake_transport, home, tmp_path):
+    # QA found push uploading an edited file and printing "Seal: valid": the
+    # server only checks the manifest signature. Push must check contents first
+    # and send nothing at all.
+    bad = _tampered_copy(tmp_path)
+    result = _invoke(["push", str(bad), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_x"])
+    flat = " ".join(result.output.split())
+    assert result.exit_code == 1, result.output
+    assert "Not pushed" in flat and "changed after it was sealed" in flat and "steps.jsonl" in flat
+    assert not FakeClient.instances, "nothing may reach EPI Cloud"
+
+
+def test_push_says_contents_were_checked_locally(fake_transport, home):
+    routes = {
+        ("POST", "init"): FakeResponse(201, {
+            "id": "art_1", "put_url": "/v1/orgs/o1/artifacts/art_1/content",
+            "witness_status": "not_in_witness", "signature_check": "valid",
+        }),
+        ("PUT", "content"): FakeResponse(200, {"stored": True}),
+    }
+    with pytest.MonkeyPatch().context() as mp:
+        import httpx
+
+        mp.setattr(httpx, "Client", _client_with(routes))
+        result = _invoke(["push", str(SAMPLE), "--url", "https://cloud.test", "--org", "o1", "--api-key", "epik_x"])
+    flat = " ".join(result.output.split())
+    assert result.exit_code == 0, result.output
+    assert "contents checked on this computer" in flat
+    assert "not_in_witness" not in flat and "not witnessed yet" in flat
+
+
+def test_not_logged_in_says_run_login(home):
+    result = _invoke(["status"])
+    flat = " ".join(result.output.split())
+    assert result.exit_code == 2
+    assert "not connected to EPI Cloud yet" in flat and "epi cloud login" in flat
+    assert "Missing url" not in flat
+
+
+def test_owner_only_route_explains_instead_of_sign_in_first():
+    from epi_cli.cloud import http_problem
+
+    msg = http_problem(FakeResponse(401, {"error": {"code": "unauthorized", "message": "Sign in first."}}))
+    assert "Sign in first" not in msg and "workspace owner" in msg
+
+
+def test_use_accepts_a_name_with_spaces_unquoted(home):
+    cfg = {"url": "https://cloud.test", "org_id": "o1", "api_key": "epik_push", "customer": "QA TEST"}
+    (home / "cloud.json").write_text(json.dumps(cfg))
+    result = _invoke(["use", "QA", "TEST"])
+    assert result.exit_code == 0, result.output
+    assert "already records for QA TEST" in " ".join(result.output.split())

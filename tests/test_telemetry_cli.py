@@ -82,8 +82,29 @@ def test_telemetry_hint_for_demo_and_share_shows_contextual_cta(monkeypatch, tmp
         monkeypatch.setattr(console, "print", _capture)
         telemetry_hint.maybe_print_telemetry_hint(console, context)
 
-        assert "EPI Pilot" in output or "pilot" in output.lower()
+        assert "epi cloud login" in output
         assert "epi telemetry enable" in output
+        # The retired pilot/dashboard pitch must not come back.
+        assert "pilot" not in output.lower() and "dashboard" not in output.lower()
+
+
+def test_telemetry_hint_skips_cloud_pitch_once_connected(monkeypatch, tmp_path):
+    monkeypatch.setenv("EPI_HOME", str(tmp_path))
+    monkeypatch.delenv("EPI_TELEMETRY_OPT_IN", raising=False)
+    monkeypatch.setattr(telemetry_hint, "_is_interactive", lambda: True)
+    (tmp_path / "cloud.json").write_text(
+        '{"url": "https://cloud.test", "org_id": "org_1", "api_key": "epik_x"}', encoding="utf-8"
+    )
+    console = Console(force_terminal=True, width=80)
+    output = ""
+
+    def _capture(*objects, sep=" ", end="\n", **kwargs):  # noqa: ANN001, ANN003
+        nonlocal output
+        output += sep.join(str(o) for o in objects) + end
+
+    monkeypatch.setattr(console, "print", _capture)
+    telemetry_hint.maybe_print_telemetry_hint(console, "share")
+    assert "epi cloud login" not in output
 
 
 def test_telemetry_hint_is_silent_when_hints_disabled(monkeypatch, tmp_path):
