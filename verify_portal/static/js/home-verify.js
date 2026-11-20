@@ -10,7 +10,7 @@
 var dz=document.getElementById('dropZoneEl'),fi=document.getElementById('fileInput'),dr=document.getElementById('dropResult');
 var EPI_MIMETYPE='application/vnd.epi+zip',EPI_ENVELOPE_MAGIC='<!--';
 
-function damagedHtml(e){var m=String((e&&e.message)||e||'');return '<strong>This file is damaged or was changed after sealing. Don&rsquo;t rely on it.</strong>'+'<br><span style="opacity:.7;font-size:.85em">Ask the sender for the original file. Technical detail: '+esc(m)+'</span>';}
+function damagedHtml(e){var m=String((e&&e.message)||e||'').replace(/^\s*Bug\s*:\s*/i,'');return '<strong>This file is damaged or was changed after sealing. Don&rsquo;t rely on it.</strong>'+'<br><span style="opacity:.7;font-size:.85em">Ask the sender for the original file. Technical detail: '+esc(m)+'</span>';}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 function reportDOM(report){

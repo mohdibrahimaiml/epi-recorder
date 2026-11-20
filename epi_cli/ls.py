@@ -183,28 +183,31 @@ def ls(
     # Build table
     scope = "./epi-recordings/ + current directory" if all_dirs else "./epi-recordings/ only"
     table = Table(title=f"EPI Recordings ({len(infos)} found • {scope})")
+    # On a normal 80-column terminal eight columns squash into unreadable
+    # fragments ("D…", "r…"). Show the optional columns only when they fit.
+    width = console.width or 80
+    show_goal = width >= 80
+    show_extra = width >= 120
     table.add_column("Name", style="cyan", no_wrap=True)
     table.add_column("Modified", style="dim", no_wrap=True)
     table.add_column("Size", style="dim", no_wrap=True, justify="right")
     table.add_column("Status", no_wrap=True)
     table.add_column("Signed", no_wrap=True)
-    table.add_column("Goal", style="blue", no_wrap=False, max_width=30)
-    table.add_column("Tags", style="green", no_wrap=False)
-    table.add_column("Metrics", style="purple", no_wrap=False)
+    if show_goal:
+        table.add_column("Goal", style="blue", no_wrap=False, max_width=30)
+    if show_extra:
+        table.add_column("Tags", style="green", no_wrap=False)
+        table.add_column("Metrics", style="purple", no_wrap=False)
 
     for info in infos:
         signed_str = "[green]Yes[/green]" if info["signed"] else "[dim]No[/dim]"
         goal_str = info["goal"][:28] + "…" if len(info["goal"]) > 29 else info["goal"]
-        table.add_row(
-            info["name"],
-            info["modified_str"],
-            info["size_str"],
-            info["status"],
-            signed_str,
-            goal_str,
-            info["tags_summary"],
-            info["metrics_summary"],
-        )
+        row = [info["name"], info["modified_str"], info["size_str"], info["status"], signed_str]
+        if show_goal:
+            row.append(goal_str)
+        if show_extra:
+            row += [info["tags_summary"], info["metrics_summary"]]
+        table.add_row(*row)
 
     console.print()
     console.print(table)
