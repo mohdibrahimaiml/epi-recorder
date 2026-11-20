@@ -364,3 +364,25 @@ def test_registered_is_not_pinned_until_fingerprint_confirmed(monkeypatch, tmp_p
     res = runner.invoke(cli_app, ["verify", str(out), "--policy", "strict", "--json"])
     assert res.exit_code == 0, res.output
     assert json.loads(res.output)["identity"]["status"] == "KNOWN"
+
+
+def test_push_accepts_the_pem_pub_that_keys_generate_writes(monkeypatch, tmp_path: Path) -> None:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from epi_cli.cloud import _read_pubkey_file
+
+    key = Ed25519PrivateKey.generate()
+    pub = key.public_key()
+    pem = pub.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+    target = tmp_path / "default.pub"
+    target.write_bytes(pem)
+    expected = pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw).hex()
+    assert _read_pubkey_file(target) == expected
+
+    priv = tmp_path / "oops.pub"
+    priv.write_bytes(key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()
+    ))
+    with pytest.raises(ValueError, match="private key"):
+        _read_pubkey_file(priv)

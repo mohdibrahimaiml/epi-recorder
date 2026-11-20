@@ -35,8 +35,8 @@ relationship**, not per AI agent: agents are fair use on every plan.
 | Plan | Price | Customer relationships | Evidence Room files | Retention | How |
 |------|-------|------------------------|---------------------|-----------|-----|
 | Free | $0 | 1 | 10 / year | 30 days | self-serve, 7-day share links |
-| Startup | $500 / month or $5,000 / year | 3 (+$150/month each, up to 6) | 1,000 / year | 1 year | card in the dashboard, or invoice |
-| Growth | $2,000 / month or $20,000 / year | 15 (+$100/month each) | 10,000 / year | 7 years while subscribed | card in the dashboard, or invoice |
+| Startup | $500 / month or $5,000 / year | 3 (more by agreement) | 1,000 / year | 1 year | card in the dashboard, or invoice |
+| Growth | $2,000 / month or $20,000 / year | 15 (more by agreement) | 10,000 / year | kept while subscribed | card in the dashboard, or invoice |
 | Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
 
 Prices are USD and exclude taxes. An owner upgrades in the EPI Cloud dashboard:
@@ -50,7 +50,10 @@ count toward the relationship limit.
 
 Retention lasts while the subscription is active. After cancelling, the customer
 has **90 days to export everything**; downgrading to Free applies that 90-day
-window to existing files and never deletes them immediately. Evidence Room files
+window to existing files and never deletes them immediately. Upgrading extends
+existing files to the longer limit, so a payment never leaves a file on a
+shorter clock. A paid-to-paid downgrade (Growth to Startup) never shortens a
+file either: only new files use the new plan's retention. Evidence Room files
 are counted per rolling year.
 
 Usage is fair use: witnessed runs are reported in the dashboard and founder

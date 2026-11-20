@@ -70,6 +70,16 @@ def resolve_creds(url: str | None, org: str | None, api_key: str | None) -> dict
         or "",
     }
     missing = [name for name in ("url", "org", "key") if not final[name]]
+    nothing_given = not (
+        url or org or api_key or cfg
+        or os.getenv("EPI_CLOUD_URL") or os.getenv("EPI_CLOUD_ORG") or os.getenv("EPI_CLOUD_API_KEY")
+    )
+    if missing and nothing_given:
+        console.print(
+            "[red][FAIL][/red] This computer is not connected to EPI Cloud yet. "
+            "Run: [cyan]epi cloud login[/cyan]"
+        )
+        raise typer.Exit(2)
     if missing:
         console.print(
             f"[red][FAIL][/red] Missing {', '.join(missing)}. "
@@ -120,6 +130,37 @@ def read_manifest(path: Path) -> str:
         raise ValueError(f"{path} is not a readable .epi container: {exc}") from exc
 
 
+def local_seal_check(path: Path) -> tuple[bool, str]:
+    """Check the file's contents against its own sealed manifest, offline.
+
+    The server never unzips, so its "Seal" answer covers the manifest
+    signature only: a file whose steps were edited after sealing still has a
+    valid manifest signature. This is the same integrity + signature check
+    `epi verify` starts with; push refuses anything that fails it.
+
+    Returns (ok, reason). An unsigned file passes with a reason (the server
+    reports it as unsigned); a bad signature or any changed member fails.
+    """
+    from epi_core.container import EPIContainer
+    from epi_core.trust import verify_embedded_manifest_signature
+
+    try:
+        manifest = EPIContainer.read_manifest(path)
+        integrity_ok, mismatches = EPIContainer.verify_integrity(path)
+        signature_valid, _signer, message = verify_embedded_manifest_signature(manifest)
+    except Exception as exc:
+        return False, f"could not be checked ({str(exc).splitlines()[0][:160] if str(exc) else exc.__class__.__name__})"
+    if not integrity_ok:
+        changed = ", ".join(sorted(k for k in mismatches if not k.startswith("__"))[:3])
+        detail = f" ({changed})" if changed else ""
+        return False, f"was changed after it was sealed{detail}"
+    if signature_valid is False:
+        return False, f"has an invalid signature ({message})"
+    if signature_valid is None:
+        return True, "unsigned"
+    return True, "intact"
+
+
 def _server_message(res: Any) -> str:
     """The server's own error message, if it sent one."""
     try:
@@ -139,6 +180,13 @@ def http_problem(res: Any) -> str:
     """One plain line for a failed EPI Cloud response (never raw httpx/MDN text)."""
     code = getattr(res, "status_code", None)
     msg = _server_message(res)
+    if code == 401 and msg == "Sign in first.":
+        # Owner-only routes answer this to any API key: the call needs a
+        # person signed in to the workspace, not this computer's key.
+        return (
+            "Only a workspace owner signed in to EPI Cloud can do that; this "
+            "computer's key can push runs, not manage the workspace."
+        )
     if code == 401:
         return msg or (
             "This computer's key was revoked or is no longer valid. "
@@ -457,7 +505,7 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
     _warn_if_cli_outdated(data.get("min_cli_version"))
     console.print(f"Type the code and your customer's name at {verify_url}")
     console.print(f"[bold cyan]{escape(str(user_code))}[/bold cyan]")
-    console.print("[dim]A browser window will open. The code works only for this computer.[/dim]")
+    console.print("[dim]A browser window will open. The code works only for this computer, for 10 minutes. Sign in there first if you have not.[/dim]")
     # Rich buffers when stdout is not a terminal; scripts and CI would never
     # see the code. Flush explicitly so automation logs get it immediately.
     try:
@@ -537,7 +585,8 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
         console.print(f"[red][FAIL][/red] Login polling failed: {escape(friendly_error(exc))}")
         raise typer.Exit(1) from exc
     if not raw_key or not org_id:
-        console.print("[red][FAIL][/red] Login did not complete in time.")
+        console.print("[red][FAIL][/red] The code was not entered within 10 minutes, so it expired. Nothing was saved.")
+        console.print("[dim]Run [cyan]epi cloud login[/cyan] again for a new code.[/dim]")
         raise typer.Exit(1)
     previous = load_config()
     if auto_push is None:
@@ -569,10 +618,14 @@ def _device_login(base: str, auto_push: bool | None = None) -> None:
 
 @app.command("use")
 def use(
-    customer: str = typer.Argument(..., help='Customer name, e.g. epi cloud use "Acme Bank".'),
+    customer: list[str] = typer.Argument(..., help="Customer name, e.g. epi cloud use Acme Bank."),
 ) -> None:
-    """Set the customer this computer records for (saved to ~/.epi/cloud.json)."""
-    name = customer.strip()
+    """Switch the customer this computer records for.
+
+    Needs a workspace API key. A computer connected with the browser login
+    (epi cloud login) switches customer by running epi cloud login again.
+    """
+    name = " ".join(customer).strip()
     if not name:
         console.print("[red][FAIL][/red] Customer name is required.")
         raise typer.Exit(2)
@@ -672,6 +725,14 @@ def push(
     except ValueError as exc:
         console.print(f"[red][FAIL][/red] {escape(str(exc))}")
         raise typer.Exit(1) from exc
+    seal_ok, seal_reason = local_seal_check(file)
+    if not seal_ok:
+        console.print(
+            f"[red][FAIL][/red] Not pushed: {escape(file.name)} {escape(seal_reason)}.",
+            soft_wrap=True,
+        )
+        console.print(f"[dim]Details: epi verify \"{escape(str(file))}\"[/dim]", soft_wrap=True)
+        raise typer.Exit(1)
     if sample is not None:
         if not 0 < sample <= 100:
             console.print("[red][FAIL][/red] --sample must be between 0 (exclusive) and 100.")
@@ -734,9 +795,26 @@ def push(
     if created.get("agent"):
         console.print(f"[dim]Customer: {created['agent']}[/dim]")
     console.print(
-        f"[dim]Seal: {created.get('signature_check')} · "
-        f"Witness: {created.get('witness_status')}[/dim]"
+        f"[dim]Seal: {created.get('signature_check')} (contents checked on this computer) · "
+        f"Witness: {_witness_label(created.get('witness_status'))}[/dim]",
+        soft_wrap=True,
     )
+
+
+_WITNESS_LABELS = {
+    "witnessed": "witnessed",
+    "not_in_witness": (
+        "not witnessed yet (no witness report for this run; runs recorded before "
+        "epi cloud login have none - try epi witness flush, then push again)"
+    ),
+    "different_version": "a different copy of this run was witnessed, not this exact file",
+    "no_inbox": "no customer linked yet, so not witnessed",
+}
+
+
+def _witness_label(status: Any) -> str:
+    text = str(status or "unknown")
+    return _WITNESS_LABELS.get(text, text.replace("_", " "))
 
 
 def _waiting_witness_reports() -> int:
@@ -867,23 +945,43 @@ app.add_typer(keys_app, name="keys")
 
 
 def _read_pubkey_file(path: Path) -> str:
-    """Read a public key file. Only *.pub, only 64 hex chars.
+    """Read a public key file. Only *.pub: 64 hex chars, or the PEM
+    "PUBLIC KEY" block that `epi keys generate` writes (Ed25519 only).
 
-    Refuses everything else: private keys, PEM blocks, junk. Registering
-    the wrong material would mislabel the trust page, so this fails closed.
+    Refuses everything else: private keys, other key types, junk.
+    Registering the wrong material would mislabel the trust page, so this
+    fails closed.
     """
     if path.suffix.lower() != ".pub":
         raise ValueError(f"Refusing {path}: only *.pub public-key files (never private keys).")
     try:
-        text = path.read_text(encoding="utf-8").strip().lower()
+        raw_text = path.read_text(encoding="utf-8").strip()
     except Exception as exc:
         raise ValueError(f"Cannot read {path}: {exc}") from exc
+    if "PRIVATE KEY" in raw_text:
+        raise ValueError(f"Refusing {path}: it contains a private key. Push the public key only.")
+    if raw_text.startswith("-----BEGIN PUBLIC KEY-----"):
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+            loaded = serialization.load_pem_public_key(raw_text.encode("ascii"))
+            if not isinstance(loaded, Ed25519PublicKey):
+                raise ValueError("not an Ed25519 key")
+            return loaded.public_bytes(
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw
+            ).hex()
+        except Exception as exc:
+            raise ValueError(
+                f"Refusing {path}: not a readable Ed25519 public key ({exc})."
+            ) from exc
+    text = raw_text.lower()
     import re as _re
 
     if not _re.fullmatch(r"[0-9a-f]{64}", text):
         raise ValueError(
-            f"Refusing {path}: not 64 hex chars of Ed25519 public key "
-            "(export one with: epi keys export --format hex)."
+            f"Refusing {path}: not an Ed25519 public key (expected the .pub file from "
+            "epi keys generate, or 64 hex chars from: epi keys export --format hex)."
         )
     return text
 

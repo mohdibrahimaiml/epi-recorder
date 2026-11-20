@@ -49,7 +49,7 @@ def test_gateway_and_connect_moved_to_epi_enterprise(capsys: pytest.CaptureFixtu
         assert stop.value.code == 2
         out = capsys.readouterr().out
         assert moved in out
-        assert "EPI Enterprise" in out
+        assert "epi-enterprise package" in out
         assert "https://epilabs.org/plans" in out
 
 

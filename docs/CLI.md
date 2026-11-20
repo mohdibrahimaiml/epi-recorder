@@ -66,9 +66,9 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 | --- | --- |
 | `epi demo` | Start the sample refund workflow and open the case-first investigation flow in the browser. Recommended first run. Seals data-only by default; `--with-viewer` embeds the self-opening HTML viewer. When logged into EPI Cloud, also pushes and reports witness status honestly. |
 | `epi cloud login` | Connect this computer to EPI Cloud (device code at `/auth/device`). Alias: `epi auth login`. |
-| `epi cloud push` / `status` / `use` | Upload a selected `.epi` to the Evidence Room; show workspace status; switch saved customer. |
-| `epi cloud keys push\|list\|revoke\|unrevoke` | Register **public** keys only (`*.pub`). Informational registry — not a pin. |
-| `epi cloud storage show\|set\|test\|flush` | Register customer-owned bucket metadata; credentials never leave this machine. |
+| `epi cloud push` / `status` / `use` | Check a selected `.epi` offline, then upload it to the Evidence Room (an altered or badly signed file is refused); show workspace status; switch customer (API-key logins; a browser login switches by running `epi cloud login` again). |
+| `epi cloud keys push\|list\|revoke\|unrevoke` | Register and list **public** keys only (`*.pub`). Informational registry — not a pin. Revoke/unrevoke need a workspace owner. |
+| `epi cloud storage show\|set\|test\|flush` | Customer-owned bucket metadata; credentials never leave this machine. `set` needs a workspace owner. |
 | `epi enterprise setup` / `pack` / `capabilities` | Enterprise evidence kit (org trust scaffold + auditor pack). |
 | `epi import steps <input> --out <file.epi>` | Seal a step log you already have — `.jsonl`/`.ndjson`, a JSON array, or `.csv`/`.tsv`. Each record needs `kind`; `timestamp` is optional (import time is used and declared if missing). Rebuilds the hash chain at import. |
 | `epi import agt <input> --out <file.epi>` | Convert exported AGT evidence into a portable `.epi` Decision Record from a bundle JSON, evidence directory, or AGT import manifest. |
@@ -122,7 +122,7 @@ Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, free bet
 ```bash
 epi cloud login
 epi cloud login --url https://cloud.epilabs.org --org <org_id> --api-key <key>
-epi cloud use
+epi cloud use Acme Bank
 epi cloud push path/to/run.epi
 epi cloud status
 epi cloud keys push signing.pub --label prod-2026
@@ -138,9 +138,10 @@ epi cloud storage flush
 Behavior:
 
 - `login` with no flags is RFC 8628 device flow: a short code, typed at `/auth/device`. Saves `~/.epi/cloud.json` (0600). Flags/env (`EPI_CLOUD_URL`, `EPI_CLOUD_ORG`, `EPI_CLOUD_API_KEY`) remain for automation.
-- `push` streams the file; the Worker never unzips it. Max 25 MB. Client sends `manifest.json` separately.
+- `push` first checks the file on this computer, the same integrity and signature check `epi verify` starts with, and refuses a file that was changed after sealing or carries a bad signature: nothing is sent. The Worker never unzips, so its `Seal` answer covers the manifest signature only; the local check is what covers the contents. Then it streams the file. Max 25 MB. Client sends `manifest.json` separately.
 - A key created with **Records for** a customer tags uploads with that customer automatically, including the `--api-key` login path, which has no local customer name. `push --agent` overrides it; a renamed or closed customer never blocks the upload (the run lands unassigned instead).
-- `keys push` accepts only `*.pub` files of 64 hex chars (Ed25519). Private keys are refused. Registration is **informational**. Pinning is still `epi keys trust` (optionally `--from-cloud <slug>` after confirming the fingerprint with the sender). Revoked cloud keys are refused as pins.
+- `keys push` accepts only `*.pub` files: the PEM file `epi keys generate` writes, or 64 hex chars (`epi keys export --format hex`). Ed25519 only; private keys are refused. `epi cloud login` already registers this computer's own signing key. Registration is **informational**. Pinning is still `epi keys trust` (optionally `--from-cloud <slug>` after confirming the fingerprint with the sender). Revoked cloud keys are refused as pins.
+- A computer's key (from `epi cloud login`) can push, list keys, and show/test storage. `keys revoke`/`unrevoke` and `storage set` change the workspace, so the server allows them only for a workspace owner signed in to EPI Cloud; with a computer's key they say so instead of failing with a sign-in error.
 - `storage set` registers bucket metadata only. Credentials stay in the recorder environment (`EPI_STORAGE_URL` / AWS env). Cloud cannot read the bucket.
 
 `epi auth login` is an alias of `epi cloud login`.

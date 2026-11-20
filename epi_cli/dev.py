@@ -673,8 +673,9 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
         from epi_enterprise.gateway.main import _build_gateway_signer, _build_settings_from_env
     except ImportError:
         console.print(
-            "[dark_orange]Skipping the gateway export: the team gateway is part of "
-            "EPI Enterprise and above. See https://epilabs.org/plans[/dark_orange]"
+            "[dark_orange]Skipping the gateway export: the team gateway is in the "
+            "licensed epi-enterprise package (Growth, Enterprise and the full engagement). "
+            "See https://epilabs.org/plans[/dark_orange]"
         )
         return None
 
@@ -1163,8 +1164,9 @@ def dev(
         import epi_enterprise.gateway.main  # noqa: F401
     except ImportError:
         console.print(
-            "[yellow]--review needs the team gateway, which is part of EPI Enterprise "
-            "and above. See https://epilabs.org/plans[/yellow]"
+            "[yellow]--review needs the team gateway, which is in the licensed "
+            "epi-enterprise package (Growth, Enterprise and the full engagement). "
+            "See https://epilabs.org/plans[/yellow]"
         )
         raise typer.Exit(2)
 
