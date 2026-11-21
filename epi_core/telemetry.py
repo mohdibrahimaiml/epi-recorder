@@ -21,8 +21,10 @@ from epi_core import __version__
 from epi_core import identity_signals
 from epi_core.time_utils import utc_now_iso
 
-DEFAULT_TELEMETRY_URL = "https://epi-verify-portal.onrender.com/api/telemetry/events"
-DEFAULT_PILOT_SIGNUP_URL = "https://epi-verify-portal.onrender.com/api/telemetry/pilot-signups"
+# Opt-in only (EPI_TELEMETRY_OPT_IN or `epi telemetry enable`). EPI Cloud keeps
+# coarse fields for 12 months; pilot signups land in the founder's inbox.
+DEFAULT_TELEMETRY_URL = "https://cloud.epilabs.org/api/telemetry/events"
+DEFAULT_PILOT_SIGNUP_URL = "https://cloud.epilabs.org/api/telemetry/pilot-signups"
 TELEMETRY_SCHEMA_VERSION = "telemetry/v1"
 PILOT_SIGNUP_SCHEMA_VERSION = "pilot-signup/v1"
 TELEMETRY_QUEUE_MAX_FAILURES = 3

@@ -1103,7 +1103,7 @@ def dev(
     review: bool = typer.Option(
         False,
         "--review",
-        help="Also start the local team review workspace (requires epi-recorder[gateway]).",
+        help="Also start the local team review workspace (requires epi-enterprise).",
     ),
     with_viewer: bool = typer.Option(
         False,

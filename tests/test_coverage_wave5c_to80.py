@@ -46,10 +46,7 @@ def test_scitt_register_cli_local_fast(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(h)); monkeypatch.setenv("USERPROFILE", str(h))
     monkeypatch.setenv("EPI_HOME", str(h/".epi"))
     monkeypatch.setenv("EPI_KEYS_DIR", str(h/".epi"/"keys"))
-    try:
-        KeyManager().generate_keypair("default", overwrite=True)
-    except Exception:
-        pass
+    KeyManager().generate_keypair("default", overwrite=True)
     epi = _sample()
     dest = tmp_path / "s.epi"
     out = tmp_path / "o.epi"
@@ -89,11 +86,8 @@ def test_anthropic_wrapper_import():
         from epi_recorder.wrappers.anthropic import wrap_anthropic
     except Exception:
         pytest.skip("anthropic wrapper unavailable")
-    class Fake:
-        messages = SimpleNamespace if False else object()
-    try:
+    # A client with no `messages` surface is refused loudly, not wrapped silently.
+    with pytest.raises(AttributeError, match="messages"):
         wrap_anthropic(object())
-    except Exception:
-        pass
 
 from types import SimpleNamespace

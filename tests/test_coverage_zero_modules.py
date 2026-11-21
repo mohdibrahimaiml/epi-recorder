@@ -684,20 +684,15 @@ def test_analytics_on_sample_epis(tmp_path, monkeypatch):
     assert summary["total_runs"] >= 1
 
     now = datetime.now(timezone.utc)
-    try:
-        an.compare_periods(
-            now - timedelta(days=3650),
-            now + timedelta(days=1),
-            now - timedelta(days=7300),
-            now - timedelta(days=3650),
-        )
-    except Exception:
-        pass
+    comparison = an.compare_periods(
+        now - timedelta(days=3650),
+        now + timedelta(days=1),
+        now - timedelta(days=7300),
+        now - timedelta(days=3650),
+    )
+    assert comparison is not None
 
-    try:
-        an.generate_report(str(tmp_path / "report.html"))
-    except Exception:
-        pass
+    an.generate_report(str(tmp_path / "report.html"))
 
 
 def test_analytics_engine_module(monkeypatch):
@@ -715,10 +710,7 @@ def test_analytics_engine_module(monkeypatch):
 
     assert eng.__all__ == ["AgentAnalytics"]
     # triggers __getattr__ re-export path
-    try:
-        _ = eng.AgentAnalytics
-    except Exception:
-        pass
+    _ = eng.AgentAnalytics
     with pytest.raises(AttributeError):
         _ = eng.not_a_thing
 

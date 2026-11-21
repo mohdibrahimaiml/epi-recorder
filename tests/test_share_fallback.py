@@ -1,9 +1,9 @@
-"""`epi share` moves to Cloud without breaking installed CLIs.
+"""`epi share` uploads to EPI Cloud only.
 
-The default is EPI Cloud. While Cloud's compatibility route is not deployed
-(or if it is down), the CLI falls back to the legacy Render portal once. A
-user-pinned service never falls back, and a rejection from Cloud (e.g. 400 or
-429) is reported rather than retried elsewhere.
+The legacy Render portal is being retired. Whatever Cloud answers (missing
+route, outage, Cloudflare 403, rejection), the file is never sent to a second
+service: the error is reported and the upload fails. A pinned service is used
+as given.
 """
 
 from __future__ import annotations
@@ -54,49 +54,7 @@ def test_default_is_cloud(monkeypatch):
     from epi_cli.share import _resolve_share_api_base_url
 
     assert _resolve_share_api_base_url(None) == PRIMARY_SHARE_API_URL
-    assert DEFAULT_SHARE_API_URL == "https://epi-verify-portal.onrender.com"
-
-
-def test_falls_back_to_legacy_when_cloud_route_is_missing(monkeypatch, capsys):
-    calls: list[str] = []
-
-    def fake_urlopen(request, timeout=30):
-        url = request.full_url
-        calls.append(url)
-        if _is_cloud(url):
-            raise _http_error(url, 404)
-        return _Resp({"url": "https://legacy.example/s/abc"})
-
-    monkeypatch.delenv("EPI_SHARE_API_URL", raising=False)
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    with pytest.raises(typer.Exit) as exit_info:
-        share(GOLDEN, 7, True, True, False, None)
-
-    assert exit_info.value.exit_code == 0
-    assert _is_cloud(calls[0])
-    assert _host(calls[1]) == "epi-verify-portal.onrender.com"
-    assert "https://legacy.example/s/abc" in capsys.readouterr().out
-
-
-def test_falls_back_when_cloud_is_unreachable(monkeypatch):
-    calls: list[str] = []
-
-    def fake_urlopen(request, timeout=30):
-        url = request.full_url
-        calls.append(url)
-        if _is_cloud(url):
-            raise urllib.error.URLError("connection refused")
-        return _Resp({"url": "https://legacy.example/s/abc"})
-
-    monkeypatch.delenv("EPI_SHARE_API_URL", raising=False)
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    with pytest.raises(typer.Exit) as exit_info:
-        share(GOLDEN, 7, True, True, False, None)
-
-    assert exit_info.value.exit_code == 0
-    assert len(calls) == 2
+    assert DEFAULT_SHARE_API_URL == PRIMARY_SHARE_API_URL == "https://cloud.epilabs.org"
 
 
 def test_pinned_service_never_falls_back(monkeypatch):
@@ -152,15 +110,15 @@ def test_upload_identifies_the_client(monkeypatch):
     assert seen["ua"].startswith("epi-recorder/")
 
 
-def test_cloudflare_edge_403_falls_back_for_older_clients(monkeypatch):
+@pytest.mark.parametrize("failure", [403, 404, 502, 503, "unreachable"])
+def test_cloud_failure_is_reported_and_never_sent_elsewhere(monkeypatch, failure):
     calls: list[str] = []
 
     def fake_urlopen(request, timeout=30):
-        url = request.full_url
-        calls.append(url)
-        if _is_cloud(url):
-            raise _http_error(url, 403)
-        return _Resp({"url": "https://legacy.example/s/abc"})
+        calls.append(request.full_url)
+        if failure == "unreachable":
+            raise urllib.error.URLError("down")
+        raise _http_error(request.full_url, failure)
 
     monkeypatch.delenv("EPI_SHARE_API_URL", raising=False)
     monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
@@ -168,6 +126,12 @@ def test_cloudflare_edge_403_falls_back_for_older_clients(monkeypatch):
     with pytest.raises(typer.Exit) as exit_info:
         share(GOLDEN, 7, True, True, False, None)
 
-    assert exit_info.value.exit_code == 0
-    assert calls[0].startswith("https://cloud.epilabs.org/api/share")
-    assert calls[1].startswith("https://epi-verify-portal.onrender.com/api/share")
+    assert exit_info.value.exit_code == 1
+    assert len(calls) == 1
+    assert _is_cloud(calls[0])
+
+
+def test_no_render_host_left_in_share_code():
+    import epi_cli.share as share_mod
+
+    assert "onrender" not in Path(share_mod.__file__).read_text(encoding="utf-8")

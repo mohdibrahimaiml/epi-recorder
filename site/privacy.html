@@ -69,7 +69,7 @@
 <h2>The open-source tool (epi-recorder)</h2>
 <ul>
 <li>Recording, sealing and checking happen on your machine. Your <code class="k">.epi</code> files are not sent to us.</li>
-<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>).</li>
+<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>). If you do, EPI Cloud keeps only coarse fields (command, success, EPI and Python version, operating system, a random install ID) for 12 months, then deletes them. <code class="k">epi join-pilot</code> sends the email and details you type, with your consent, to our contact inbox (kept 12 months).</li>
 <li>When sealing, the tool asks a public timestamp service (by default freetsa.org, then DigiCert) to timestamp the file. Only a hash of the record is sent, never its contents. Turn this off with <code class="k">EPI_NOTARIZE=0</code>.</li>
 <li>If you set up a witness or EPI Cloud, a hash-only fingerprint of each sealed record goes to the log you configured.</li>
 </ul>

@@ -560,7 +560,7 @@ When `--users-file` is set, the browser app shows a small local sign-in form and
 Starts the EPI AI capture gateway (part of EPI Enterprise; requires a licence).
 
 ```bash
-pip install epi-enterprise   # the gateway ships with EPI Cloud Startup and above
+pip install epi-enterprise   # the gateway ships with Growth, Enterprise and the full engagement
 epi gateway serve
 epi gateway serve --port 9000 --storage-dir ./gateway-vault
 epi gateway serve --retention-mode redacted_hashes --proxy-failure-mode fail-closed
