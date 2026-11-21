@@ -51,6 +51,9 @@ and a vendor-hosted dashboard is the thing the reviewer is least willing to trus
 EPI answers it with **one file per decision** that leaves your platform and can be checked by the
 party who does not trust you.
 
+If you would rather not instrument it yourself, send me one decision and I will seal and return it
+— free the first time. `mohdibrahim@epilabs.org`.
+
 ## 60-second path
 
 No API key, no account:

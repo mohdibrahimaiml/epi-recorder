@@ -852,6 +852,12 @@ def _demo_done_lines(
             raw = str(epi_path)
             target = _escape(f'"{raw}"' if " " in raw else raw)
         lines.append(f"Next: epi share {target} to send it (no account needed)")
+        # The one moment where the reader is a producer who has just succeeded, and
+        # the only place in the product where the done-for-you offer belongs.
+        lines.append("")
+        lines.append(
+            "[dim]One real decision, sealed for you: mohdibrahim@epilabs.org[/dim]"
+        )
     return lines
 
 
