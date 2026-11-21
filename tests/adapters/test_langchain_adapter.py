@@ -295,3 +295,42 @@ def test_log_failure_warns_once_does_not_raise():
         )
     runtime = [w for w in caught if issubclass(w.category, RuntimeWarning)]
     assert len(runtime) == 0
+
+
+def test_a_dropped_step_is_written_into_the_sealed_record(tmp_path: Path):
+    """A step the callback could not log must show up in the manifest's
+    known_gaps, so the sealed record never looks complete when it is not."""
+    out = tmp_path / "gap.epi"
+    with record(out, goal="gap", auto_sign=True) as session:
+        handler = EpiCallbackHandler(session)
+        real_log = session.log
+
+        def flaky(kind, content=None, **kwargs):
+            if kind == "llm.call":
+                raise RuntimeError("disk hiccup")
+            return real_log(kind, content, **kwargs)
+
+        session.log = flaky  # type: ignore[method-assign]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            handler.on_llm_start({"name": "m"}, ["hi"], run_id=uuid4())
+            handler.on_llm_start({"name": "m"}, ["again"], run_id=uuid4())
+        session.log = real_log  # type: ignore[method-assign]
+
+    from epi_core.manifest import read_manifest_from_archive
+
+    capture = read_manifest_from_archive(out)
+    assert capture is not None
+    gaps = [g for g in capture.known_gaps if "LangChain callback" in g]
+    assert len(gaps) == 1, capture.known_gaps
+    assert "'llm.call'" in gaps[0] and "RuntimeError" in gaps[0]
+
+
+def test_session_without_a_temp_dir_still_only_warns():
+    class BrokenSession:
+        def log(self, kind, content=None, **kwargs):
+            raise RuntimeError("boom")
+
+    handler = EpiCallbackHandler(BrokenSession())
+    with pytest.warns(RuntimeWarning):
+        handler.on_tool_start({"name": "t"}, "x", run_id=uuid4())

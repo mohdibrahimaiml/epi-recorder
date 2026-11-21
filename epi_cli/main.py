@@ -2776,8 +2776,37 @@ def _paid_command_hint(argv: list[str], known: set[str] | None = None) -> None:
         return
     if first in (known if known is not None else _registered_names()):
         return
-    console.print(f"[yellow]{first}[/yellow] {PAID_COMMAND_HINT.format(plan=plan)}")
+    console.print(f"[yellow]{first}[/yellow] {_paid_command_reason(plan)}", soft_wrap=True)
     raise SystemExit(2)
+
+
+def _paid_command_reason(plan: str) -> str:
+    """Why a paid command is absent: never tell an existing customer to buy it.
+
+    * epi-enterprise installed but broken -> say so, with the reason.
+    * installed and loaded, command still absent -> its licence is the issue;
+      `epi enterprise` prints the licence status.
+    * not installed -> where to get it.
+    """
+    try:
+        from epi_core.plugins import load_failures, loaded_names
+
+        failures = load_failures()
+        loaded = loaded_names()
+    except Exception:
+        failures, loaded = {}, []
+    if "enterprise" in failures:
+        return (
+            "needs epi-enterprise, which is installed but failed to load "
+            f"({failures['enterprise']}). Reinstall it, or run with "
+            "EPI_PLUGIN_DEBUG=1 for details. Write to mohdibrahim@epilabs.org if it persists."
+        )
+    if "enterprise" in loaded:
+        return (
+            "is part of epi-enterprise, which is installed but not active on this "
+            "computer. Run `epi enterprise` to see the licence status."
+        )
+    return PAID_COMMAND_HINT.format(plan=plan)
 
 
 def _register_optional_plugins() -> None:

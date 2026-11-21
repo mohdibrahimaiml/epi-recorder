@@ -4,7 +4,7 @@
 
 Pick the integration that already matches your stack. The goal is to get one good `.epi` artifact quickly, not redesign your whole system.
 
-Framework adapters ship with **EPI Enterprise** (EPI Cloud Startup and above): `pip install "epi-enterprise[litellm]"`, `pip install "epi-enterprise[langchain]"`, or `pip install "epi-enterprise[opentelemetry]"`. The free `epi-recorder` install records, seals and verifies and includes the LangChain callback (`epi_recorder.adapters.langchain`); LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry and Guardrails need the paid package.
+The free `epi-recorder` install records, seals and verifies, and includes the OpenAI and Anthropic wrappers and the LangChain callback (`pip install "epi-recorder[langchain]"`). LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry and Guardrails adapters ship with **EPI Enterprise** (Growth, Enterprise and the full engagement): `pip install "epi-enterprise[litellm]"` or `pip install "epi-enterprise[opentelemetry]"`.
 
 ## Fast comparison
 
@@ -78,12 +78,17 @@ the SDKs.
 
 ## LangChain
 
-The `langchain` extra installs only `langchain-core`. The example below also
-needs the provider package, so install it explicitly:
+Free and open source. The `langchain` extra installs only `langchain-core`. The
+example below also needs the provider package, so install it explicitly:
 
 ```bash
-pip install "epi-enterprise[langchain]" langchain-openai
+pip install "epi-recorder[langchain]" langchain-openai
 ```
+
+If the callback cannot record a step (for example, it is used outside
+`with record(...)`), it never breaks your chain: it warns once, and the sealed
+record lists the missing step under `known_gaps`, so the file never looks more
+complete than it is.
 
 ```python
 from langchain_openai import ChatOpenAI

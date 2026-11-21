@@ -142,3 +142,43 @@ def test_broken_register_hook_is_skipped(monkeypatch):
     app = typer.Typer()
     assert plugin_mod.register_typer(app) == []
     assert app.registered_commands == []
+
+
+def test_a_plugin_that_fails_to_import_is_remembered(monkeypatch):
+    """The failure reason is kept so the CLI can explain it (no silent absence)."""
+    import epi_core.plugins as plugins
+
+    class _BadEntry:
+        name = "enterprise"
+        value = "epi_enterprise.cli:plugin"
+
+        def load(self):
+            raise ImportError("No module named 'fastapi'")
+
+    monkeypatch.setattr(plugins, "_entry_points", lambda group=plugins.ENTRY_GROUP: [_BadEntry()])
+    monkeypatch.delenv(plugins.DISABLE_ENV, raising=False)
+    assert plugins.load() == []
+    assert "fastapi" in plugins.load_failures()["enterprise"]
+
+
+def test_a_plugin_whose_register_hook_raises_is_remembered(monkeypatch):
+    import typer
+
+    import epi_core.plugins as plugins
+
+    class _Hook:
+        def register(self, app):
+            raise RuntimeError("broken register")
+
+    class _Entry:
+        name = "enterprise"
+        value = "x:y"
+
+        def load(self):
+            return _Hook()
+
+    monkeypatch.setattr(plugins, "_entry_points", lambda group=plugins.ENTRY_GROUP: [_Entry()])
+    monkeypatch.delenv(plugins.DISABLE_ENV, raising=False)
+    assert plugins.register_typer(typer.Typer()) == []
+    assert plugins.load_failures()["enterprise"].startswith("RuntimeError")
+    assert "enterprise" not in plugins.loaded_names()

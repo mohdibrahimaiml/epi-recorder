@@ -134,9 +134,6 @@ def test_view_browser_flow_mocked(tmp_path, monkeypatch):
         v.view(Ctx(), str(dest), extract=None, browser=True, native=False)
     except (SystemExit, click.exceptions.Exit, typer.Exit):
         pass
-    except Exception:
-        # unpack/viewer may fail on edge installs
-        pass
 
     # invalid file
     bad = tmp_path / "bad.epi"
@@ -165,8 +162,6 @@ def test_export_html_function(tmp_path, monkeypatch):
     try:
         v.export_html(Ctx(), str(dest), output=str(out))
     except (SystemExit, click.exceptions.Exit, typer.Exit):
-        pass
-    except Exception:
         pass
 
     with pytest.raises((SystemExit, click.exceptions.Exit, typer.Exit)):
@@ -206,10 +201,7 @@ def test_scitt_build_artifact_mocked(tmp_path, monkeypatch):
     from epi_core.keys import KeyManager
 
     _home(tmp_path, monkeypatch)
-    try:
-        KeyManager().generate_keypair("default", overwrite=True)
-    except Exception:
-        pass
+    KeyManager().generate_keypair("default", overwrite=True)
 
     epi = _sample()
     inp = tmp_path / "in.epi"
@@ -413,10 +405,7 @@ def test_auto_scitt_embed_receipt(tmp_path, monkeypatch):
     from epi_core.container import EPIContainer
 
     _home(tmp_path, monkeypatch)
-    try:
-        KeyManager().generate_keypair("default", overwrite=True)
-    except Exception:
-        pass
+    KeyManager().generate_keypair("default", overwrite=True)
 
     # use mini zip (legacy) for simpler embed
     epi = _mini_zip_epi(tmp_path)

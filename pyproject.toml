@@ -80,7 +80,11 @@ openai = [
 anthropic = [
     "anthropic>=0.25.0",
 ]
-# Framework adapters and their dependencies ship in epi-enterprise.
+# The LangChain callback (epi_recorder.adapters.langchain) is free and open
+# source. The other framework adapters ship in epi-enterprise.
+langchain = [
+    "langchain-core>=0.2.0",
+]
 analytics = [
     "pandas>=1.5.0",
     "matplotlib>=3.5.0",

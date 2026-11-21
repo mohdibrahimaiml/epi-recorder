@@ -31,11 +31,11 @@ console = Console()
 # ``Python-urllib/3.x`` User-Agent. Identify the real client on every upload.
 _USER_AGENT = user_agent()
 
-DEFAULT_SHARE_API_URL = "https://epi-verify-portal.onrender.com"
-# EPI Cloud implements the same POST /api/share contract. It becomes the default;
-# the legacy Render portal is kept only as an automatic fallback so installed
-# CLIs keep working during the migration.
+# EPI Cloud serves the POST /api/share contract. There is no fallback: the
+# legacy Render portal is being retired, and a file must never be sent to a
+# second service just because the first one answered with an error.
 PRIMARY_SHARE_API_URL = "https://cloud.epilabs.org"
+DEFAULT_SHARE_API_URL = PRIMARY_SHARE_API_URL
 MAX_LOCAL_SHARE_BYTES = 5 * 1024 * 1024
 
 
@@ -45,11 +45,6 @@ def _days(n: int) -> str:
 
 def _resolve_share_api_base_url(explicit: str | None) -> str:
     return str(explicit or os.getenv("EPI_SHARE_API_URL") or PRIMARY_SHARE_API_URL).rstrip("/")
-
-
-def _resolve_explicit_override(explicit: str | None) -> bool:
-    """True when the user pinned a service; never fall back in that case."""
-    return bool(explicit or os.getenv("EPI_SHARE_API_URL"))
 
 
 def _local_preflight(epi_file: Path):
@@ -150,7 +145,7 @@ def share(
         "--api-base-url",
         help=(
             "Override the share API base URL (default: EPI_SHARE_API_URL or "
-            "https://cloud.epilabs.org, falling back to the legacy portal)."
+            "https://cloud.epilabs.org)."
         ),
     ),
 ):
@@ -199,35 +194,15 @@ def share(
             raise typer.Exit(1) from exc
         console.print(f"[red][FAIL][/red] Could not reach the share service at {base}")
         console.print("[dim]To fix this, either:[/dim]")
-        console.print("[dim]  • Deploy the EPI gateway and set EPI_SHARE_API_URL=http://your-host:8765[/dim]")
-        console.print("[dim]  • Use --api-base-url http://your-gateway-host:8765[/dim]")
-        console.print("[dim]  • Or use the legacy hosted portal at epi-verify-portal.onrender.com[/dim]")
+        console.print("[dim]  • Try again in a minute (check https://cloud.epilabs.org)[/dim]")
+        console.print("[dim]  • Share without uploading: epi share --local <file>[/dim]")
+        console.print("[dim]  • Use your own gateway: --api-base-url http://your-gateway-host:8765[/dim]")
         raise typer.Exit(1) from exc
-
-    def _route_missing(exc: Exception) -> bool:
-        """Only a missing/unreachable primary justifies the legacy fallback.
-
-        403 is included for the migration window: Cloudflare's edge returns
-        error 1010 to older CLIs that still send urllib's default User-Agent,
-        and those uploads should fall back rather than fail.
-        """
-        if isinstance(exc, urllib.error.HTTPError):
-            return exc.code in {403, 404, 501, 502, 503}
-        return isinstance(exc, urllib.error.URLError)
 
     try:
         response_payload = _upload(api_root)
     except (urllib.error.HTTPError, urllib.error.URLError) as exc:
-        pinned = _resolve_explicit_override(api_base_url)
-        if pinned or api_root == DEFAULT_SHARE_API_URL or not _route_missing(exc):
-            _fail(exc, api_root)
-        # Cloud does not serve the legacy contract yet (or is down): keep the
-        # installed CLI working instead of failing the upload.
-        console.print("[dim]EPI Cloud share upload unavailable; using the legacy portal.[/dim]")
-        try:
-            response_payload = _upload(DEFAULT_SHARE_API_URL)
-        except (urllib.error.HTTPError, urllib.error.URLError) as fallback_exc:
-            _fail(fallback_exc, DEFAULT_SHARE_API_URL)
+        _fail(exc, api_root)
 
     if json_output:
         sys.stdout.write(json.dumps(response_payload, indent=2) + "\n")

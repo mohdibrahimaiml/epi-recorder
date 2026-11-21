@@ -6,6 +6,28 @@ All notable changes to EPI Recorder are documented here.
 
 ## [4.11.0] - 2026-11-18
 
+### Fixed after an outside audit
+
+- **`epi share` no longer falls back to the legacy Render portal.** When EPI
+  Cloud answered 403/404/5xx or was unreachable, the CLI re-sent the file to
+  a second, retiring service. It now reports the error and stops; a file is
+  never sent somewhere the user did not choose. `epi share --local` still
+  works offline.
+- **Opt-in telemetry and `epi join-pilot` go to EPI Cloud**
+  (`cloud.epilabs.org/api/telemetry/*`), not the Render portal. Telemetry is
+  still off unless you turn it on; Cloud keeps coarse fields only, 12 months.
+- **The LangChain callback never loses a step silently.** If it cannot record
+  a step, it still warns once and never breaks the chain, and the sealed
+  record now lists the missing step under `known_gaps`.
+- `pip install "epi-recorder[langchain]"` works: the extra the callback's own
+  docs named did not exist. A test now checks every extra named in code,
+  docs and examples.
+- A paid command whose epi-enterprise package is installed but failed to load
+  says so, with the reason, instead of pointing a customer at the plans page;
+  installed-but-unlicensed points at `epi enterprise` for the licence status.
+- The legacy portal's Paddle routes answer 410 and change nothing; billing
+  runs on EPI Cloud only.
+
 ### Fixed in pre-release QA (a new user, installed from GitHub)
 
 - **`epi cloud push` uploaded altered files and called them valid.** The

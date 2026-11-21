@@ -125,3 +125,22 @@ def test_extras_documented_actually_exist():
     assert named, "the install section should name at least one extra"
     unknown = sorted(named - extras)
     assert not unknown, f"README documents extras that do not exist: {unknown}"
+
+
+def test_every_extra_named_anywhere_is_real():
+    """`pip install epi-recorder[x]` in code, docs or examples must work."""
+    import re
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    extras = set(tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["optional-dependencies"])
+    named: dict[str, set[str]] = {}
+    for folder in ("epi_recorder", "epi_core", "epi_cli", "examples", "docs"):
+        for path in (root / folder).rglob("*"):
+            if path.suffix not in {".py", ".md"} or "CHANGELOG" in path.name:
+                continue
+            for group in re.findall(r"epi-recorder\[([a-z0-9_,-]+)\]", path.read_text(encoding="utf-8", errors="ignore")):
+                for extra in group.split(","):
+                    named.setdefault(extra.strip(), set()).add(str(path.relative_to(root)))
+    unknown = {k: sorted(v) for k, v in named.items() if k not in extras}
+    assert not unknown, f"extras named but not defined in pyproject.toml: {unknown}"

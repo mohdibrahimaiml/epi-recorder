@@ -662,6 +662,24 @@ def _ensure_default_key_trusted() -> None:
 
 
 
+def _enterprise_licence_problem() -> Optional[str]:
+    """The installed epi-enterprise's own licence message, or None when active.
+
+    The public package never checks a licence itself; it only asks the paid
+    package, when that package is installed, so the user hears why it will
+    not start.
+    """
+    try:
+        from epi_enterprise.licensing import status
+    except ImportError:
+        return None
+    try:
+        licensed, message = status()
+    except Exception:
+        return None
+    return None if licensed else message
+
+
 def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
     """
     Export the case to a .epi case file and run epi verify on it.
@@ -1103,7 +1121,7 @@ def dev(
     review: bool = typer.Option(
         False,
         "--review",
-        help="Also start the local team review workspace (requires epi-recorder[gateway]).",
+        help="Also start the local team review workspace (requires epi-enterprise).",
     ),
     with_viewer: bool = typer.Option(
         False,
@@ -1174,6 +1192,13 @@ def dev(
             "epi-enterprise package (Growth, Enterprise and the full engagement). "
             "See https://epilabs.org/plans[/yellow]"
         )
+        raise typer.Exit(2)
+
+    # The gateway checks its licence when it starts. Ask first, so an
+    # unlicensed install gets the reason now, not a timeout 20 seconds later.
+    licence_problem = _enterprise_licence_problem()
+    if licence_problem:
+        console.print(f"[yellow]--review needs an active epi-enterprise licence: {licence_problem}[/yellow]")
         raise typer.Exit(2)
 
     actual_port = _find_free_port(port)

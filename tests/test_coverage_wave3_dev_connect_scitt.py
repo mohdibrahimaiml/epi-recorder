@@ -350,10 +350,7 @@ def test_connect_bridge_handler_methods(tmp_path):
 
     # Construct viewer server object only (do not serve_forever)
     srv = create_web_viewer_server("127.0.0.1", 0, directory=tmp_path)
-    try:
-        srv.server_close()
-    except Exception:
-        pass
+    srv.server_close()
     _shutdown_servers([])
 
 
@@ -388,10 +385,7 @@ def test_scitt_derive_issuer_and_load_key(tmp_path, monkeypatch):
 
     _home(tmp_path, monkeypatch)
     km = KeyManager()
-    try:
-        km.generate_keypair("scitt_cov", overwrite=True)
-    except Exception:
-        pass
+    km.generate_keypair("scitt_cov", overwrite=True)
 
     key = s._load_signing_key("scitt_cov")
     assert key is not None
@@ -414,10 +408,7 @@ def test_scitt_register_offline_mocked(tmp_path, monkeypatch):
 
     _home(tmp_path, monkeypatch)
     monkeypatch.chdir(tmp_path)
-    try:
-        KeyManager().generate_keypair("default", overwrite=True)
-    except Exception:
-        pass
+    KeyManager().generate_keypair("default", overwrite=True)
 
     epi = _sample_epi()
     inp = tmp_path / "in.epi"

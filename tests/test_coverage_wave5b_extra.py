@@ -83,11 +83,9 @@ def test_review_helpers(tmp_path):
     r._show_fault(fault, epi)
     g = r._review_guidance(fault)
     assert isinstance(g, tuple) and len(g) == 2
-    try:
-        report = r._build_review_trust_report(epi)
-        r._print_review_trust_summary(report)
-    except Exception:
-        pass
+    report = r._build_review_trust_report(epi)
+    assert report is not None
+    r._print_review_trust_summary(report)
     # CLI show
     res = runner.invoke(r.app, ["show", str(epi)])
     # may need different invocation
@@ -109,7 +107,8 @@ def test_litellm_import_and_stub():
         if callable(obj) and name in ("EPICallback", "setup_epi_litellm", "EPILiteLLMCallback"):
             try:
                 obj()
-            except Exception:
+            except TypeError:
+                # Needs arguments; constructing with none is not the contract.
                 pass
 
 def test_langchain_callback_construct():

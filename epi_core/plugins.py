@@ -14,9 +14,10 @@ nothing more:
   it cannot replace, gate or alter an existing command.
 * There is no licence check anywhere in this module or in ``epi verify``. With
   zero plugins installed the CLI is complete; plugins are additive.
-* A broken or missing plugin is skipped silently (with ``EPI_PLUGIN_DEBUG=1``
-  it prints a warning to stderr instead). A third-party package can never stop
-  the CLI from starting.
+* A broken or missing plugin never stops the CLI from starting. It is skipped,
+  and the reason is kept (``load_failures()``) so the CLI can tell the user
+  "installed but failed to load" instead of pretending it is not installed.
+  ``EPI_PLUGIN_DEBUG=1`` also prints the reason to stderr.
 
 The private ``epi-enterprise`` package declares::
 
@@ -49,6 +50,28 @@ class Plugin:
     name: str
     module: str
     app: Any
+
+
+# What the last load()/register_typer() saw, so the CLI can explain a missing
+# command accurately: not installed, installed but failed, or installed and
+# loaded (in which case the plugin itself decides what it registers).
+_LOADED: list[str] = []
+_FAILED: dict[str, str] = {}
+
+
+def load_failures() -> dict[str, str]:
+    """Plugins that are installed but could not be loaded or registered."""
+    return dict(_FAILED)
+
+
+def loaded_names() -> list[str]:
+    """Plugins that loaded and registered successfully."""
+    return list(_LOADED)
+
+
+def _failed(name: str, exc: BaseException) -> None:
+    _FAILED[name] = f"{type(exc).__name__}: {exc}"
+    _debug(f"plugin {name!r} failed: {_FAILED[name]}")
 
 
 def plugins_disabled() -> bool:
@@ -88,6 +111,7 @@ def load(group: str = ENTRY_GROUP) -> list[Plugin]:
 
     loaded: list[Plugin] = []
     seen: set[str] = set()
+    _FAILED.clear()
 
     for entry in _entry_points(group):
         name = str(getattr(entry, "name", "") or "").strip()
@@ -97,7 +121,7 @@ def load(group: str = ENTRY_GROUP) -> list[Plugin]:
         try:
             app = _as_app(entry.load())
         except Exception as exc:
-            _debug(f"skipping plugin {name!r}: {exc}")
+            _failed(name, exc)
             continue
         seen.add(name)
         loaded.append(Plugin(name=name, module=str(getattr(entry, "value", "")), app=app))
@@ -112,6 +136,7 @@ def register_typer(app: Any, group: str = ENTRY_GROUP) -> list[Plugin]:
     name) or a ``register(app)`` hook (adds its own top-level commands).
     """
     attached: list[Plugin] = []
+    _LOADED.clear()
     for plugin in load(group):
         try:
             hook = getattr(plugin.app, "register", None)
@@ -120,7 +145,8 @@ def register_typer(app: Any, group: str = ENTRY_GROUP) -> list[Plugin]:
             else:
                 app.add_typer(plugin.app, name=plugin.name)
         except Exception as exc:
-            _debug(f"could not register plugin {plugin.name!r}: {exc}")
+            _failed(plugin.name, exc)
             continue
         attached.append(plugin)
+        _LOADED.append(plugin.name)
     return attached

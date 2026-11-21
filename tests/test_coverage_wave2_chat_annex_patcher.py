@@ -122,22 +122,8 @@ def test_patch_openai_and_record(tmp_path, monkeypatch):
                 # Completions.create is wrapped
                 from openai.resources.chat.completions import Completions
 
-                # if patch applied to real module, invoke
-                try:
-                    Completions.create(FakeSelf(), model="gpt", messages=[])
-                except Exception:
-                    pass
-                try:
-                    Completions.create(FakeSelf(), model="gpt", messages=[])
-                    # force error path
-                    def boom(self, *a, **k):
-                        raise ValueError("api fail")
-
-                    p.unpatch_all()
-                    p._original_methods["openai.chat.completions.create"] = boom
-                    # re-wrap manually not needed
-                except Exception:
-                    pass
+                # The wrapped create passes the original's response through.
+                assert isinstance(Completions.create(FakeSelf(), model="gpt", messages=[]), FakeResp)
         p.unpatch_all()
     finally:
         p.set_recording_context(None)

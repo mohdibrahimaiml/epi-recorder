@@ -153,6 +153,10 @@ class EpiCallbackHandler(BaseCallbackHandler):
             if self.raise_error:
                 raise
             _logger.debug("EpiCallbackHandler failed to log %s: %s", kind, exc, exc_info=True)
+            # Never lose a step silently: the sealed record itself must say a
+            # step is missing, so a reviewer sees it in known_gaps instead of a
+            # complete-looking record. Deduplicated per step kind and error.
+            self._record_gap(kind, exc)
             import os as _os
             if _os.getenv("EPI_DEADLETTER", "0") == "1":
                 try:
@@ -172,6 +176,23 @@ class EpiCallbackHandler(BaseCallbackHandler):
                     RuntimeWarning,
                     stacklevel=2,
                 )
+
+    def _record_gap(self, kind: str, exc: Exception) -> None:
+        temp_dir = getattr(self._session, "temp_dir", None)
+        if not temp_dir:
+            return
+        try:
+            from pathlib import Path as _Path
+
+            from epi_core.checkpoints import record_gap
+
+            record_gap(
+                _Path(temp_dir),
+                f"LangChain callback could not record a {kind!r} step "
+                f"({type(exc).__name__}); at least one step of this kind is missing",
+            )
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ LLM
 
