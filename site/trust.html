@@ -108,6 +108,21 @@
             </p>
           </div>
         </div>
+        <div id="witness-key" style="margin-top:2.5rem;padding:1.25rem 1.4rem;border:1px solid var(--line)">
+          <h2 class="z-h3-card">Check the witness key</h2>
+          <p class="z-body" style="margin-top:0.6rem">
+            EPI Cloud signs witness receipts and daily checkpoints with one Ed25519 key. Before you rely on a receipt, check that these copies match. They are published through separate channels, so one compromised server cannot change them all.
+          </p>
+          <p class="z-body" style="margin-top:0.75rem;font-family:var(--font-mono);font-size:0.78rem;word-break:break-all">6a7dc25154809f8401892ff399a0b9c32ea9c14e5b519ccda3a48508b3e2aa97</p>
+          <ul style="margin-top:0.75rem;display:flex;flex-direction:column;gap:0.4rem;font-size:0.9rem;color:var(--text-secondary)">
+            <li>This site: <a href="/.well-known/epi-witness-key.json" style="color:var(--acc)">epilabs.org/.well-known/epi-witness-key.json</a></li>
+            <li>EPI Cloud: <a href="https://cloud.epilabs.org/.well-known/epi-witness-key.json" style="color:var(--acc)">cloud.epilabs.org/.well-known/epi-witness-key.json</a></li>
+            <li>The package: <code style="font-family:var(--font-mono)">EPI_WITNESS_PUBKEYS</code> in <code style="font-family:var(--font-mono)">epi_core/witness_keys.py</code>, pinned in every epi-recorder release</li>
+          </ul>
+          <p class="z-body" style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-muted)">
+            Each daily checkpoint is also anchored in the public Sigstore Rekor transparency log, so past checkpoints cannot be rewritten without the change showing. If any copy differs, do not trust witness receipts until we explain why.
+          </p>
+        </div>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
