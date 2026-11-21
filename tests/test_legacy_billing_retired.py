@@ -33,14 +33,18 @@ def test_legacy_paddle_webhook_is_gone_and_changes_nothing(tmp_path, monkeypatch
     }
     res = _client().post("/api/paddle/webhook", content=json.dumps(event), headers={"Paddle-Signature": "ts=1;h1=x"})
     assert res.status_code == 410
-    assert "api.epilabs.org" in res.json()["detail"]
+    assert res.json() == billing.BILLING_MOVED
     assert called == []
 
 
 def test_legacy_checkout_config_is_gone():
     res = _client().get("/api/paddle/config")
     assert res.status_code == 410
-    assert "cloud.epilabs.org" in res.json()["detail"]
+    assert res.json() == billing.BILLING_MOVED
+
+
+def test_the_message_names_where_billing_went():
+    assert billing.BILLING_MOVED["detail"].endswith("This endpoint changes nothing.")
 
 
 def test_module_holds_no_paddle_secrets_or_prices():
