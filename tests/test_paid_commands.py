@@ -111,3 +111,19 @@ def test_installed_and_loaded_but_inactive_points_at_licence_status(monkeypatch,
     assert "not active on this computer" in out
     assert "epi enterprise" in out
     assert "epilabs.org/plans" not in out
+
+
+def test_dev_review_reports_an_inactive_enterprise_licence(monkeypatch):
+    """`epi dev --review` asks the installed paid package and relays its reason."""
+    import sys
+    import types
+
+    import epi_cli.dev as dev
+
+    fake = types.ModuleType("epi_enterprise.licensing")
+    fake.status = lambda: (False, "No EPI Enterprise licence found at /x/license.json.")
+    monkeypatch.setitem(sys.modules, "epi_enterprise.licensing", fake)
+    assert "No EPI Enterprise licence" in dev._enterprise_licence_problem()
+
+    fake.status = lambda: (True, "licensed")
+    assert dev._enterprise_licence_problem() is None
