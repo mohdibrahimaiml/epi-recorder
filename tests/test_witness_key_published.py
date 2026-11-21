@@ -23,3 +23,9 @@ def test_trust_page_shows_the_same_key_and_where_to_check() -> None:
         assert key in page
     assert "cloud.epilabs.org/.well-known/epi-witness-key.json" in page
     assert "/.well-known/epi-witness-key.json" in page
+
+
+def test_trust_page_names_the_first_release_that_pins_the_key() -> None:
+    # Releases before 4.6.2 do not contain the witness key; do not claim "every release".
+    page = (SITE / "trust.html").read_text(encoding="utf-8")
+    assert "pinned in every epi-recorder release since 4.6.2" in page
