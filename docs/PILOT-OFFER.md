@@ -1,4 +1,4 @@
-# Pass your customer's AI vendor review
+# Answer the AI questions in your customer's review
 
 **For AI vendors selling into insurers, lenders and other regulated buyers.** One workflow, fixed scope, a per-decision record your customer can check without asking you to log in.
 
@@ -45,6 +45,7 @@ For an EU bank customer, the DORA Art. 28/30 evidence mapping and a draft contra
 | A readable summary per case | One page a customer, auditor or affected person can read, with verification instructions |
 | Customer-side witness | The relying party keeps its own log of what it was sent; a rewritten file no longer matches |
 | Verification session | We walk the named reviewer through checking a file offline or in a browser, and record the outcome in writing |
+| Answer sheet | Each AI question in your customer's review or questionnaire (logging, explaining a specific decision, model and prompt version, human oversight, audit access), with the exact evidence that answers it |
 | Review pack | Record specification, rule mapping, audit summary, and Annex IV-style documentation where it applies |
 | Handover | Your team runs it without us; 30 days of email support after handover |
 | Hosting | 3 months of EPI Cloud Startup from kickoff, so the reviewer pack and witness live in a hosted Evidence Room. After that, keep it on Startup or Growth, or move to self-hosting |
@@ -85,9 +86,10 @@ If there is no named party, the readiness assessment is the right first step —
 
 ## Not included
 
-- Compliance certification, SOC 2, legal advice, or a guarantee that a regulator or insurer will accept the evidence.
+- The rest of the vendor review: security certification (SOC 2), model validation or bias testing, company and contract checks. We answer the AI-evidence questions, not all of it.
+- Compliance certification, legal advice, or a guarantee that a regulator or insurer will accept the evidence.
 - More than one workflow, custom product development, or an SLA.
-- Hosting beyond the engagement; EPI Cloud is a separate free workspace with paid tiers arranged directly.
+- Hosting beyond the 3 months of EPI Cloud Startup included with the full engagement (the assessment alone includes none); after that, Cloud plans are arranged directly.
 
 ## Guarantee
 

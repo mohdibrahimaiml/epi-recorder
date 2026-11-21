@@ -16,3 +16,21 @@
 1b4f8c83e3c45dd02442f892dff4d91f033c6672:verify_portal/scitt_routes.py:generic-api-key:43
 306569974987ccb601b367986ae6f61912d2ec8e:epi_cli/release.py:generic-api-key:152
 8c6b34d6b2450d94e5f3176e3afdf83a8d8c6170:verify_portal/scitt_routes.py:generic-api-key:43
+
+# The published EPI witness key (epi-witness-key.json, all six site mirrors),
+# in the two commits that first added it. Line 3 was "sha256_of_key": the
+# SHA-256 of a PUBLIC Ed25519 key, published on purpose so reviewers can
+# cross-check it. The field is now "fingerprint_sha256", which the rule does
+# not match, so only these historical lines need listing.
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:.well-known/epi-witness-key.json:generic-api-key:3
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:assets/well-known/epi-witness-key.json:generic-api-key:3
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:epi-official/.well-known/epi-witness-key.json:generic-api-key:3
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:site/.well-known/epi-witness-key.json:generic-api-key:3
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:verify_portal/static/.well-known/epi-witness-key.json:generic-api-key:3
+afb716cc2265e0ca4b9ce5282f1f171b5b5273a0:website/.well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:.well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:assets/well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:epi-official/.well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:site/.well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:verify_portal/static/.well-known/epi-witness-key.json:generic-api-key:3
+881578fa76fe6b9a9738dfa1b205a51223fbc0c1:website/.well-known/epi-witness-key.json:generic-api-key:3

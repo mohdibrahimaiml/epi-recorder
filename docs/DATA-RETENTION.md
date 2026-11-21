@@ -13,7 +13,7 @@ wherever you put them, and `epi verify` runs offline.
 | Plan | Customers | Stored runs | Retention | Share links |
 |------|-----------|-------------|-----------|-------------|
 | Free | 1 | 10 a year | 30 days | 1 (7 days) |
-| Startup | 3 | 1,000 a year | 1 year | unlimited |
+| Startup | 3 | 1,000 a year | kept while subscribed | unlimited |
 | Growth | 15 | 10,000 a year | kept while subscribed | unlimited |
 | Enterprise | custom | custom | custom | custom |
 
