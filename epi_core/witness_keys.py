@@ -9,8 +9,10 @@ printing its own stamp sample).
 Populated once the founder creates ``WITNESS_SIGNING_KEY`` (docs/CLOUD.md
 §4): paste the hex from ``/.well-known/epi-witness-key.json`` and confirm the
 fingerprint through an independent channel (your contract, or a prior signed
-checkpoint). A public ``epi-witness-checkpoints`` mirror is planned but not
-published as of 2026-10-23; when it exists, cross-check there too.
+checkpoint). The key is also published, separately from EPI Cloud, at
+https://epilabs.org/.well-known/epi-witness-key.json and on the trust page
+(epilabs.org/trust#witness-key); a test keeps that copy equal to this pin.
+Daily checkpoints are anchored in Sigstore Rekor.
 """
 
 from __future__ import annotations
@@ -19,9 +21,8 @@ from __future__ import annotations
 # witness receipts. Empty until the production witness key exists.
 EPI_WITNESS_PUBKEYS: tuple[str, ...] = (
     # Production witness key, created 2026-10-16. Confirmed against the live
-    # /.well-known/epi-witness-key.json Worker at pin time. The public
-    # epi-witness-checkpoints mirror is planned, not yet published, so this pin
-    # has not been cross-checked there.
+    # /.well-known/epi-witness-key.json Worker at pin time and published again
+    # on the epilabs.org site (a separate host and deploy) for cross-checking.
     "6a7dc25154809f8401892ff399a0b9c32ea9c14e5b519ccda3a48508b3e2aa97",
 )
 
