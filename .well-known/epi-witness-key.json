@@ -1,6 +1,6 @@
 {
   "witness_ed25519_pub_hex": "6a7dc25154809f8401892ff399a0b9c32ea9c14e5b519ccda3a48508b3e2aa97",
-  "sha256_of_key": "fc2f5321784bf9633a850a6d720ef9a24ecbd955894223aea109cdcf9941720e",
+  "fingerprint_sha256": "fc2f5321784bf9633a850a6d720ef9a24ecbd955894223aea109cdcf9941720e",
   "created": "2026-10-16",
   "purpose": "Signs EPI Cloud witness receipts and daily checkpoints.",
   "check_it_matches": [
