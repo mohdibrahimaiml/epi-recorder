@@ -242,7 +242,7 @@ epi demo            # record, seal, upload for that customer
 ```
 
 Free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year and 30-day storage.
-Startup and Growth are self-serve; Enterprise is arranged directly - there is no public checkout.
+Startup and Growth are self-serve by card in the dashboard; Enterprise is arranged directly. Every decision is witnessed with no limit; file limits count only records stored and shared in EPI Cloud.
 Recording and verification never depend on Cloud.
 
 ## Security defaults

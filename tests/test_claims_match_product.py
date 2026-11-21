@@ -101,3 +101,9 @@ def test_witnessing_is_unlimited_and_startup_keeps_files_while_subscribed() -> N
     assert "| Startup | 3 | 1,000 a year | kept while subscribed | unlimited |" in retention
     cloud = _read(DOCS / "CLOUD.md")
     assert "| 1,000 / year | kept while subscribed |" in cloud
+
+
+def test_readme_describes_the_real_checkout() -> None:
+    readme = _read(REPO / "README.md")
+    assert "there is no public checkout" not in readme
+    assert "Startup and Growth are self-serve by card in the dashboard" in readme
