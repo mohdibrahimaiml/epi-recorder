@@ -107,3 +107,9 @@ def test_readme_describes_the_real_checkout() -> None:
     readme = _read(REPO / "README.md")
     assert "there is no public checkout" not in readme
     assert "Startup and Growth are self-serve by card in the dashboard" in readme
+
+
+def test_readme_release_line_does_not_go_stale_on_pypi() -> None:
+    # PyPI shows the README of the published release; "publish pending" there is always false.
+    readme = _read(REPO / "README.md")
+    assert "publish pending" not in readme

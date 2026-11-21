@@ -19,7 +19,7 @@ pip install epi-recorder
 epi demo --no-browser    # record → seal → verify, no API key
 ```
 
-Current release: **v4.11.0** (prepared; PyPI publish pending) — [changelog](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
+Version in this repository: **v4.11.0** (the PyPI badge above shows the published one) — [changelog](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
 
 **[See a real decision record](https://epilabs.org/insurance/sample-claim-record)** ·
 [What a `.epi` is](#what-a-epi-file-is) ·
