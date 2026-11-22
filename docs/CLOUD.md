@@ -63,9 +63,11 @@ shorter clock. A paid-to-paid downgrade (Growth to Startup) never shortens a
 file either: only new files use the new plan's retention. Evidence Room files
 are counted per rolling year.
 
-Usage is fair use: witnessed runs are reported in the dashboard and founder
-usage, but there is no per-run limit and no 402 for usage. The witness route is
-never gated; a report is always accepted and chained.
+Usage is fair use on paid plans: witnessed runs are reported in the dashboard
+and founder usage, with no per-run limit and no 402 for usage. The witness
+route's only plan check is the one above: a Free workspace's report is refused
+(402 `plan_required`); on Design Partner, Startup, Growth and Enterprise every
+report is accepted and chained.
 
 Verification is never limited or charged, and reviewers never pay.
 

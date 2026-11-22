@@ -131,3 +131,11 @@ def test_book_a_demo_is_the_main_ask() -> None:
     assert "<option selected>A 30-minute demo</option>" in plans
     # The verifier stays one click away: checking a file never needs us.
     assert 'href="/verify"' in home
+
+
+def test_cloud_doc_never_says_the_witness_is_ungated() -> None:
+    """docs/CLOUD.md must not contradict the paid-only hosted witness."""
+    cloud = _read(DOCS / "CLOUD.md")
+    assert "never gated" not in cloud
+    assert "always accepted and chained" not in cloud
+    assert "402 `plan_required`" in cloud
