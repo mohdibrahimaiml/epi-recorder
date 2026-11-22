@@ -389,6 +389,15 @@ def describe_witness_failure(
             "fix": "update EPI_WITNESS_SECRET to the receiver's new secret, then run: epi witness flush",
             "retry_helps": False,
         }
+    if status == 402:
+        # EPI Cloud: the hosted witness is part of Startup and above. The
+        # report stays queued here, so upgrading and flushing delivers it.
+        return {
+            "status": 402,
+            "reason": "the EPI Cloud workspace is on Free, and the hosted witness comes with Startup and above; the report is kept on this computer",
+            "fix": "upgrade under Billing at https://cloud.epilabs.org, then run: epi witness flush",
+            "retry_helps": True,
+        }
     if status == 410:
         name = (customer or "").strip()
         who = f"the customer '{name}'" if name else "this customer"

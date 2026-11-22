@@ -90,10 +90,17 @@ def test_offer_answers_the_review_it_does_not_promise_a_pass() -> None:
     assert "Hosting beyond the 3 months of EPI Cloud Startup" in offer
 
 
-def test_witnessing_is_unlimited_and_startup_keeps_files_while_subscribed() -> None:
+def test_witness_is_a_paid_feature_and_startup_keeps_files_while_subscribed() -> None:
     plans = _read(SITE / "plans.html")
-    assert "Every decision witnessed, unlimited. File limits count only records stored and shared in EPI Cloud." in plans
-    assert "Recording, witnessing and verifying are unlimited and never counted." in plans
+    # The hosted witness is paid (Startup and above), unlimited there; Free does not witness.
+    assert "On Startup, Growth and Enterprise every decision is independently witnessed by EPI Cloud, with no limit; Free records, seals, stores and shares, but does not witness." in plans
+    assert "Recording and verifying are unlimited and never counted, and so is witnessing on paid plans." in plans
+    assert "Every decision witnessed, unlimited." not in plans
+    assert ">Independent witness</th>" in plans
+    home = _read(SITE / "index.html")
+    assert "hosted witness, which comes with Startup and above" in home
+    readme = _read(REPO / "README.md")
+    assert "Free records, seals and shares but does not witness" in readme
     # Startup and Growth both keep files while subscribed; no plan row says "1 year".
     assert plans.count("Kept while subscribed") >= 2
     assert '<td style="padding:0.7rem 0.6rem">1 year</td>' not in plans

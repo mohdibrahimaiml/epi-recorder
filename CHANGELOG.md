@@ -6,6 +6,16 @@ All notable changes to EPI Recorder are documented here.
 
 ## [4.11.0] - 2026-11-18
 
+### Changed: the hosted witness is part of the paid plans
+
+- EPI Cloud's hosted, independent witness now comes with Startup, Growth and
+  Enterprise (unlimited there). A Free workspace still records, seals, stores
+  and shares, but its witness reports are refused (HTTP 402). The CLI explains
+  why and keeps those reports queued, so upgrading and running
+  `epi witness flush` delivers them.
+- Unchanged and free on every plan: verifying a file, and the open-source
+  witness receiver a reviewer runs themselves (`epi witness serve`).
+
 ### Fixed after an outside audit
 
 - **`epi share` no longer falls back to the legacy Render portal.** When EPI
