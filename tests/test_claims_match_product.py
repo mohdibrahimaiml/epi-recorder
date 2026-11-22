@@ -120,3 +120,14 @@ def test_readme_release_line_does_not_go_stale_on_pypi() -> None:
     # PyPI shows the README of the published release; "publish pending" there is always false.
     readme = _read(REPO / "README.md")
     assert "publish pending" not in readme
+
+
+def test_book_a_demo_is_the_main_ask() -> None:
+    """Buyers at banks and insurers book a working session; the site leads with it."""
+    home = _read(SITE / "index.html")
+    plans = _read(SITE / "plans.html")
+    assert '<a href="/plans#contact" class="z-btn-primary">Book a 30-minute demo</a>' in home
+    assert '<a href="#contact" class="z-btn-primary">Book a 30-minute demo</a>' in plans
+    assert "<option selected>A 30-minute demo</option>" in plans
+    # The verifier stays one click away: checking a file never needs us.
+    assert 'href="/verify"' in home
