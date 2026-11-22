@@ -32,12 +32,19 @@ Public site: [epilabs.org/plans](https://epilabs.org/plans). Signing in creates
 a free workspace; there is no approval step. We charge per **customer
 relationship**, not per AI agent: agents are fair use on every plan.
 
-| Plan | Price | Customer relationships | Evidence Room files | Retention | How |
-|------|-------|------------------------|---------------------|-----------|-----|
-| Free | $0 | 1 | 10 / year | 30 days | self-serve, 7-day share links |
-| Startup | $500 / month or $5,000 / year | 3 (more by agreement) | 1,000 / year | kept while subscribed | card in the dashboard, or invoice |
-| Growth | $2,000 / month or $20,000 / year | 15 (more by agreement) | 10,000 / year | kept while subscribed | card in the dashboard, or invoice |
-| Enterprise | from $40,000 / year | unlimited | custom | custom | annual contract |
+| Plan | Price | Customer relationships | Independent witness | Evidence Room files | Retention | How |
+|------|-------|------------------------|---------------------|---------------------|-----------|-----|
+| Free | $0 | 1 | no | 10 / year | 30 days | self-serve, 7-day share links |
+| Startup | $500 / month or $5,000 / year | 3 (more by agreement) | every decision | 1,000 / year | kept while subscribed | card in the dashboard, or invoice |
+| Growth | $2,000 / month or $20,000 / year | 15 (more by agreement) | every decision | 10,000 / year | kept while subscribed | card in the dashboard, or invoice |
+| Enterprise | from $40,000 / year | unlimited | every decision | custom | custom | annual contract |
+
+The hosted witness (EPI Cloud acting as the independent third party) is part
+of the paid plans. A Free workspace's witness reports are refused with HTTP
+402 `plan_required`; the CLI keeps them queued on that computer and delivers
+them after an upgrade (`epi witness flush`). Verifying a file, and the
+open-source receiver a reviewer runs themselves (`epi witness serve`), stay
+free on every plan: the reviewer never pays.
 
 Prices are USD and exclude taxes. An owner upgrades in the EPI Cloud dashboard:
 pick Startup or Growth under Billing and pay by card in the Paddle checkout

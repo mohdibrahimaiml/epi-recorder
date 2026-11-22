@@ -33,7 +33,7 @@ This folder has four kinds of files. Only the first kind is current product docu
 | Product | What it is | Canonical docs |
 |---------|------------|----------------|
 | **epi-recorder** | Open-source Python SDK + `epi` CLI. Records an agent run, seals a portable `.epi` file, verifies it **offline**. Apache-2.0. No account required. | [USER-GUIDE.md](./USER-GUIDE.md), root [README.md](../README.md), [CLI.md](./CLI.md) |
-| **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. **Free self-serve beta** - sign-in creates a workspace, no approval step; not a hosted-verification paywall. Verification stays free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
+| **EPI Cloud** | Optional hosted layer at `https://cloud.epilabs.org`. Witness (hash-only receipts), trust pages, Evidence Room for files you *choose* to share. Sign-in creates a free workspace with no approval step; the hosted witness comes with Startup and above. Verification, and the witness receiver a customer runs themselves, stay free. | [CLOUD.md](./CLOUD.md), [WITNESS.md](./WITNESS.md), [STORAGE.md](./STORAGE.md) |
 | **Website** | Public site `https://epilabs.org`. Marketing, in-browser verify, plans, legal. Source of truth is `website/` only. | [WEBSITE.md](./WEBSITE.md) |
 
 How the pieces fit: [ARCHITECTURE.md](../ARCHITECTURE.md).  
