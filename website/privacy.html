@@ -69,7 +69,7 @@
 <h2>The open-source tool (epi-recorder)</h2>
 <ul>
 <li>Recording, sealing and checking happen on your machine. Your <code class="k">.epi</code> files are not sent to us.</li>
-<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>). If you do, EPI Cloud keeps only coarse fields (command, success, EPI and Python version, operating system, a random install ID) for 12 months, then deletes them. <code class="k">epi join-pilot</code> sends the email and details you type, with your consent, to our contact inbox (kept 12 months).</li>
+<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>). If you do, EPI Cloud keeps only coarse fields (command, success, EPI and Python version, operating system, a random install ID) for 12 months, then deletes them. <code class="k">epi join-pilot</code> sends the email and details you type, with your consent, to our contact inbox (kept 12 months, and emailed to the founder through Resend).</li>
 <li>When sealing, the tool asks a public timestamp service (by default freetsa.org, then DigiCert) to timestamp the file. Only a hash of the record is sent, never its contents. Turn this off with <code class="k">EPI_NOTARIZE=0</code>.</li>
 <li>If you set up a witness or EPI Cloud, a hash-only fingerprint of each sealed record goes to the log you configured.</li>
 </ul>
@@ -81,7 +81,7 @@
 <p>The website uses no advertising and no tracking cookies. It uses Cloudflare Web Analytics, which is cookieless and counts page views without identifying you. Our host (Cloudflare) also keeps standard server logs, such as IP address and pages requested, for security and reliability.</p>
 
 <h2>The contact form</h2>
-<p>When you send the form on <a href="/plans" style="color:var(--acc)">Plans</a>, we receive your name, work email, company, what you are interested in and your message, and use them only to reply and to discuss the engagement you asked about. The form is stored by EPI Cloud on Cloudflare. We also store a salted hash of your IP address, never the address itself, to stop spam. We delete form messages 12 months after they arrive. If the form cannot be sent, it opens your own email program instead and says so.</p>
+<p>When you send the form on <a href="/plans" style="color:var(--acc)">Plans</a>, we receive your name, work email, company, what you are interested in and your message, and use them only to reply and to discuss the engagement you asked about. The form is stored by EPI Cloud on Cloudflare, and a copy is emailed to the founder&rsquo;s inbox through Resend, our email provider, so we can reply quickly. We also store a salted hash of your IP address, never the address itself, to stop spam. We delete form messages 12 months after they arrive. If the form cannot be sent, it opens your own email program instead and says so.</p>
 
 <h2>EPI Cloud</h2>
 <p>If you sign in to <a href="https://cloud.epilabs.org/" style="color:var(--acc)">cloud.epilabs.org</a>, we store your account details from your sign-in provider (your name, email and account ID), your workspace, the records you choose to upload or witness, and the share links you create. We use them only to run the service for you. Hosting is on Cloudflare.</p>
