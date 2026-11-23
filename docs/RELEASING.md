@@ -1,11 +1,13 @@
 # Releasing epi-recorder
 
-**4.11.0 status (18 Nov 2026): version bumped, deliberately not published.**
-`main` carries 4.11.0 with the pre-launch audit fixes. No tag and no GitHub
-Release were created, so nothing was uploaded to PyPI and `pip install
-epi-recorder` still resolves 4.10.0. Releasing is a separate, deliberate step:
-publish a GitHub Release with tag `v4.11.0` on `main` and the workflow below
-builds from that tag and uploads it.
+**4.11.0 status (23 Nov 2026): published.** The **Cut release** workflow
+created tag `v4.11.0` on commit `6cbd13c9` and the GitHub Release (notes from
+CHANGELOG.md); **Publish to PyPI (Trusted Publishing)** was then run for that
+tag and uploaded the wheel and sdist. Both provenance endpoints return HTTP
+200 (PEP 740 attestations), and a clean `pip install epi-recorder` installs
+4.11.0. The tag is **not signed** with the maintainer SSH key (the session that
+cut it had no access to it); sign future tags locally if that matters for a
+reviewer. SBOM and the Windows installer were run for the tag afterwards.
 
 **4.10.0 status (12 Nov 2026): published.** Tag `v4.10.0` is signed with the
 maintainer SSH key on commit `6aad0929`; the GitHub Release triggered
