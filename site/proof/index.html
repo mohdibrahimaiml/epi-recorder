@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Break it yourself | EPI Labs</title>
+  <meta name="description" content="Two tamper tests on a sealed .epi file: flip one byte, then edit a decision and rebuild the ZIP properly. Both fail. Commands and output included.">
+  <link rel="canonical" href="https://epilabs.org/proof/">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/proof/" aria-current="page">Tamper test</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/proof/">Tamper test</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="proof-heading">
+        <div class="z-eyebrow">
+          <span class="z-eyebrow__dot" aria-hidden="true"></span>
+          <span>Proof, not claims</span>
+        </div>
+        <h1 id="proof-heading" class="z-h1" style="margin-top:1rem">
+          Break it yourself.
+        </h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:40rem">
+          Anyone can say a file is tamper-evident. These are the two tests that decide it, run on
+          the demo record, with the commands and the output so you can repeat them. The second one
+          is the interesting one: change a decision <em>and rebuild the ZIP properly</em>, so that
+          every checksum agrees.
+        </p>
+
+        <div class="z-tri-card" style="margin-top:2.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">Test 1 &middot; the easy one</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">Flip one byte</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            Take a sealed record and change a single byte in the middle of it, then verify.
+          </p>
+          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid #a8341f;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">$ epi verify tampered.epi --policy strict
+[FAIL] Structural validation failed: Bad CRC-32 for file
+       'artifacts/seal_chain.json'
+exit 1</pre>
+          <p class="z-body" style="margin-top:0.75rem;font-size:0.85rem">
+            Expected, and not very impressive on its own &mdash; a broken ZIP fails everything. The
+            real question is the next one.
+          </p>
+        </div>
+
+        <div class="z-tri-card" style="margin-top:1.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">Test 2 &middot; the one that matters</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">Edit the decision, then rebuild the ZIP properly</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            Change <code style="font-family:var(--font-mono)">"decision":"approve_refund"</code> to
+            <code style="font-family:var(--font-mono)">reject_refund</code>, rewrite the archive with
+            <code style="font-family:var(--font-mono)">mimetype</code> first and stored, and verify again.
+            Every checksum in the archive now agrees with the new contents.
+          </p>
+          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid #1f7a45;font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">$ epi verify repacked-edited.epi --policy strict
+
+✘ SEAL FAIL — FILE ALTERED
+Reason: Integrity compromised (file tampering detected);
+        approval invalid: Approval does not match this artifact binding
+Decision: reject_refund — Approved. Order ORD-9001 qualifies…
+exit 1</pre>
+          <p class="z-body" style="margin-top:0.75rem">
+            The CRC passed. The structure was valid. It still failed &mdash; and it printed the
+            contradiction out loud: the decision says <strong>reject</strong>, the signed approval
+            says <strong>approve</strong>.
+          </p>
+        </div>
+
+        <div class="z-tri-card" style="margin-top:1.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">No install</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">The same check in a browser</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            Open the <a href="/verify/" style="color:var(--acc-envelope)">verifier</a>, drop the
+            <a href="/assets/sample.epi" download style="color:var(--acc-envelope)">sample file</a>,
+            and use the tamper lab to flip a byte in memory. Untouched, the seal is valid and the
+            identity reads unknown until you pin the key. One byte changed, integrity fails. Nothing
+            is uploaded.
+          </p>
+        </div>
+
+        <div class="z-tri-card" style="margin-top:1.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">What these tests do not prove</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">The limits, stated plainly</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            A passing seal proves the bytes have not changed since sealing and that the signature
+            matches the key. It does <strong>not</strong> prove that every action was captured, that
+            the decision was correct, or that the signer is who they claim until you pin their key
+            out of band. It is evidence input, not a certificate. Whether it satisfies a regulator,
+            auditor or court is for them to decide.
+          </p>
+        </div>
+
+        <div class="z-tri-card" style="margin-top:2rem;border-color:var(--acc-envelope)">
+          <div class="z-tri-card__step" style="margin-top:0">Get one</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">Have this made for a decision of yours</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            One decision, five working days, &euro;4,500. If the file does not verify on your own
+            machine, or no record can be made from the export you send, the matter is refunded in
+            full.
+          </p>
+          <p style="margin-top:1.25rem"><a href="/plans#contact" class="z-btn-primary">Send the matter</a></p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.0</div>
+        <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+          <a href="/privacy" class="z-footer-col__link" style="font-size:0.75rem">Privacy</a>
+          <a href="/terms" class="z-footer-col__link" style="font-size:0.75rem">Terms</a>
+          <a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link" style="font-size:0.75rem">Contact</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>
