@@ -1,0 +1,66 @@
+# Cut a release: create the vX.Y.Z tag and the GitHub Release page from main.
+#
+# Started by hand (Actions -> Cut release -> Run workflow, or the API) with the
+# version that pyproject.toml on main already carries. It refuses a version
+# mismatch, an existing tag, and any branch but main. The release notes are the
+# version's CHANGELOG.md section.
+#
+# A release created with GITHUB_TOKEN does not start other workflows, so after
+# this one turns green, start:
+#   - Publish to PyPI (Trusted Publishing), input tag = vX.Y.Z
+#   - SBOM and Build Windows Installer, input tag = vX.Y.Z
+# docs/RELEASING.md has the full sequence.
+name: Cut release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 4.11.0 (must equal pyproject.toml on main)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    name: Tag and create the GitHub Release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the version, the tag and the changelog
+        env:
+          # Passed as data, never pasted into the script (no template injection).
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "refusing: '$VERSION' is not X.Y.Z"; exit 1; }
+          PYPROJECT="$(python3 -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          test "$PYPROJECT" = "$VERSION" || { echo "refusing: main carries $PYPROJECT, not $VERSION"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then
+            echo "refusing: tag v$VERSION already exists"; exit 1
+          fi
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {f=1; next}
+            f && /^## \[/ {exit}
+            f {print}
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || { echo "refusing: CHANGELOG.md has no section for $VERSION"; exit 1; }
+          printf '\nFull changelog: https://github.com/%s/blob/v%s/CHANGELOG.md\n' "$GITHUB_REPOSITORY" "$VERSION" >> release-notes.md
+
+      - name: Create the tag and the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file release-notes.md
+          echo "Created v$VERSION at $GITHUB_SHA. Next: run Publish to PyPI with tag v$VERSION."
