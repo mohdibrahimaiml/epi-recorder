@@ -19,7 +19,7 @@ pip install epi-recorder
 epi demo --no-browser    # record → seal → verify, no API key
 ```
 
-Version in this repository: **v4.11.0** (the PyPI badge above shows the published one) — [changelog](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
+Release **v4.11.0** — [what changed](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
 
 **[See a real decision record](https://epilabs.org/insurance/sample-claim-record)** ·
 [What a `.epi` is](#what-a-epi-file-is) ·
@@ -168,14 +168,16 @@ The base install is small: it records, seals and verifies. Framework support is 
 |---|---|
 | `epi-recorder[openai]` | `wrap_openai` |
 | `epi-recorder[anthropic]` | `wrap_anthropic` |
+| `epi-recorder[langchain]` | the LangChain callback (`EpiCallbackHandler`) |
 | `epi-recorder[aws-kms]` / `[gcp-kms]` / `[pkcs11]` | HSM/KMS signing |
 | `epi-recorder[all]` | everything except the dev/test toolchains |
 
 The team gateway (`epi gateway serve`, `epi connect`) and the framework
 adapters for LangGraph, LiteLLM, OpenAI Agents, OpenTelemetry and Guardrails
-ship in the paid `epi-enterprise` package. The LangChain callback stays here, in
-`epi_recorder.adapters.langchain`, because it predates the split and works with
-the base install. The wheels above record, seal and verify.
+ship in the paid `epi-enterprise` package. The LangChain callback stays free and
+open source, in `epi_recorder.adapters.langchain` (install
+`epi-recorder[langchain]`). If it cannot record a step, it never breaks your
+chain: it warns, and the sealed file lists the missing step under `known_gaps`.
 
 ```python
 # pip install "epi-recorder[openai]"
@@ -199,7 +201,7 @@ API keys in prompts and headers are redacted before they reach the file.
 |---|---|
 | OpenAI | `wrap_openai(OpenAI())` |
 | Anthropic | `wrap_anthropic(Anthropic())` |
-| LangChain | `EpiCallbackHandler(session)` inside `with record(...) as session` |
+| LangChain | `EpiCallbackHandler(session)` inside `with record(...) as session` (`epi-recorder[langchain]`) |
 | LiteLLM | `EPICallback` (EPI Enterprise) |
 | pytest | `pytest --epi` — one `.epi` per failing test in `./test-evidence/` (`--epi-on-pass` keeps passes too) |
 | Microsoft AGT | `epi import agt <path>` |
