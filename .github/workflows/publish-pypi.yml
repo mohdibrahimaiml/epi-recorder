@@ -11,6 +11,15 @@ name: Publish to PyPI (Trusted Publishing)
 on:
   release:
     types: [published]
+  # Same build and upload, started by hand for an existing tag (Actions ->
+  # Publish to PyPI -> Run workflow, or the API). Used when the release is cut
+  # without the GitHub Release page; the tag/version check below still applies.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish, e.g. v4.11.0 (must match pyproject.toml)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -27,7 +36,7 @@ jobs:
       - name: Checkout the release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
@@ -43,8 +52,11 @@ jobs:
         run: python -m twine check dist/*
 
       - name: Refuse tag/version mismatch
+        env:
+          # Passed as data, never pasted into the script (no template injection).
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "refusing: '$TAG' is not a vX.Y.Z tag"; exit 1; }
           VERSION="$(python -c 'import tomllib;print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
           test "${TAG#v}" = "$VERSION" || { echo "refusing: tag $TAG builds version $VERSION"; exit 1; }
           ls dist/epi_recorder-"$VERSION".tar.gz "dist/epi_recorder-${VERSION}-py3-none-any.whl"

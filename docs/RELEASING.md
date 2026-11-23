@@ -106,6 +106,14 @@ an impostor site. It is not Windows SmartScreen reputation — first-time
 downloads may still show a SmartScreen prompt until reputation builds. Say
 that honestly if a customer asks.
 
+### Without the GitHub Release page
+
+Push the tag (`git push origin vX.Y.Z`), then start **Actions → Publish to
+PyPI (Trusted Publishing) → Run workflow** with that tag. It is the same build,
+the same tag/version check and the same Trusted Publishing upload with
+attestations. The tag push also runs SBOM and Build Windows Installer, which
+create the GitHub Release page and attach their files.
+
 ## After the upload lands (same day)
 
 The release *state* lives in the copy, not just the number: four files say
