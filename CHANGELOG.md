@@ -4,7 +4,7 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
-## [4.11.0] - 2026-11-18
+## [4.11.0] - 2026-11-23
 
 ### Changed: the hosted witness is part of the paid plans
 
