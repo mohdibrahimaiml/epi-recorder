@@ -108,8 +108,12 @@ that honestly if a customer asks.
 
 ### Without the GitHub Release page
 
-Push the tag (`git push origin vX.Y.Z`), then start **Actions → Publish to
-PyPI (Trusted Publishing) → Run workflow** with that tag. It is the same build,
+Either run **Actions → Cut release** with the version (it tags `main` and
+creates the GitHub Release from the CHANGELOG section), or push the tag
+yourself (`git push origin vX.Y.Z`). Then start **Actions → Publish to PyPI
+(Trusted Publishing) → Run workflow** with that tag. A release made by Cut
+release does not start other workflows (GitHub's rule for `GITHUB_TOKEN`), so
+also run SBOM and Build Windows Installer with the tag. It is the same build,
 the same tag/version check and the same Trusted Publishing upload with
 attestations. The tag push also runs SBOM and Build Windows Installer, which
 create the GitHub Release page and attach their files.
