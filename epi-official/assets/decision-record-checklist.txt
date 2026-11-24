@@ -48,7 +48,7 @@ Pick one real decision the AI touched. Answer from the record itself, not from w
    Field: Contemporaneous
 
 14. Would the carrier notice if the record were changed after it was handed over?
-   Field: Tamper-evident
+   Field: Changes detectable
 
 ## How to score
 
