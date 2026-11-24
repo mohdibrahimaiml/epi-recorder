@@ -28,8 +28,8 @@ target; pick the surface below.
    Worker and the `verify-redirect` Worker through `.github/workflows/cloud.yml`
    using the scoped `CLOUDFLARE_API_TOKEN`.
 5. **The legacy portal is not the account system.** Sign-in, witness and share
-   links are Cloud. The portal remains only for old `epi share` fallbacks,
-   MCP hosting and opt-in telemetry until those links are retired.
+   links are Cloud. The portal remains only for MCP hosting until it is
+   retired; `epi share` and telemetry moved to Cloud in 4.11.0.
 
 ## Daily checks
 

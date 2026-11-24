@@ -1,6 +1,6 @@
 # EPI - enterprise briefing (v4.11.0)
 
-**Product:** `epi-recorder` (open source) + optional **EPI Cloud** (free beta) + public site **epilabs.org**.  
+**Product:** `epi-recorder` (open source) + optional **EPI Cloud** (Free, Startup, Growth and Enterprise plans) + public site **epilabs.org**.  
 **Container:** EPI Evidence Format (see [spec/EPI-SPEC.md](./spec/EPI-SPEC.md)).  
 **Name:** EPI = **Evidence Packaged Infrastructure**.
 
@@ -23,7 +23,7 @@ Agent workflow  →  epi-recorder (record, redact, seal)  →  recording.epi
                          (local; no upload required)
 ```
 
-### EPI Cloud (optional, free beta)
+### EPI Cloud (optional)
 
 A hosted layer at `https://cloud.epilabs.org` for vendors who need to **show a customer a run** without mailing files around:
 
@@ -86,7 +86,7 @@ Say these out loud in a security review. They are product facts, not caveats hid
 | `web_viewer/` + `epi_viewer_static/` | Offline case UI baked into the file |
 | `epi_gateway/` (in `epi-enterprise`) | Optional **self-hosted** capture/review (`epi gateway serve`) - paid |
 | `website/` | epilabs.org |
-| `verify_portal/` | Legacy hosted verify/share API on Render. Login moved to Cloud. `epi share` falls back to it only while the Cloud upload route is unavailable; MCP and some telemetry paths still use it ([CLOUD.md](./CLOUD.md)). |
+| `verify_portal/` | Legacy hosted verify/share API on Render. Login moved to Cloud. Since 4.11.0 `epi share` and telemetry use EPI Cloud only and never fall back to it; MCP hosting still runs on it ([CLOUD.md](./CLOUD.md)). |
 
 Integrity model (short):
 

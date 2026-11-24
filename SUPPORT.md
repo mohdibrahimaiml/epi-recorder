@@ -3,16 +3,16 @@
 **Product version:** 4.11.0. Cloud service status: [docs/CLOUD.md](./docs/CLOUD.md).
 
 This page says what is supported, how to get help, and what to expect. It is
-not a legal SLA with penalties — EPI Cloud is a free beta and there is no
-paid tier with contractual uptime yet.
+not a legal SLA with penalties — EPI Cloud has paid plans, but none of them
+carries contractual uptime yet.
 
 ## What is supported
 
 | Surface | Status | Help channel |
 |---|---|---|
 | `epi-recorder` open source (record / seal / `epi verify` / viewer) | Supported, Apache-2.0 | GitHub issues |
-| EPI Cloud (witness, trust links, Evidence Room) | **Free beta** - self-serve, works, expect changes | Email (below) + GitHub issues |
-| Legacy hosted paths (`epi share` default upload, MCP on Render) | Best-effort, frozen | GitHub issues |
+| EPI Cloud (witness, trust links, Evidence Room) | **Generally available** - self-serve (Free, Startup, Growth), expect changes | Email (below) + GitHub issues |
+| Legacy hosted paths (MCP on Render) | Best-effort, frozen | GitHub issues |
 | Spec implementers (`docs/spec/`) | Supported via test vectors | GitHub issues |
 
 ## Response targets
@@ -42,8 +42,8 @@ how long.
 
 ## Escalation
 
-If a private-beta issue blocks a regulated-customer deal, say so in the
-subject line. Deal-blockers jump the queue — that is the point of the beta.
+If an EPI Cloud issue blocks a regulated-customer deal, say so in the
+subject line. Deal-blockers jump the queue — that is what early access is for.
 
 ## Automated guards (free, always on)
 

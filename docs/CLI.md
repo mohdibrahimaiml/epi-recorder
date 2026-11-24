@@ -20,7 +20,7 @@ Start with `epi demo` if you want to capture one AI run from Python, open it in 
 
 `epi demo`, `epi run`, `epi record` and the SDK's `record()` seal a **data-only** `.epi` by default: a small plain ZIP (no embedded HTML viewer). Add `--with-viewer` (or `record(..., with_viewer=True)`) to embed the self-opening HTML viewer instead. Both forms verify identically with `epi verify`, and `epi view` opens either one.
 
-To share a sealed run with a customer reviewer (EPI Cloud, free beta):
+To share a sealed run with a customer reviewer (EPI Cloud; a free workspace is enough to share):
 
 ```bash
 epi cloud login
@@ -117,7 +117,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 
 ## `epi cloud`
 
-Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, free beta). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
+Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`; free workspace, hosted witness on paid plans). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
 
 ```bash
 epi cloud login
@@ -413,6 +413,7 @@ Options (from `epi verify --help`):
 | `--strict` | Enforce STRICT policy (fails on any warning, unsigned, or forensic gaps). |
 | `--policy permissive\|standard\|strict` | PERMISSIVE (integrity only), STANDARD (dev default — unpinned identity is WARN, not claim-ready), STRICT (enterprise/insurance — requires org-pinned sealer; use for claim acceptance). Default: `standard`. |
 | `--aiuc1` | Include AIUC-1 trust domain mapping in the verification report. |
+| `--fail-on-warn` | Exit 1 on WARN as well as FAIL. Default is off, so a WARN still exits 0. |
 | `--tsa-root <path>` | Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation. |
 | `--require-timestamp` | FAIL unless at least one seal-time RFC 3161 token validates. |
 | `--web` | Open verification results in browser at verify.epilabs.org after CLI check. |
@@ -421,12 +422,13 @@ Options (from `epi verify --help`):
 | `--witness-log <path>` | Customer witness log (`received.jsonl`) to check this file against. |
 | `--witness-pubkey <hex>` | Witness Ed25519 public key for signed receipts. Overrides `EPI_WITNESS_PUBKEY` and package-pinned keys. A key shipped inside the log file itself is never trusted. |
 
-Exit code is `1` on FAIL and `0` on PASS **or WARN**. Scripts must rely on
-the exit code **with `--policy strict`**: under the default `standard`
-policy an unpinned sealer, a seal missing from the witness log, or
-incomplete evidence (e.g. a `tool.call` with no `tool.response`, shown as
-`Forensic: FAIL — ...`) is only a WARN and exits `0`. Under `--policy strict`
-each of these FAILs; incomplete evidence reports
+Exit code is `1` on FAIL and `0` on PASS **or WARN**. A text-mode WARN that
+exits 0 prints a note on stderr. `--json` stays a single JSON document and
+does not add that note. Pass `--fail-on-warn` when a script should exit 1
+on WARN as well. Under the default `standard` policy an unpinned sealer, a
+seal missing from the witness log, or incomplete evidence (e.g. a `tool.call`
+with no `tool.response`, shown as `Forensic: FAIL — ...`) is only a WARN.
+Under `--policy strict` each of these FAILs; incomplete evidence reports
 `Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`.
 
 Recommended for auditors and customers ([AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)):
@@ -459,7 +461,7 @@ All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.m
 After a successful verification, typical next steps:
 - `https://epilabs.org/verify` for client-side browser verification (no account)
 - EPI Cloud trust link (customer-scoped) — `epi cloud login` then the dashboard
-- `epi share <file.epi>` uploads to EPI Cloud by default, with one automatic fallback to the legacy Render portal while that migration finishes. It is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
+- `epi share <file.epi>` uploads to EPI Cloud. Since 4.11.0 there is no fallback to the legacy Render portal. It is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
 
 ---
 
@@ -467,7 +469,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud does not serve the upload route yet, or is unreachable, the command retries once against the legacy Render portal and says so. Pinning `--api-base-url` or `EPI_SHARE_API_URL` disables the fallback. CLIs older than 4.10.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
+The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud refuses the upload or is unreachable, the command reports the error and stops; the file is never sent anywhere else. `epi share --local` still works offline. CLIs older than 4.10.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
 
 ```bash
 epi share demo.epi
