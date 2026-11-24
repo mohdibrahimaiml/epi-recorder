@@ -26,8 +26,6 @@ _PACKAGE_BUILD_TARGETS = (
     "epi_viewer_static",
     "web_viewer",
     "pytest_epi",
-    "epi_gateway",
-    "epi_guardrails",
 )
 _MODULE_BUILD_TARGETS = ("epi_postinstall.py",)
 
