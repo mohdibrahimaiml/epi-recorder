@@ -71,7 +71,7 @@
           Break it yourself.
         </h1>
         <p class="z-body" style="margin-top:1.25rem;max-width:40rem">
-          Anyone can say a file is tamper-evident. These are the two tests that decide it, run on
+          Anyone can claim a file can't be changed. These are the three tests that decide it, run on
           the demo record, with the commands and the output so you can repeat them. The second one
           is the interesting one: change a decision <em>and rebuild the ZIP properly</em>, so that
           every checksum agrees.
@@ -110,9 +110,21 @@ Reason: Integrity compromised (file tampering detected);
 Decision: reject_refund — Approved. Order ORD-9001 qualifies…
 exit 1</pre>
           <p class="z-body" style="margin-top:0.75rem">
-            The CRC passed. The structure was valid. It still failed &mdash; and it printed the
-            contradiction out loud: the decision says <strong>reject</strong>, the signed approval
-            says <strong>approve</strong>.
+            The CRC passed. The structure was valid. It still failed &mdash; the approval no longer
+            matches the record it was signed for, and the verifier says so.
+          </p>
+        </div>
+
+        <div class="z-tri-card" style="margin-top:1.5rem">
+          <div class="z-tri-card__step" style="margin-top:0">Test 3 &middot; the honest question</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">What if the key holder signs it again?</h2>
+          <p class="z-body" style="margin-top:0.75rem">
+            Someone who holds the signing key can edit a record and seal it again, and on its own the
+            new file will verify. That is what the independent witness is for: at sealing, the
+            record's fingerprint is reported to a witness the vendor does not control. A re-sealed
+            file no longer matches what the witness recorded, and a record that disappears shows up
+            as a gap in the numbering. The hosted witness is included in the
+            <a href="/plans" style="color:var(--acc-envelope)">paid EPI Cloud plans</a>.
           </p>
         </div>
 
@@ -142,13 +154,11 @@ exit 1</pre>
 
         <div class="z-tri-card" style="margin-top:2rem;border-color:var(--acc-envelope)">
           <div class="z-tri-card__step" style="margin-top:0">Get one</div>
-          <h2 class="z-h3-card" style="margin-top:0.5rem">Have this made for a decision of yours</h2>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">Have this done for one of your workflows.</h2>
           <p class="z-body" style="margin-top:0.75rem">
-            One decision, five working days, &euro;4,500. If the file does not verify on your own
-            machine, or no record can be made from the export you send, the matter is refunded in
-            full.
+            Readiness assessment: one workflow, 5 working days, &euro;4,500, credited toward the full engagement.
           </p>
-          <p style="margin-top:1.25rem"><a href="/plans#contact" class="z-btn-primary">Send the matter</a></p>
+          <p style="margin-top:1.25rem"><a href="/plans#contact" class="z-btn-primary">Book the assessment</a></p>
         </div>
       </section>
       <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
