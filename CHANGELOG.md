@@ -4,6 +4,22 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **`epi demo` ends with the done-for-you offer.** After the seal, the closing
+  panel gains one dim line: "One real decision, sealed for you:
+  mohdibrahim@epilabs.org". It is the one moment where the reader has just
+  sealed a run and is looking for what to do next. `epi verify` and `epi view`
+  carry none of it: those run on the reviewer's machine, and selling to the
+  person checking your evidence is the one place it would cost us the point.
+- README (and therefore the PyPI page) points at the readiness assessment in
+  "Who this is for": one workflow, 5 working days, €4,500.
+- **The sample decision record and the new `/proof` page** end with the same
+  readiness assessment wording as `/plans`. `/proof` documents the tamper tests
+  with their real output, including what happens when the key holder re-seals.
+- `/outreach/` is gitignored: it holds named prospects and draft emails, and
+  the repository is public.
+
 ## [4.11.0] - 2026-11-23
 
 ### Changed: the hosted witness is part of the paid plans

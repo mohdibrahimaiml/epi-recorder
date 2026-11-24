@@ -76,6 +76,11 @@ epi-viewer/node_modules/
 # verdict. Sources of truth are docs/PILOT-OFFER.md and the strategy doc.
 /founder/
 
+# Sales working papers: named prospects, contact addresses, draft emails. Public
+# repo, so this never ships. The published offer lives on the site and in
+# docs/PILOT-OFFER.md; this folder is how it was researched.
+/outreach/
+
 # IDE
 .vscode/
 .idea/
