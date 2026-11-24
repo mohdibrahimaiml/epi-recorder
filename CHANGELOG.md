@@ -16,7 +16,8 @@ All notable changes to EPI Recorder are documented here.
   "Who this is for": one workflow, 5 working days, €4,500.
 - **The sample decision record and the new `/proof` page** end with the same
   readiness assessment wording as `/plans`. `/proof` documents the tamper tests
-  with their real output, including what happens when the key holder re-seals.
+  with their real output, and states the question they leave open: what happens
+  when the key holder re-seals.
 - `/outreach/` is gitignored: it holds named prospects and draft emails, and
   the repository is public.
 
