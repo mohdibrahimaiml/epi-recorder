@@ -813,6 +813,15 @@ def _members_match_manifest(epi_file: Path) -> bool:
         return False
 
 
+def _fail_closed(report: dict, reason: str) -> None:
+    """Force FAIL when a downgrade step itself errors. Never leave a PASS standing."""
+    dec = report.get("decision") if isinstance(report, dict) else None
+    if not isinstance(dec, dict):
+        dec = {}
+        report["decision"] = dec
+    dec["status"] = "FAIL"
+    dec["reason"] = f"Internal verification error ({reason}); result not trusted."
+
 def _sealed_tsa_time(epi_path: Path, manifest) -> str | None:
     """Earliest validated RFC 3161 gen_time for this artifact, or None."""
     try:
@@ -1879,6 +1888,11 @@ def verify_command(
             help="Governance policy: permissive, standard (default), strict (claims/audit: unknown sealer FAILs).",
         ),
     ] = VerificationPolicy.STANDARD,
+    fail_on_warn: bool = typer.Option(
+        False,
+        "--fail-on-warn",
+        help="Exit 1 on WARN as well as FAIL. Use this in CI and audit scripts.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -1918,6 +1932,10 @@ def verify_command(
     # direct call cannot silently enable --web (browser pop-up), --qr,
     # --aiuc1 or --offline.
     aiuc1 = _option_flag(aiuc1)
+    # Same OptionInfo trap as the flags above: a direct call leaves the
+    # default object in place, and that object is truthy, so every WARN
+    # would exit 1 unless this is coerced back to the declared False.
+    fail_on_warn = _option_flag(fail_on_warn)
     web = _option_flag(web)
     qr = _option_flag(qr)
     offline = _option_flag(offline)
@@ -2719,8 +2737,8 @@ def verify_command(
                 report["decision"]["reason"] = str(
                     _ts_invalid[0].get("detail") or "seal timestamp invalid"
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"seal timestamp check: {exc}")
         if require_timestamp and not any(
             e.get("status") == "valid" for e in _timestamps.get("seal", [])
         ):
@@ -2738,8 +2756,8 @@ def verify_command(
                         report["decision"]["reason"] = (
                             f"{_msg[0].upper()}{_msg[1:]}. The seal itself is intact."
                         )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"--require-timestamp check: {exc}")
         if _timestamps.get("clock_warning") and report.get("decision", {}).get("status") == "PASS":
             try:
                 report["decision"]["status"] = "WARN"
@@ -2747,8 +2765,8 @@ def verify_command(
                 report["decision"]["reason"] = (
                     f"{_rs} {_timestamps['clock_warning']}".strip()
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"clock warning check: {exc}")
         # Preserve downgrade flag through policy application (apply_policy rewrites decision).
         if _cap_downgrade_n > 0 and integrity_ok:
             try:
@@ -3004,6 +3022,17 @@ def verify_command(
             review_report is not None and review_report.get("status") == "failed"
         ):
             raise typer.Exit(1)
+        if report["decision"]["status"] == "WARN":
+            if fail_on_warn:
+                raise typer.Exit(1)
+            # Human runs only. --json is one document on stdout; a stderr note
+            # is merged into CliRunner's .output and breaks json.loads.
+            if not json_output:
+                typer.echo(
+                    "Note: result is WARN but exit code is 0. Use --fail-on-warn or --policy strict "
+                    "if a script relies on the exit code.",
+                    err=True,
+                )
 
     except typer.Exit:
         raise

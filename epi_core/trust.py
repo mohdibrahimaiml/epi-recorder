@@ -482,7 +482,7 @@ class TrustRegistry:
                 try:
                     revoked.add(rev_file.read_text().strip().lower())
                 except Exception:
-                    continue
+                    return False  # unreadable revocation list: fail closed
             want = public_key_hex.strip().lower()
             for pub_file in self.trusted_keys_dir.glob("*.pub"):
                 try:
@@ -545,7 +545,12 @@ class TrustRegistry:
                             "revoked",
                         )
                 except Exception:
-                    continue
+                    return (
+                        False,
+                        rev_file.stem,
+                        "Revocation list unreadable; key not trusted.",
+                        "revoked",
+                    )
 
         # 2. Local trusted keys (exact match)
         if self.trusted_keys_dir.exists():

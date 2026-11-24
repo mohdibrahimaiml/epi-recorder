@@ -160,7 +160,7 @@ def _bake_signature_status(manifest: "ManifestModel") -> bool | None:
 
     Returns:
       True  — signature cryptographically valid
-      False — signature present but invalid (tampered)
+      False — signature present but invalid (tampered) or could not be checked
       None  — no signature at all
     """
     from epi_core.trust import verify_embedded_manifest_signature
@@ -170,7 +170,8 @@ def _bake_signature_status(manifest: "ManifestModel") -> bool | None:
         valid, _name, _msg = verify_embedded_manifest_signature(manifest)
         return valid
     except Exception:
-        return None
+        # Present but uncheckable: treat as invalid, never as "unsigned".
+        return False
 
 
 def _read_steps_if_exists(path: Path) -> list[dict]:
