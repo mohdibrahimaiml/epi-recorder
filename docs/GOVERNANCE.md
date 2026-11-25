@@ -1,6 +1,8 @@
 # Governance (how this project is run)
 
-**Status:** founder-led, free beta. This page states the current reality,
+**Status:** founder-led. EPI Cloud has a free workspace (storage and sharing)
+and paid plans (Startup, Growth, Enterprise) that include the hosted witness.
+Verifying a file is free on every plan. This page states the current reality,
 not an aspiration. It changes when reality does.
 
 ## Who decides
