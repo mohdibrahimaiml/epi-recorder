@@ -2591,6 +2591,18 @@ def verify_command(
             )
         except Exception:
             pass
+        # Update timestamp_key_bound now that we have the evaluated block.
+        # key_binding: "key-bound" | "contents-only" | "none"
+        try:
+            _kb = _timestamps.get("key_binding", "none")
+            if _kb == "key-bound":
+                report["facts"]["timestamp_key_bound"] = True
+            elif _kb == "contents-only":
+                report["facts"]["timestamp_key_bound"] = False
+            else:
+                report["facts"]["timestamp_key_bound"] = None
+        except Exception:
+            pass
 
         # ========== STEP 4.96: SIGNED RELEASE RECORD ==========
         # Compare the decision with the release it names. Display/JSON only

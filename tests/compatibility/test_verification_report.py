@@ -103,6 +103,13 @@ FROZEN_FACTS_KEYS = {
     # Added for offline RFC 3161 validation (defaults False in factory-only
     # reports; verify_command overwrites with the validated result).
     "timestamp_verified",
+    # T4 caveat fields (additive; risk T4).
+    # signer_not_confirmed: True when sig valid but key not pinned/org-trusted.
+    "signer_not_confirmed",
+    # scitt_self_issued: True when SCITT receipt is local (not independent ledger).
+    "scitt_self_issued",
+    # timestamp_key_bound: None=not evaluated, True=key-bound, False=contents-only.
+    "timestamp_key_bound",
 }
 
 
