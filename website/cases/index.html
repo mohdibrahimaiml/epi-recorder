@@ -211,12 +211,11 @@
 <script>
 (function(){
   'use strict';
-  // Shared resolver — same-origin /api on prod/pages.dev, Render fallback.
+  // Same-origin only: the case page talks to /api on the host that served it.
+  // The old Render fallback is retired (CHANGELOG 4.11.0). A sealed file is
+  // never sent to a service the visitor did not choose.
   function apiBase(){
-    var h=(location&&location.hostname)||'';
-    if(h==='epilabs.org'||h==='www.epilabs.org'||h.endsWith('.pages.dev'))return'';
-    if(h==='localhost'||h==='127.0.0.1')return'https://epi-verify-portal.onrender.com';
-    return'https://epi-verify-portal.onrender.com';
+    return '';
   }
 
   var currentSteps=[];
