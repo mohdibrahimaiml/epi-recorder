@@ -18,6 +18,22 @@ const PORTAL_WELL_KNOWN = new Set([
   "assetlinks.json",
 ]);
 
+// Names nothing in either repo calls any more. Answer 410 instead of waking
+// the retiring Render portal. A committed static file still wins because the
+// function serves context.next() before this check.
+const RETIRED_WELL_KNOWN = new Set([
+  "webfinger",
+  "apple-app-site-association",
+  "assetlinks.json",
+]);
+
+const GONE_BODY = JSON.stringify({
+  error: {
+    code: "gone",
+    message: "This endpoint was served by the retired EPI portal. Use https://cloud.epilabs.org.",
+  },
+});
+
 export async function onRequest(context) {
   if (context.request.method === "OPTIONS") {
     return corsPreflight(context);
@@ -29,6 +45,12 @@ export async function onRequest(context) {
   const name = new URL(context.request.url).pathname
     .replace(/^\/\.well-known\//i, "")
     .replace(/\/$/, "");
+  if (RETIRED_WELL_KNOWN.has(name)) {
+    return new Response(GONE_BODY, {
+      status: 410,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
+  }
   if (!PORTAL_WELL_KNOWN.has(name)) {
     return new Response("Not found", {
       status: 404,
