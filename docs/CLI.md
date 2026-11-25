@@ -458,6 +458,28 @@ $ epi verify case-002.epi --policy strict --witness-log received.jsonl
 
 All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#reading-the-verdict).
 
+### Caveat lines
+
+When a result is weaker than it looks, `epi verify` prints a yellow `!` line to make it explicit. These lines are additive — they never change the verdict.
+
+| Caveat line | When it appears |
+| --- | --- |
+| `! Signer not confirmed: this key isn't one you've pinned. Pin it with epi keys trust if you got it from the sender another way.` | Signature is valid but the sealing key is not in your trust registry (`identity.status = UNKNOWN / NOT_PINNED`). |
+| `! Signer not confirmed: this key is on this computer but not org-pinned. Pin it with epi keys trust if you obtained it from the sender another way.` | Key is recognised as a local signing key on this machine but has not been org-pinned (`identity.status = LOCAL`). |
+| `! Receipt is self-issued (local), not from an independent transparency service (only checkable on the machine that issued it).` | The file carries a SCITT receipt from `epi-register` without `--service` (`governance.scitt.service_url = "local"`). |
+| `! Timestamp not checked here. Run epi verify to validate it.` | A notarization token is present but the CLI could not evaluate it (e.g. timestamp validation raised an error); only token presence was confirmed. |
+| `! Older seal format: the timestamp covers the contents, not the signing key.` | A validated RFC 3161 token exists but `imprinted_public_key` was null at sealing time, so the timestamp proves the contents existed by time T but does not bind the signing key. |
+
+### New `facts` fields (additive, 4.11.0)
+
+These fields appear in `--json` output under `report.facts`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `signer_not_confirmed` | `bool` | `true` when the signature is valid but the sealing key is `UNKNOWN` or `LOCAL` (not org-pinned). |
+| `scitt_self_issued` | `bool` | `true` when `governance.scitt.service_url` is `"local"` — a self-issued receipt, not an independent ledger entry. |
+| `timestamp_key_bound` | `bool \| null` | `true` = timestamp binds the signing key; `false` = contents-only (older seal); `null` = not evaluated (no token or validation skipped). |
+
 After a successful verification, typical next steps:
 - `https://epilabs.org/verify` for client-side browser verification (no account)
 - EPI Cloud trust link (customer-scoped) — `epi cloud login` then the dashboard

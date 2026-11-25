@@ -263,6 +263,21 @@ This is a **trust judgment**, separate from the cryptographic proof.
 
 ---
 
+## Caveat facts (`report["facts"]`)
+
+These additive fields make a weak result visible. None of them changes the decision.
+
+| Field | Value | Meaning |
+|-------|-------|---------|
+| `signer_not_confirmed` | `true` / `false` | `true` when the signature is valid but `identity.status` is `UNKNOWN` or `LOCAL`. The bytes are intact; the signer is not confirmed by a pin. The CLI prints `! Signer not confirmed`. |
+| `scitt_self_issued` | `true` / `false` | `true` when `governance.scitt.service_url` is `"local"` (a receipt from `epi-register` without `--service`). It shows a receipt exists, not that an independent transparency service recorded it. The CLI prints `! Receipt is self-issued (local)`. |
+| `timestamp_key_bound` | `true` / `false` / `null` | `true` when a validated RFC 3161 token binds the signing key; `false` when it covers only the contents (older seal format, no `imprinted_public_key`); `null` when no token was validated. |
+
+The browser viewer shows the same caveats next to the identity and timestamp
+rows. It never validates a timestamp, and it says so.
+
+---
+
 ## Timestamps (`report["timestamps"]`)
 
 `epi verify` checks RFC 3161 tokens **offline** against pinned TSA roots
