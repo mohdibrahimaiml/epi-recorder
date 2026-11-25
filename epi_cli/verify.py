@@ -3325,6 +3325,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"
         )
+    # T4-S1: signer-not-confirmed caveat — one visible yellow line when the
+    # signature is valid but the key hasn't been pinned by the verifier.
+    if signature_valid is True and id_upper in ("UNKNOWN", "LOCAL") and not untrusted_despite_pins:
+        if id_upper == "LOCAL":
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Signer not confirmed: this key is on this computer but "
+                "not org-pinned. Pin it with `epi keys trust` if you obtained it from the "
+                "sender another way.[/yellow]"
+            )
+        else:
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Signer not confirmed: this key isn't one you've pinned. "
+                "Pin it with `epi keys trust` if you got it from the sender another way.[/yellow]"
+            )
     _canon_fp = identity.get("fingerprint") if isinstance(identity, dict) else None
     _name_is_fp = bool(
         _canon_fp and identity_name
@@ -3425,12 +3439,14 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         # signature, chain, and messageImprint are NOT validated (see
         # KNOWN_LIMITATIONS.md), so this never renders green.
         notarization_status = "dim]Not available"
+        _notar_present = False
         try:
             epi_path = Path(epi_file) if isinstance(epi_file, str) else epi_file
             from zipfile import ZipFile
             with ZipFile(epi_path, "r") as zf:
                 if "artifacts/notarization/notarization.json" in zf.namelist():
                     notar_data = json.loads(zf.read("artifacts/notarization/notarization.json"))
+                    _notar_present = True
                     provider = (notar_data.get("notarized_at") or {}).get("provider", "unknown")
                     tsa_url = (notar_data.get("notarized_at") or {}).get("url", "")
                     gen_time = notar_data.get("tsa_genTime") or ""
@@ -3443,6 +3459,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         except Exception:
             pass
         content_lines.append(f"  - Notarized:    [{notarization_status}")
+        # T4-S3: when a token is present but was not validated, say so explicitly.
+        if _notar_present:
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Timestamp not checked here. "
+                "Run `epi verify` to validate it.[/yellow]"
+            )
     else:
         _ts_invalid = [
             e for e in _seal_entries
@@ -3475,6 +3497,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             content_lines.append(
                 f"  [green]- Timestamp:    VERIFIED — {_ts_what} ({_ts_where})[/green]"
             )
+            # T4-S4: separate caveat line when the timestamp doesn't bind the key.
+            if not _ts_keyed:
+                content_lines.append(
+                    "  [yellow]![/yellow] [yellow]Older seal format: the timestamp covers "
+                    "the contents, not the signing key.[/yellow]"
+                )
         elif _ts_legacy:
             content_lines.append(
                 "  [yellow]- Timestamp:    legacy token — imprint not recomputable "
@@ -3638,31 +3666,31 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Transparency (SCITT)
     transparency_ok = facts.get("transparency_ok")
+    _scitt_self_issued = bool(facts.get("scitt_self_issued"))
     _scitt_url_any = (
         ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
         if isinstance(report, dict) else None
     )
-    if transparency_ok is None and str(_scitt_url_any or "").strip().lower() == "local":
-        content_lines.append(
-            "  [yellow]- Transparency: LOCAL (self-issued receipt; only checkable on the "
-            "machine that issued it)[/yellow]"
-        )
-    if transparency_ok is not None:
-        _scitt_url = (
-            ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
-            if isinstance(report, dict) else None
-        )
-        if transparency_ok and str(_scitt_url or "").strip().lower() == "local":
-            # `epi-register` without --service: a receipt the sealer issued to
-            # itself. Valid, but not an independent ledger entry.
+    _is_local_scitt = _scitt_self_issued or (
+        str(_scitt_url_any or "").strip().lower() == "local"
+    )
+    if transparency_ok is not None and not _is_local_scitt:
+        # Independent service: one clear VERIFIED / FAILED line.
+        t_color = "green" if transparency_ok else "red"
+        t_text = "VERIFIED" if transparency_ok else "FAILED"
+        content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
+    if _is_local_scitt:
+        # A local receipt that failed validation keeps its own FAIL line first:
+        # the caveat below must never soften or replace a hard failure.
+        if transparency_ok is False:
             content_lines.append(
-                "  [yellow]- Transparency: LOCAL (self-issued receipt, not an independent "
-                "ledger)[/yellow]"
+                "  [red]- Transparency: FAILED (local SCITT receipt did not validate)[/red]"
             )
-        else:
-            t_color = "green" if transparency_ok else "red"
-            t_text = "VERIFIED" if transparency_ok else "FAILED"
-            content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
+        # Self-issued receipt: always a caveat, never an independent-ledger proof.
+        content_lines.append(
+            "  [yellow]![/yellow] [yellow]Receipt is self-issued (local), not from an independent "
+            "transparency service (only checkable on the machine that issued it).[/yellow]"
+        )
 
     # AIUC-1 Domain Layer
     aiuc1_data = report.get("aiuc1")

@@ -1145,6 +1145,22 @@ function renderIntegrity(caseData, context) {
     idEl.style.fontSize = '12px';
   }
 
+  // T4-S1: signer-not-confirmed caveat when the key is valid but not pinned.
+  const signerNotConfirmedRow = document.getElementById('ind-signer-not-confirmed');
+  const signerNotConfirmedText = document.getElementById('ind-signer-not-confirmed-text');
+  if (signerNotConfirmedRow && signerNotConfirmedText) {
+    const signerNotConfirmed = context?.facts?.signer_not_confirmed;
+    const pinSource = context?.identity?.pin_source || 'none';
+    const isLocal = context?.identity?.status === 'LOCAL';
+    if (signerNotConfirmed === true) {
+      const msg = isLocal
+        ? 'Signer not confirmed: this key is on this computer but not org-pinned. Pin it with epi keys trust if you obtained it from the sender another way.'
+        : 'Signer not confirmed: this key isn\u2019t one you\u2019ve pinned. Pin it with epi keys trust if you got it from the sender another way.';
+      signerNotConfirmedText.textContent = '\u26A0\uFE0F ' + msg;
+      signerNotConfirmedRow.style.display = '';
+    }
+  }
+
   // Diagnostic matrix -- every line says whether it was computed in this page.
   // A file-integrity PASS is shown only when this page actually hashed the
   // members against the signed manifest (authoritative), or the host injected a
@@ -1262,6 +1278,21 @@ function renderIntegrity(caseData, context) {
       rfcEl.textContent = 'RFC 3161 token present (' + tsaHost + (genTime ? ' · genTime ' + genTime : '') + '; signature not validated here — run epi verify)';
       rfcEl.className = 'diag-status unknown';
       rfcEl.title = 'Token present, genTime read. Signature, chain, and messageImprint are not validated in this viewer — offline validation happens in epi verify only (see KNOWN_LIMITATIONS.md).';
+      // T4-S3: say plainly that this page did not validate the token.
+      const tsNote = document.getElementById('diag-ts-note');
+      const tsNoteText = document.getElementById('diag-ts-note-text');
+      if (tsNote && tsNoteText) {
+        tsNoteText.textContent = '\u26A0\uFE0F Timestamp not checked here. Run epi verify to validate it.';
+        tsNote.style.display = '';
+      }
+      // T4-S4: contents-only note when key_binding is known from injected context
+      const tsContentsOnly = document.getElementById('diag-ts-contents-only');
+      const tsContentsOnlyText = document.getElementById('diag-ts-contents-only-text');
+      const keyBinding = context?.timestamps?.key_binding;
+      if (tsContentsOnly && tsContentsOnlyText && keyBinding === 'contents-only') {
+        tsContentsOnlyText.textContent = '\u26A0\uFE0F Older seal format: the timestamp covers the contents, not the signing key.';
+        tsContentsOnly.style.display = '';
+      }
     } else if (notarization) {
       rfcEl.textContent = 'Unavailable';
       rfcEl.className = 'diag-status unknown';
@@ -1292,6 +1323,37 @@ function renderIntegrity(caseData, context) {
       phEl.textContent = payloadHash.slice(0, 16) + '...';
       phEl.className = 'diag-status ok';
       phEl.title = payloadHash;
+    }
+
+    // T4-S2: SCITT transparency — show row and self-issued caveat when present.
+    const scittRow = document.getElementById('diag-scitt-row');
+    const scittStatusEl = document.getElementById('diag-scitt-status');
+    const scittSelfIssuedRow = document.getElementById('diag-scitt-self-issued');
+    const scittSelfIssuedText = document.getElementById('diag-scitt-self-issued-text');
+    const scittSelfIssued = context?.facts?.scitt_self_issued;
+    const scittGov = (m.governance || {}).scitt;
+    const scittIdentity = context?.identity?.scitt || (scittGov
+      ? { service_url: scittGov.service_url, entry_id: scittGov.entry_id }
+      : null);
+    const scittServiceUrl = scittIdentity?.service_url || '';
+    const isLocalScitt = scittSelfIssued === true || scittServiceUrl.toLowerCase() === 'local';
+    if (scittRow && scittStatusEl && scittIdentity) {
+      scittRow.style.display = '';
+      if (isLocalScitt) {
+        scittStatusEl.textContent = 'Local (self-issued)';
+        scittStatusEl.className = 'diag-status unknown';
+        scittStatusEl.title = 'Receipt issued by this machine, not an independent transparency service.';
+      } else if (scittIdentity.entry_id) {
+        scittStatusEl.textContent = scittServiceUrl ? scittServiceUrl.replace(/^https?:\/\//, '') : 'registered';
+        scittStatusEl.className = 'diag-status ok';
+      } else {
+        scittStatusEl.textContent = 'Present (not verified here)';
+        scittStatusEl.className = 'diag-status unknown';
+      }
+    }
+    if (scittSelfIssuedRow && scittSelfIssuedText && isLocalScitt) {
+      scittSelfIssuedText.textContent = '\u26A0\uFE0F Receipt is self-issued (local), not from an independent transparency service.';
+      scittSelfIssuedRow.style.display = '';
     }
   }
 
