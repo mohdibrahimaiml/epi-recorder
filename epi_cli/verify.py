@@ -2151,7 +2151,7 @@ def verify_command(
                     try:
                         execution_data = EPIContainer.read_member_json(epi_file, "execution.json")
                     except Exception:
-                        pass
+                        execution_data = {}  # unreadable: fall back to the signed manifest.trust steps_hash below
 
                     claimed_hash = execution_data.get("steps_hash") or (manifest.trust or {}).get(
                         "steps_hash"
@@ -2491,12 +2491,12 @@ def verify_command(
                 try:
                     report[_key]["integrity_ok"] = False
                     report[_key]["chain_ok"] = False
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["integrity_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["summary"]["integrity"] = _cp_messages[0] if _cp_messages else "FAILED"
             except Exception:
@@ -2543,12 +2543,12 @@ def verify_command(
             try:
                 report["facts"]["integrity_ok"] = False
                 report["facts"]["chain_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["integrity_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["summary"]["integrity"] = _cc_messages[0] if _cc_messages else "FAILED"
             except Exception:
@@ -2642,8 +2642,8 @@ def verify_command(
                 _cp_first = _cp_messages[0] if _cp_messages else "checkpoint verification failed"
                 if _cp_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cp_first}".strip()
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"checkpoint failure: {exc}")
         # Preserve capture-checkpoint failure the same way.
         if not _cc_ok:
             try:
@@ -2652,8 +2652,8 @@ def verify_command(
                 _cc_first = _cc_messages[0] if _cc_messages else "capture checkpoint verification failed"
                 if _cc_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cc_first}".strip()
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"capture checkpoint failure: {exc}")
         # Signed release: MATCHES never changes a verdict. A mismatch is a
         # warning by default and a FAIL with --require-release (one consistent
         # exit-code rule for drift, undeclared, unapproved, after-use, etc.).
@@ -2677,8 +2677,8 @@ def verify_command(
                     report["decision"]["reason"] = (
                         f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"release check: {exc}")
         # Pre-action approval: only an independent, non-colocated approval that
         # precedes the action is clean. Default WARN; FAIL with the flag.
         _pre = report.get("pre_action_approval") or {}
@@ -2719,8 +2719,8 @@ def verify_command(
                             or first.get("status")
                         )
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"pre-action approval check: {exc}")
         # A new-scheme seal token that fails validation means tampering: FAIL
         # in every policy. Missing or legacy tokens never change the decision
         # (unless --require-timestamp is set). The tamper detail REPLACES the
@@ -2776,8 +2776,8 @@ def verify_command(
                     report["decision"]["reason"] = (
                         f"{_rs} INTEGRITY: VERIFIED (enforcement downgraded for {_cap_downgrade_n} events)".strip()
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"enforcement downgrade check: {exc}")
         # ========== CUSTOMER WITNESS LOG (--witness-log) ==========
         # MISMATCH means the file differs from what the customer was told at
         # seal time: FAIL in every policy. A missing entry is WARN (FAIL under
@@ -2798,8 +2798,8 @@ def verify_command(
                     f"{_rs}; {_msg}" if _prior == "FAIL" else
                     f"Witness check not done: {_msg}. The seal itself is intact."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness unreadable check: {exc}")
         elif _witness.get("status") == "NOT IN WITNESS LOG":
             # A seal the vendor never reported is exactly what a re-run or
             # re-sealed case looks like. Never a clean PASS.
@@ -2815,8 +2815,8 @@ def verify_command(
                         "or re-sealed copy; ask the vendor for the copy that is in your "
                         "witness log."
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness log check: {exc}")
         elif _witness.get("status") == "NOT CONFIRMED":
             # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
             # Never a clean PASS; FAIL under strict (the auditor acceptance
@@ -2844,8 +2844,8 @@ def verify_command(
                         "Seal and signer are valid, but the witness stamps were not "
                         f"checked ({_witness.get('detail')})"
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness stamp check: {exc}")
         if _witness.get("status") == "MISMATCH":
             # The file's own seal may be perfectly valid (a re-export or a
             # re-signed copy). What failed is: it is not what you were told.
@@ -2860,8 +2860,8 @@ def verify_command(
                     f"Not the version reported to you: {_msg}. Ask the vendor for the "
                     "copy that is in your witness log."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness mismatch check: {exc}")
 
         # ========== HUMAN APPROVAL (who approved, if anyone) ==========
         # Computed whenever the file carries reviews or agent approval steps,
@@ -2897,8 +2897,8 @@ def verify_command(
                     f"{_rs}; approval invalid: {_msg}" if _prior == "FAIL"
                     else f"Approval invalid — {_msg}. The seal itself is intact."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"human approval check: {exc}")
         if require_human_approval and not _human.get("requirement_met"):
             try:
                 _prior = report["decision"].get("status")
@@ -2907,8 +2907,8 @@ def verify_command(
                 _msg = f"Human approval required: {_detail}"
                 report["decision"]["status"] = "FAIL"
                 report["decision"]["reason"] = f"{_rs}; {_msg}" if _prior == "FAIL" else _msg
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"human approval requirement: {exc}")
 
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
