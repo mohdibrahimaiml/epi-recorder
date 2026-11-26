@@ -2,6 +2,37 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [4.11.2] - 2026-11-26
+
+### Fixed: the Windows build could not run `epi demo`
+
+- **`epi demo` failed in the installer**, which is the first command a Windows
+  user runs. In a PyInstaller build `sys.executable` *is* `epi.exe`, so the
+  demo script was spawned as `epi.exe demo_refund.py` and Typer read the path
+  as a command name: `No such command '…\demo_refund.py'`.
+- **Five more self-invocations had the same defect** and would have broken
+  `epi dev`: the demo approval check (`verify --require-human-approval`),
+  `verify`, `verify --json`, `view --native` and `view --extract`. All six now
+  go through one `_epi_argv()` helper that knows whether it is a frozen exe or
+  a source checkout, and the demo script runs in-process when frozen.
+- **A guard test pins it.** `tests/test_demo_frozen_paths.py` checks the argv
+  shape, the in-process ordering, and fails if a literal `-m epi_cli`
+  self-invocation is reintroduced.
+
+### Added
+
+- **`scripts/refresh_verify_pins.py`.** The demo generator must mint fresh keys
+  on every re-seal (it needs the private halves to sign), so the fingerprints
+  printed on `/verify` drift each time the samples are rebuilt. The script asks
+  the real CLI for each shipped `.pub` file's fingerprint in an empty HOME and
+  rewrites only the quoted values on the page. It is now a release step, so the
+  page is never hand-edited and never left stale.
+
+### Changed
+
+- Every shipped sample is re-sealed at spec 4.11.2, and `/verify` is re-pinned
+  to the keys those samples carry.
+
 ## [4.11.1] - 2026-11-26
 
 ### Changed
