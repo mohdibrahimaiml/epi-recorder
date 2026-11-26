@@ -751,7 +751,7 @@ from epi_cli.view import export_html as export_html_command
 )
 def view(
     ctx: typer.Context,
-    epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
+    epi_file: str = typer.Argument(None, help="Path or name of .epi file to view (omit to choose one)"),
     extract: str = typer.Option(None, "--extract", help="Destination directory to extract the viewer.html and assets instead of opening browser"),
     browser: bool = typer.Option(False, "--browser", help="Open in the browser review flow (default behavior)."),
     native: bool = typer.Option(False, "--native", help="Force the native desktop viewer instead of the browser review flow."),
