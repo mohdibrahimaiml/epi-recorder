@@ -85,6 +85,20 @@ exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested.
 ## Every release (example: v4.7.0)
 
 1. Make sure `main` is green and `CHANGELOG.md` has the version section dated.
+   If any shipped sample was rebuilt, re-seal it at the current spec, then run
+   these three, in order:
+
+   ```bash
+   python scripts/refresh_demo_pinned_hashes.py   # size + SHA-256 on /verify and its mirrors
+   python scripts/refresh_verify_pins.py          # the three key fingerprints /verify prints
+   python scripts/sync_website.py                 # copy website/ to site/, epi-official/, verify_portal/
+   ```
+
+   The demo generator mints fresh keys on every run — it needs the private
+   halves to sign — so `/verify` shows stale fingerprints unless the pins are
+   refreshed from the shipped `.pub` files. Never hand-edit those numbers.
+   `tests/test_demo_trust_page.py` and `tests/test_verify_demo_commands.py`
+   fail on drift, so a missed step is caught before tagging.
 2. **Version-bump PRs merge only when you are about to publish.** The site
    deploys on merge, so a merged bump advertises the release immediately —
    do not merge a website version bump days before the release, or the
