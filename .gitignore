@@ -310,3 +310,18 @@ pitch-assets/
 # notes. Both are local to the machine that produced them.
 /.agents/
 /whale/
+
+# Local working material that was untracked and NOT ignored: one git add -A
+# would have published it. None of it is product, docs or a deploy target.
+/.freebuff/
+/brag-output/
+/media/
+/EPI-RECORDER/
+/epi_serve/
+/review/
+/simulation/
+/demo_uma/
+/demo_master_ws/
+/demo_approved_compromised/
+/test_reviewed_open/
+/test_run_dir/
