@@ -259,6 +259,8 @@ Recording and verification never depend on Cloud.
 - **Sealing asks a public TSA only for a hash**, never the file. Switch off with `EPI_NOTARIZE=0`,
   or point at your own with `EPI_TSA_URLS`.
 - **Seal ≠ identity ≠ policy.** Three checks, three answers.
+- **Windows binaries:** how the installer and Store package are signed, and by whom, is in
+  [CODE_SIGNING_POLICY.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CODE_SIGNING_POLICY.md).
 
 ## CLI
 
