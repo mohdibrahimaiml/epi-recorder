@@ -70,8 +70,39 @@ Workflow: `.github/workflows/build-windows-installer.yml`. Policy:
    run. The workflow refuses to publish if the returned file's Authenticode
    signature is not valid.
 
-Until step 3 is done, the installer is built and published unsigned, exactly as
-before.
+### Signing `epi.exe` as well
 
-Not yet covered: `epi.exe` inside the installer is not signed separately. A
-second signing request before the Inno Setup step would cover it.
+The installer's Authenticode signature covers the setup program. The `epi.exe`
+it installs is a separate file, so it carries its own signature — that is what
+shows a publisher in the file's Properties and covers the binary that actually
+runs.
+
+The workflow already has the second request, between the PyInstaller bundle and
+the Inno Setup step. It is off until a **second signing policy** exists for the
+executable:
+
+1. In SignPath, add an artifact configuration for the bundle:
+
+   ```xml
+   <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+     <zip-file>
+       <pe-file path="epi.exe">
+         <authenticode-sign />
+       </pe-file>
+     </zip-file>
+   </artifact-configuration>
+   ```
+
+2. Create a signing policy for it and set
+   `SIGNPATH_SIGNING_POLICY_SLUG_EXE` to that policy's slug (repository
+   variable). The organization, project and API token are shared with the
+   installer.
+3. The workflow then:
+   - uploads `dist/epi/epi.exe`,
+   - signs it with `SIGNPATH_SIGNING_POLICY_SLUG_EXE`,
+   - replaces `dist/epi/epi.exe` with the signed copy and fails if the hash did
+     not change or `Get-AuthenticodeSignature` is not `Valid`,
+   - builds the installer from the signed executable.
+
+Both requests are gated: with the variables unset, nothing is uploaded, nothing
+is signed, and the release is published unsigned exactly as before.

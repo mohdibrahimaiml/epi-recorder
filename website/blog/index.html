@@ -1,159 +1,143 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Blog - EPI Labs</title>
+<title>Blog | EPI Labs</title>
 <meta name="description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
 <link rel="canonical" href="https://epilabs.org/blog/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="EPI Labs">
-<meta property="og:title" content="Blog - EPI Labs">
+<meta property="og:title" content="Blog | EPI Labs">
 <meta property="og:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
 <meta property="og:url" content="https://epilabs.org/blog/">
 <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Blog - EPI Labs">
+<meta name="twitter:title" content="Blog | EPI Labs">
 <meta name="twitter:description" content="Technical notes on AI decision evidence, cryptographic provenance, release control, and what a record can and cannot prove.">
 <meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
-<meta name="theme-color" content="#F7F5F0">
+<meta name="theme-color" content="#070708">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=15">
-<link rel="stylesheet" href="/css/blog.css?v=1">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+<link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<!-- ═══ SITE NAV ═══ -->
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li class="nlinks__menu"><details>
-        <summary>Architecture</summary>
-        <div class="nlinks__panel">
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
             <a href="/how-it-works">How it works</a>
             <a href="/decision-record">Decision Record</a>
-        </div>
-      </details></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/blog/">Blog</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <details class="mmenu__group">
-    <summary>Architecture</summary>
-    <a href="/how-it-works">How it works</a>
-    <a href="/decision-record">Decision Record</a>
-  </details>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/blog/">Blog</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="/blog/" class="z-nav__link">Blog</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
 
-<main id="main">
-<div class="page blog-index">
-<span class="tag">Blog</span>
-<h1>Evidence someone else can check</h1>
-<p class="lede">Technical notes on AI decision evidence, cryptographic provenance, release control, and the difference between a promise and a record a third party can verify.</p>
-<div class="blog-list">
-<article class="blog-card">
-  <time class="blog-date" datetime="2026-11-12">
-    November 12, 2026
-  </time>
-  <h2>
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/blog/">Blog</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+        <span class="z-eyebrow">Blog</span>
+        <h1 class="z-h1" style="margin-top:1rem">Evidence someone else can check</h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:36rem">Technical notes on AI decision evidence, cryptographic provenance, release control, and the difference between a promise and a record a third party can verify.</p>
+      </header>
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div class="z-tri-grid" style="grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))">
+<article class="z-tri-card">
+  <div class="z-tri-card__step" style="margin-top:0"><time datetime="2026-11-12">November 12, 2026</time></div>
+  <h2 class="z-h3-card" style="margin-top:0.75rem">
     <a href="/blog/posts/4-10-per-customer-evidence.html">4.10.0: evidence per customer, releases you can check, Apache-2.0</a>
   </h2>
-  <p>One signing key can serve several banks without leaking one customer&#x27;s numbers to another. That is the core of 4.10.0.</p>
-  <a class="blog-more" href="/blog/posts/4-10-per-customer-evidence.html">
-    Read the article &rarr;
-  </a>
+  <p class="z-body" style="margin-top:0.75rem">One signing key can serve several banks without leaking one customer&#x27;s numbers to another. That is the core of 4.10.0.</p>
+  <p style="margin-top:1rem"><a href="/blog/posts/4-10-per-customer-evidence.html" style="color:var(--acc);font-size:0.85rem">Read the article &rarr;</a></p>
 </article>
-<article class="blog-card">
-  <time class="blog-date" datetime="2026-11-01">
-    November 2026
-  </time>
-  <h2>
+<article class="z-tri-card">
+  <div class="z-tri-card__step" style="margin-top:0"><time datetime="2026-11-01">November 2026</time></div>
+  <h2 class="z-h3-card" style="margin-top:0.75rem">
     <a href="/blog/posts/verifiable-not-just-immutable.html">Verifiable, Not Just Immutable</a>
   </h2>
-  <p>&quot;Immutable&quot; tells you what a vendor promises about its own system. &quot;Verifiable&quot; means you can check it without trusting them.</p>
-  <a class="blog-more" href="/blog/posts/verifiable-not-just-immutable.html">
-    Read the article &rarr;
-  </a>
+  <p class="z-body" style="margin-top:0.75rem">&quot;Immutable&quot; tells you what a vendor promises about its own system. &quot;Verifiable&quot; means you can check it without trusting them.</p>
+  <p style="margin-top:1rem"><a href="/blog/posts/verifiable-not-just-immutable.html" style="color:var(--acc);font-size:0.85rem">Read the article &rarr;</a></p>
 </article>
-<article class="blog-card">
-  <time class="blog-date" datetime="2026-06-22">
-    June 22, 2026
-  </time>
-  <h2>
+<article class="z-tri-card">
+  <div class="z-tri-card__step" style="margin-top:0"><time datetime="2026-06-22">June 22, 2026</time></div>
+  <h2 class="z-h3-card" style="margin-top:0.75rem">
     <a href="/blog/posts/scitt-for-agentic-ai.html">SCITT for Agentic AI</a>
   </h2>
-  <p>COSE Sign1 statements, Merkle proofs, and transparency receipts for AI.</p>
-  <a class="blog-more" href="/blog/posts/scitt-for-agentic-ai.html">
-    Read the article &rarr;
-  </a>
+  <p class="z-body" style="margin-top:0.75rem">COSE Sign1 statements, Merkle proofs, and transparency receipts for AI.</p>
+  <p style="margin-top:1rem"><a href="/blog/posts/scitt-for-agentic-ai.html" style="color:var(--acc);font-size:0.85rem">Read the article &rarr;</a></p>
 </article>
-<article class="blog-card">
-  <time class="blog-date" datetime="2026-06-22">
-    June 22, 2026
-  </time>
-  <h2>
+<article class="z-tri-card">
+  <div class="z-tri-card__step" style="margin-top:0"><time datetime="2026-06-22">June 22, 2026</time></div>
+  <h2 class="z-h3-card" style="margin-top:0.75rem">
     <a href="/blog/posts/what-is-ai-evidence-provenance.html">What Is AI Evidence Provenance</a>
   </h2>
-  <p>Make AI execution trails cryptographic and independently verifiable.</p>
-  <a class="blog-more" href="/blog/posts/what-is-ai-evidence-provenance.html">
-    Read the article &rarr;
-  </a>
+  <p class="z-body" style="margin-top:0.75rem">Make AI execution trails cryptographic and independently verifiable.</p>
+  <p style="margin-top:1rem"><a href="/blog/posts/what-is-ai-evidence-provenance.html" style="color:var(--acc);font-size:0.85rem">Read the article &rarr;</a></p>
 </article>
-</div>
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</span>
-    <span>
-      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
-         target="_blank" rel="noopener"
-         style="color:var(--mut)">GitHub</a>
-    </span>
-  </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
-  <a href="/about" style="color:inherit">About</a> &middot;
-  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
-  <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot;
-  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
-</p>
+        </div>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
 </footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  if(nav){var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};addEventListener('scroll',onS,{passive:true});onS();}
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>

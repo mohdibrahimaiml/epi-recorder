@@ -797,9 +797,65 @@ def _emit_view_telemetry(resolved_path: Path, *, success: bool = True) -> None:
         pass
 
 
+def _windows_choose_file() -> str | None:
+    """Ask Windows for a .epi file with the standard Open dialog.
+
+    Used when `epi view` is launched with no file — the Start menu entry does
+    exactly that. Returns None on non-Windows, when the dialog is cancelled, or
+    when PowerShell cannot be started.
+    """
+    if os.name != "nt":
+        return None
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "$d=New-Object System.Windows.Forms.OpenFileDialog;"
+        "$d.Title='Open an EPI decision record';"
+        "$d.Filter='EPI records (*.epi)|*.epi|All files (*.*)|*.*';"
+        "$d.CheckFileExists=$true;"
+        "if($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK)"
+        "{[Console]::Out.Write($d.FileName)}"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-STA", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    chosen = (result.stdout or "").strip()
+    return chosen or None
+
+
+def _choose_epi_file() -> str | None:
+    """Pick a file for a bare `epi view`, or None when there is nothing to do.
+
+    A packaged app launched from the Start menu runs `epi view` with no
+    argument. Exiting with a usage error there looks like a crash to the Store
+    and to the person who clicked the icon, so offer the file dialog first and
+    fall back to a prompt when a keyboard is attached.
+    """
+    chosen = _windows_choose_file()
+    if chosen:
+        return chosen
+    if not sys.stdin.isatty():
+        return None
+    console.print("[bold]EPI Recorder[/bold] — open a sealed decision record.")
+    console.print(
+        "[dim]Drag a .epi file into this window and press Enter, or "
+        "press Enter on its own to quit.[/dim]"
+    )
+    try:
+        typed = input("Path to .epi file: ").strip().strip('"')
+    except (EOFError, KeyboardInterrupt):
+        return None
+    return typed or None
+
+
 def view(
     ctx: typer.Context,
-    epi_file: str = typer.Argument(..., help="Path or name of .epi file to view"),
+    epi_file: str = typer.Argument(None, help="Path or name of .epi file to view"),
     extract: str = typer.Option(None, "--extract", help="Destination directory to extract the viewer.html and assets instead of opening browser"),
     browser: bool = typer.Option(False, "--browser", help="Open in the browser review flow (default behavior)."),
     native: bool = typer.Option(False, "--native", help="Force the native desktop viewer instead of the browser review flow."),
@@ -812,10 +868,21 @@ def view(
     - foo.epi -> ./epi-recordings/foo.epi
     - /path/to/file.epi -> /path/to/file.epi
 
+    With no file and a keyboard attached (for example the Start menu entry in
+    the Windows app), it offers a file picker instead of exiting with an error.
+
     Example:
         epi view my_script_20251121_231501
         epi view my_recording.epi
     """
+    if not epi_file:
+        epi_file = _choose_epi_file()
+        if not epi_file:
+            if not sys.stdin.isatty():
+                console.print("[red]Missing argument 'epi_file'.[/red]")
+                console.print("[dim]Usage: epi view [OPTIONS] {epi_file}[/dim]")
+                raise typer.Exit(2)
+            raise typer.Exit(0)
     # Resolve the file path
     try:
         resolved_path = _resolve_epi_file(epi_file)

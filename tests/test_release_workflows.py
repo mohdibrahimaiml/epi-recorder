@@ -104,6 +104,89 @@ def test_sigstore_action_is_pinned_to_a_real_release():
         )
 
 
+def test_release_reupload_replaces_same_named_assets():
+    """Signing an already-published tag re-runs this workflow.
+
+    The second run must overwrite `epi-setup-<v>.exe`, `SHA256SUMS.txt` and the
+    bundles in place. `action-gh-release` defaults `overwrite_files` to true;
+    pin it explicitly so an action bump cannot turn a re-signing into a failed
+    release or leave the old unsigned bytes attached.
+    """
+    text = _text(INSTALLER)
+    steps = [s for s in text.split("- name: ") if "softprops/action-gh-release" in s]
+    assert len(steps) >= 2, "expected one attach step for the exe and one for the bundles"
+    for step in steps:
+        assert "overwrite_files: true" in step, (
+            "a release re-run must replace same-named assets; set overwrite_files: true"
+        )
+
+
+def test_bundled_exe_is_signed_before_the_installer_is_built():
+    """The installer's signature does not cover epi.exe inside it.
+
+    The inner executable is a separate file, so it needs its own Authenticode
+    signature. The request must run after PyInstaller and before Inno Setup,
+    replace the bundled file, and refuse to continue if the replacement did not
+    happen or the signature is not valid. It is gated on its own policy slug so
+    an existing SignPath project keeps working until the second policy exists.
+    """
+    text = _text(INSTALLER)
+
+    order = [
+        "Bundle with PyInstaller",
+        "Sign the bundled exe (SignPath Foundation)",
+        "Use the signed exe in the installer",
+        "Build installer",
+    ]
+    positions = [text.index(name) for name in order]
+    assert positions == sorted(positions), (
+        "the bundled-exe signing steps must sit between PyInstaller and Inno Setup"
+    )
+
+    signing = text.split("- name: Sign the bundled exe (SignPath Foundation)", 1)[1].split(
+        "- name: ", 1
+    )[0]
+    assert "SIGNPATH_SIGNING_POLICY_SLUG_EXE" in signing, (
+        "the exe needs its own signing policy, not the installer's"
+    )
+    assert "github-action-submit-signing-request" in signing
+
+    replace = text.split("- name: Use the signed exe in the installer", 1)[1].split(
+        "- name: ", 1
+    )[0]
+    assert "Copy-Item" in replace and "dist\\epi\\epi.exe" in replace, (
+        "the signed copy must replace the file Inno Setup packages"
+    )
+    assert "Get-AuthenticodeSignature" in replace, (
+        "the workflow must check the returned signature is valid"
+    )
+
+
+def test_sigstore_bundles_are_attached_under_their_real_suffix():
+    """sigstore v3 writes `<artifact>.sigstore.json`, not `<artifact>.sigstore`.
+
+    4.11.2 shipped with the attach step globbing `*.sigstore`, which matched
+    nothing; `softprops/action-gh-release` only warned, so the release went out
+    with no bundles at all. The glob must match what the action writes, and the
+    job must fail rather than attach nothing.
+    """
+    text = _text(INSTALLER)
+    attach = [
+        step
+        for step in text.split("- name: ")
+        if step.strip().startswith("Attach Sigstore bundles")
+    ]
+    assert attach, "the installer no longer attaches Sigstore bundles"
+    for step in attach:
+        assert "*.sigstore.json" in step, (
+            "the sigstore action writes .sigstore.json; a '*.sigstore' glob "
+            "matches nothing and the release ships without bundles"
+        )
+    assert "no Sigstore bundles were produced" in text, (
+        "the job must fail when no bundle is produced, not attach nothing silently"
+    )
+
+
 def test_sbom_workflow_uses_the_cyclonedx_py_flags_it_pins():
     text = _text(SBOM)
     invocation = next(
