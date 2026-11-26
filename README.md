@@ -1,6 +1,8 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Labs" width="180"/>
 
+<!-- mcp-name: io.github.mohdibrahimaiml/epi-recorder -->
+
 # Decision records for AI agents
 
 ### Every AI decision, in one file your customer can check.
@@ -19,7 +21,7 @@ pip install epi-recorder
 epi demo --no-browser    # record → seal → verify, no API key
 ```
 
-Release **v4.11.0** — [what changed](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
+Release **v4.11.1** — [what changed](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md)
 
 **[See a real decision record](https://epilabs.org/insurance/sample-claim-record)** ·
 [What a `.epi` is](#what-a-epi-file-is) ·

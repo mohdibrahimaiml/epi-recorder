@@ -2,7 +2,7 @@
 
 All notable changes to EPI Recorder are documented here.
 
-## [Unreleased]
+## [4.11.1] - 2026-11-26
 
 ### Changed
 
@@ -20,6 +20,21 @@ All notable changes to EPI Recorder are documented here.
   when the key holder re-seals.
 - `/outreach/` is gitignored: it holds named prospects and draft emails, and
   the repository is public.
+- `/whale/` and `/.agents/` are gitignored for the same reason: a sales board
+  with named prospects and deal values, and internal positioning notes.
+
+### Added
+
+- **A container for the MCP server.** `Dockerfile` and `.dockerignore` build
+  the stdio server as a two-stage image running as a non-root user;
+  `docs/MCP-DOCKER.md` shows how to point an MCP client at it. The image
+  installs the `[mcp]` extra, which the base package does not.
+- **Registry metadata for the MCP server.** `server.json` and an `mcp-name:`
+  marker in the README prepare a publish to the Official MCP Registry. It is
+  **not published in this release**: the PyPI package ships the MCP SDK as the
+  `[mcp]` extra, so `uvx epi-recorder` cannot start the server on its own, and
+  a registry entry that fails on first run is worse than no entry. The
+  container path works today.
 
 ## [4.11.0] - 2026-11-23
 

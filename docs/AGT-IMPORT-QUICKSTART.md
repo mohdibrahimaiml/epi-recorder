@@ -1,4 +1,4 @@
-# AGT -> EPI Quickstart (v4.11.0)
+# AGT -> EPI Quickstart (v4.11.1)
 
 If you already have exported Microsoft Agent Governance Toolkit evidence, this is the fastest path to a portable, signed `.epi` Decision Record.
 

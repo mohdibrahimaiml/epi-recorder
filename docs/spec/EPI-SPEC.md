@@ -1,8 +1,8 @@
-# EPI File Format Specification v4.11.0
+# EPI File Format Specification v4.11.1
 
 **Status:** Active  
 **Date:** 2026-11-08  
-**Version:** 4.11.0  
+**Version:** 4.11.1  
 **Category:** Standards Track
 
 ---
