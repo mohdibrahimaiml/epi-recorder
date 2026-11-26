@@ -104,6 +104,47 @@ def test_sigstore_action_is_pinned_to_a_real_release():
         )
 
 
+def test_bundled_exe_is_signed_before_the_installer_is_built():
+    """The installer's signature does not cover epi.exe inside it.
+
+    The inner executable is a separate file, so it needs its own Authenticode
+    signature. The request must run after PyInstaller and before Inno Setup,
+    replace the bundled file, and refuse to continue if the replacement did not
+    happen or the signature is not valid. It is gated on its own policy slug so
+    an existing SignPath project keeps working until the second policy exists.
+    """
+    text = _text(INSTALLER)
+
+    order = [
+        "Bundle with PyInstaller",
+        "Sign the bundled exe (SignPath Foundation)",
+        "Use the signed exe in the installer",
+        "Build installer",
+    ]
+    positions = [text.index(name) for name in order]
+    assert positions == sorted(positions), (
+        "the bundled-exe signing steps must sit between PyInstaller and Inno Setup"
+    )
+
+    signing = text.split("- name: Sign the bundled exe (SignPath Foundation)", 1)[1].split(
+        "- name: ", 1
+    )[0]
+    assert "SIGNPATH_SIGNING_POLICY_SLUG_EXE" in signing, (
+        "the exe needs its own signing policy, not the installer's"
+    )
+    assert "github-action-submit-signing-request" in signing
+
+    replace = text.split("- name: Use the signed exe in the installer", 1)[1].split(
+        "- name: ", 1
+    )[0]
+    assert "Copy-Item" in replace and "dist\\epi\\epi.exe" in replace, (
+        "the signed copy must replace the file Inno Setup packages"
+    )
+    assert "Get-AuthenticodeSignature" in replace, (
+        "the workflow must check the returned signature is valid"
+    )
+
+
 def test_sigstore_bundles_are_attached_under_their_real_suffix():
     """sigstore v3 writes `<artifact>.sigstore.json`, not `<artifact>.sigstore`.
 
