@@ -1,0 +1,18 @@
+"""Approval-link source constants."""
+from __future__ import annotations
+
+from epi_core.approval_links import (
+    APPROVAL_LINK_AUTHENTICATED_SOURCE,
+    APPROVAL_LINK_SOURCE,
+    CLIENT_APPROVAL_SOURCE,
+    GATEWAY_ONLY_APPROVAL_SOURCES,
+    UNVERIFIED_REVIEWER,
+)
+
+__all__ = [
+    "APPROVAL_LINK_AUTHENTICATED_SOURCE",
+    "APPROVAL_LINK_SOURCE",
+    "CLIENT_APPROVAL_SOURCE",
+    "GATEWAY_ONLY_APPROVAL_SOURCES",
+    "UNVERIFIED_REVIEWER",
+]
