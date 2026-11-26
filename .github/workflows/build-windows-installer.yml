@@ -53,6 +53,49 @@ jobs:
       - name: Bundle with PyInstaller
         run: pyinstaller epi.spec --clean --noconfirm
 
+      # Sign the executable that Inno Setup packages, not only the setup .exe.
+      # Authenticode on the inner epi.exe is what shows a publisher on the
+      # program itself (Properties > Digital Signatures) and lets a reviewer
+      # check the binary that actually runs. Off until SignPath issues a second
+      # signing policy for it. See docs/WINDOWS-DISTRIBUTION.md.
+      - name: Upload bundled exe for signing
+        id: unsigned-exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SIGNING_POLICY_SLUG_EXE != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: epi-exe-unsigned
+          path: dist/epi/epi.exe
+          if-no-files-found: error
+
+      - name: Sign the bundled exe (SignPath Foundation)
+        id: signed-exe
+        if: vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SIGNING_POLICY_SLUG_EXE != ''
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG_EXE }}
+          github-artifact-id: ${{ steps.unsigned-exe.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist/signed-exe
+
+      - name: Use the signed exe in the installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SIGNING_POLICY_SLUG_EXE != ''
+        run: |
+          $signed = Get-ChildItem "dist\signed-exe" -Recurse -Filter epi.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $signed) { throw "SignPath returned no signed epi.exe" }
+          $before = (Get-FileHash "dist\epi\epi.exe" -Algorithm SHA256).Hash
+          Copy-Item $signed.FullName "dist\epi\epi.exe" -Force
+          $after = (Get-FileHash "dist\epi\epi.exe" -Algorithm SHA256).Hash
+          if ($before -eq $after) { throw "the exe was not replaced by a signed copy" }
+          $sig = Get-AuthenticodeSignature "dist\epi\epi.exe"
+          if ($sig.Status -ne "Valid") { throw "signed exe is not valid: $($sig.Status)" }
+          Write-Host "Signed exe: $($sig.SignerCertificate.Subject)"
+          Write-Host "SHA-256: $after"
+        shell: powershell
+
       - name: Verify bundle
         run: |
           $exe = "dist\epi\epi.exe"
