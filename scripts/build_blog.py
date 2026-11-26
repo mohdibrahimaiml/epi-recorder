@@ -202,33 +202,35 @@ def _load_template(name: str) -> str:
     return (BLOG / "templates" / name).read_text(encoding="utf-8")
 
 
-def _nav() -> str:
-    try:
-        return (WEBSITE / "_nav.html").read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
+def _shell() -> str:
+    """The converted /terms page is the source of truth for the site shell."""
+    return (WEBSITE / "terms.html").read_text(encoding="utf-8", errors="replace")
+
+
+def _header() -> str:
+    shell = _shell()
+    start = shell.index('<a href="#main-content"')
+    start = shell.rindex("\n", 0, start) + 1
+    end = shell.index('\n\n  <main id="main-content"')
+    header = shell[start:end]
+    # The blog is reachable from its own pages; the marketing nav omits it.
+    header = header.replace(
+        '        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>',
+        '        <a href="/blog/" class="z-nav__link">Blog</a>\n'
+        '        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>',
+    )
+    header = header.replace(
+        '    <a href="/trust">Trust model</a>\n    <a href="/plans">Pricing</a>',
+        '    <a href="/trust">Trust model</a>\n    <a href="/blog/">Blog</a>\n    <a href="/plans">Pricing</a>',
+    )
+    return header
 
 
 def _footer() -> str:
-    version = _version()
-    stamp = f"v{version}" if version else ""
-    return f"""<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; {stamp}</span>
-    <span>
-      <a href="/" style="color:var(--acc)">epilabs.org</a> &middot;
-      <a href="https://github.com/mohdibrahimaiml/epi-recorder"
-         target="_blank" rel="noopener"
-         style="color:var(--mut)">GitHub</a>
-    </span>
-  </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8">
-  <a href="/about" style="color:inherit">About</a> &middot;
-  <a href="/privacy" style="color:inherit">Privacy</a> &middot;
-  <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot;
-  <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a>
-</p>
-</footer>"""
+    shell = _shell()
+    start = shell.index('  <div class="z-shell" style="margin-top:auto">')
+    end = shell.index('\n\n  <script src="/js/auth-ui.js">')
+    return shell[start:end]
 
 
 def _load_posts() -> list[dict[str, str]]:
@@ -255,17 +257,13 @@ def _load_posts() -> list[dict[str, str]]:
 
 
 def _card(post: dict[str, str]) -> str:
-    return f"""<article class="blog-card">
-  <time class="blog-date" datetime="{html.escape(post['date_iso'])}">
-    {html.escape(post['date'])}
-  </time>
-  <h2>
+    return f"""<article class="z-tri-card">
+  <div class="z-tri-card__step" style="margin-top:0"><time datetime="{html.escape(post['date_iso'])}">{html.escape(post['date'])}</time></div>
+  <h2 class="z-h3-card" style="margin-top:0.75rem">
     <a href="/blog/posts/{html.escape(post['slug'])}.html">{html.escape(post['title'])}</a>
   </h2>
-  <p>{html.escape(post['excerpt'] or post['description'])}</p>
-  <a class="blog-more" href="/blog/posts/{html.escape(post['slug'])}.html">
-    Read the article &rarr;
-  </a>
+  <p class="z-body" style="margin-top:0.75rem">{html.escape(post['excerpt'] or post['description'])}</p>
+  <p style="margin-top:1rem"><a href="/blog/posts/{html.escape(post['slug'])}.html" style="color:var(--acc);font-size:0.85rem">Read the article &rarr;</a></p>
 </article>"""
 
 
@@ -295,12 +293,12 @@ def _json_ld(post: dict[str, str]) -> str:
 
 def build() -> int:
     posts = _load_posts()
-    nav = _nav()
+    header = _header()
     footer = _footer()
     listing = _load_template("listing.html")
     post_template = _load_template("post.html")
 
-    shared = {"nav": nav, "footer": footer}
+    shared = {"header": header, "footer": footer}
     listing_html = _render(
         listing,
         {
