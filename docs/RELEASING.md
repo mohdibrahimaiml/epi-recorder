@@ -1,13 +1,20 @@
 # Releasing epi-recorder
 
-**4.11.2 status (26 Nov 2026): prepared, not yet tagged.** Fixes the frozen Windows build:
-`epi demo` and the `epi dev` verify/view steps re-entered the CLI through `sys.executable`, so
-`epi demo` failed with "No such command '...demo_refund.py'" in the installer. Version bumped
-in `pyproject.toml` and the stamps that move with it; samples re-sealed at the current spec.
+**4.11.2 status (26 Nov 2026): published.** Fixes the frozen Windows build: `epi demo` and
+the `epi dev` verify/view steps re-entered the CLI through `sys.executable`, so `epi demo` failed
+with "No such command '...demo_refund.py'" in the installer.
 
-To publish: Actions -> **Cut release** with input `4.11.2` (it refuses a version mismatch, an
-existing tag, or any branch but `main`), then **Publish to PyPI (Trusted Publishing)** with tag
-`v4.11.2`, then SBOM and Build Windows Installer for the same tag.
+  - Tag `v4.11.2` on `9cbe69d8`; GitHub Release published.
+  - PyPI wheel and sdist, with PEP 740 attestations; both provenance URLs return 200.
+  - `sbom.cdx.json` (CycloneDX 1.6, 59 components).
+  - `epi-setup-4.11.2.exe`, `SHA256SUMS.txt`, and Sigstore bundles
+    (`epi-setup-4.11.2.exe.sigstore.json`, `SHA256SUMS.txt.sigstore.json`).
+  - Not Authenticode-signed: SignPath Foundation approval is still pending, so Windows
+    SmartScreen still shows "unknown publisher".
+
+The first installer run for this tag attached no bundles: the attach step globbed `*.sigstore`
+while the action writes `*.sigstore.json`. Fixed in #335, which also fails the job when no
+bundle is produced; the installer workflow was then re-run for `v4.11.2`.
 
 **4.11.1 status (26 Nov 2026): published.** Tag `v4.11.1`, GitHub Release, and the PyPI upload
 with PEP 740 attestations. No Windows installer asset was published for it.
@@ -124,8 +131,13 @@ exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested.
 ```bash
 sha256sum -c SHA256SUMS.txt
 pip install sigstore
-sigstore verify identity epi-setup-4.7.0.exe --bundle epi-setup-4.7.0.exe.sigstore.json \
-  --cert-identity https://github.com/mohdibrahimaiml/epi-recorder \
+# The identity names the workflow file and the ref that built the artifact.
+# A release built by a tag push carries refs/tags/vX.Y.Z; one built by a manual
+# workflow_dispatch carries refs/heads/main. sigstore 4.x matches --cert-identity
+# exactly, so use the ref that actually built the file you are checking.
+sigstore verify identity epi-setup-4.11.2.exe \
+  --bundle epi-setup-4.11.2.exe.sigstore.json \
+  --cert-identity "https://github.com/mohdibrahimaiml/epi-recorder/.github/workflows/build-windows-installer.yml@refs/heads/main" \
   --cert-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
