@@ -1,107 +1,117 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Standards support - EPI Labs</title>
-<meta name="description" content="How EPI Decision Records map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
-<link rel="canonical" href="https://epilabs.org/standards">
-<meta property="og:title" content="Standards support - EPI Labs">
-<meta property="og:description" content="How EPI Decision Records map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=16">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Standards support | EPI Labs</title>
+  <meta name="description" content="How EPI Decision Records map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
+  <meta property="og:title" content="Standards support | EPI Labs">
+  <meta property="og:description" content="How EPI Decision Records map to EU AI Act Annex IV, AIUC-1 domains and SCITT receipts - and what they do not prove.">
+  <link rel="canonical" href="https://epilabs.org/standards">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li class="nlinks__menu"><details>
-        <summary>Architecture</summary>
-        <div class="nlinks__panel">
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
             <a href="/how-it-works">How it works</a>
             <a href="/decision-record">Decision Record</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+            <span class="z-eyebrow">Standards</span>
+            <h1 class="z-h1" style="margin-top:1rem">Standards support</h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">What an <code class="k">.epi</code> Decision Record can contribute when a customer answers to an auditor, a regulator or an underwriter - and what it cannot.</p>
+      </header>
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+<p style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-secondary)">EVIDENCE INPUT, NOT A LEGAL CERTIFICATE &middot; SPECIFICATION v4.11.2 · envelope-v2</p>
+
+<h2 class="z-h2" style="margin-top:2.75rem">EU AI Act - Annex IV technical documentation</h2>
+<p class="z-body" style="margin-top:0.75rem"><code style="font-family:var(--font-mono);font-size:0.9em">epi enterprise pack</code> assembles a per-system evidence pack: the sealed runs you select, their decision records, the manifest, and a reading guide. It is input to the technical documentation a provider must keep under Annex IV - not the document itself, and not a conformity assessment. <strong>This is an <code style="font-family:var(--font-mono);font-size:0.9em">epi-enterprise</code> command, included with Growth, Enterprise and the full engagement;</strong> the sealed file, the verifier and the viewer stay free.</p>
+<p class="z-body" style="margin-top:0.75rem">Article 12 logging (high-risk systems) applies from 2 December 2027; Annex I products from 2 August 2028. A sealed record is evidence that a given decision happened as recorded; it does not prove the system is compliant.</p>
+<p class="z-body" style="margin-top:0.75rem"><a href="/trust#standards" style="color:var(--acc)">How the pack is built and verified &rarr;</a></p>
+
+<h2 class="z-h2" style="margin-top:2.75rem">AIUC-1 domains</h2>
+<p class="z-body" style="margin-top:0.75rem"><code style="font-family:var(--font-mono);font-size:0.9em">epi verify --aiuc1</code> groups a run's sealed facts by AIUC-1 control domain so a reviewer can see which domains the record speaks to. It is a mapping aid: the control owner still decides whether the evidence satisfies the control.</p>
+
+<h2 class="z-h2" style="margin-top:2.75rem">SCITT and COSE receipts</h2>
+<p class="z-body" style="margin-top:0.75rem">Transparency receipts (SCITT/COSE Sign1) can be attached after sealing and re-signed. They are additive: removing or changing one is detectable, and a receipt never replaces the customer's own witness log.</p>
+
+<h2 class="z-h2" style="margin-top:2.75rem">What no standard requires</h2>
+<p class="z-body" style="margin-top:0.75rem">We found no rule that requires a digital signature on an AI decision record. What the regulations require is that the institution can explain a decision and show it kept the evidence - which is why the customer's copy matters more than the format.</p>
+
+<h2 class="z-h2" style="margin-top:2.75rem">Read the limits</h2>
+<p class="z-body" style="margin-top:0.75rem"><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--acc)">Known limitations</a> lists what a seal does and does not prove, including capture gaps and the difference between a signature and a witness.</p>
         </div>
-      </details></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <details class="mmenu__group">
-    <summary>Architecture</summary>
-    <a href="/how-it-works">How it works</a>
-    <a href="/decision-record">Decision Record</a>
-  </details>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main id="main">
-<div class="page">
-<span class="tag">Standards</span>
-<h1>Standards support</h1>
-<p class="lede">What an <code class="k">.epi</code> Decision Record can contribute when a customer answers to an auditor, a regulator or an underwriter - and what it cannot.</p>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
 
-<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">EVIDENCE INPUT, NOT A LEGAL CERTIFICATE &middot; SPECIFICATION v4.11.2 · envelope-v2</p>
-
-<h2>EU AI Act - Annex IV technical documentation</h2>
-<p><code class="k">epi enterprise pack</code> assembles a per-system evidence pack: the sealed runs you select, their decision records, the manifest, and a reading guide. It is input to the technical documentation a provider must keep under Annex IV - not the document itself, and not a conformity assessment. <strong>This is an <code class="k">epi-enterprise</code> command, included with Growth, Enterprise and the full engagement;</strong> the sealed file, the verifier and the viewer stay free.</p>
-<p>Article 12 logging (high-risk systems) applies from 2 December 2027; Annex I products from 2 August 2028. A sealed record is evidence that a given decision happened as recorded; it does not prove the system is compliant.</p>
-<p><a href="/trust#standards" style="color:var(--acc)">How the pack is built and verified &rarr;</a></p>
-
-<h2>AIUC-1 domains</h2>
-<p><code class="k">epi verify --aiuc1</code> groups a run's sealed facts by AIUC-1 control domain so a reviewer can see which domains the record speaks to. It is a mapping aid: the control owner still decides whether the evidence satisfies the control.</p>
-
-<h2>SCITT and COSE receipts</h2>
-<p>Transparency receipts (SCITT/COSE Sign1) can be attached after sealing and re-signed. They are additive: removing or changing one is detectable, and a receipt never replaces the customer's own witness log.</p>
-
-<h2>What no standard requires</h2>
-<p>We found no rule that requires a digital signature on an AI decision record. What the regulations require is that the institution can explain a decision and show it kept the evidence - which is why the customer's copy matters more than the format.</p>
-
-<h2>Read the limits</h2>
-<p><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener" style="color:var(--acc)">Known limitations</a> lists what a seal does and does not prove, including capture gaps and the difference between a signature and a witness.</p>
-
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
-  </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
 </footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>

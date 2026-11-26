@@ -1,203 +1,178 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Service Status | EPI Labs</title>
+  <meta name="description" content="EPI Cloud status. Offline CLI verification never depends on hosted services.">
+  <meta property="og:title" content="Service Status | EPI Labs">
+  <meta property="og:description" content="EPI Cloud status. Offline CLI verification never depends on hosted services.">
   <link rel="canonical" href="https://epilabs.org/status">
-<title>EPI Labs — Status</title>
-<meta name="description" content="EPI Cloud status. Offline CLI verification never depends on hosted services.">
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<style>
-.status-card{max-width:640px;margin:0 auto;background:var(--bg-card);border-radius:16px;border:1px solid var(--border-str);padding:36px}
-.status-indicator{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:8px;animation:pulse 2s infinite}
-.status-indicator.up{background:var(--verified);box-shadow:0 0 8px var(--verified)}
-.status-indicator.down{background:var(--tamper);box-shadow:0 0 8px var(--tamper)}
-.status-indicator.checking{background:var(--warn);box-shadow:0 0 8px var(--warn)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.status-row{display:flex;align-items:center;padding:16px 0;border-bottom:1px solid var(--border);gap:12px}
-.status-row:last-child{border-bottom:none}
-.status-name{font-weight:600;color:var(--ink);min-width:140px}
-.status-detail{color:var(--ink-soft);font-size:.88rem;flex:1}
-.status-time{color:var(--ink-dim);font-size:.78rem}
-.infra-note{max-width:640px;margin:32px auto 0;padding:20px 24px;background:var(--bg-alt);border:1px solid var(--border);border-radius:12px;font-size:.88rem;color:var(--ink-soft);line-height:1.55}
-.infra-note strong{color:var(--ink)}
-</style>
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
-  <link rel="stylesheet" href="css/meridian.css?v=2">
-  <link rel="stylesheet" href="/css/site.css?v=16">
-  <meta name="theme-color" content="#0A0B0D">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <style>
+    .status-card { border: 1px solid var(--border-grid); padding: 1.75rem 1.75rem; margin-top: 1.5rem; }
+    .status-row { display: flex; align-items: center; gap: 0.75rem; padding: 1rem 0; border-bottom: 1px solid var(--border-grid); }
+    .status-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .status-indicator { width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block; flex: none; animation: pulse 2s infinite; }
+    .status-indicator.up { background: #34d399; box-shadow: 0 0 8px #34d399; }
+    .status-indicator.down { background: #f87171; box-shadow: 0 0 8px #f87171; }
+    .status-indicator.checking { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .status-name { font-weight: 600; color: var(--foreground); min-width: 9rem; }
+    .status-detail { color: var(--text-secondary); font-size: 0.875rem; flex: 1; }
+    .status-time { color: var(--text-muted); font-size: 0.75rem; }
+    .infra-note { border: 1px solid var(--border-grid); background: var(--stage); padding: 1.25rem 1.5rem; margin-top: 2rem; font-size: 0.85rem; line-height: 1.65; color: var(--text-body); }
+    .infra-note strong { color: var(--foreground); }
+  </style>
 </head>
-<body class="epi-instrument">
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li class="nlinks__menu"><details>
-        <summary>Architecture</summary>
-        <div class="nlinks__panel">
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
             <a href="/how-it-works">How it works</a>
             <a href="/decision-record">Decision Record</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+        <span class="z-eyebrow">Status</span>
+        <h1 class="z-h1" style="margin-top:1rem">Service Status</h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:36rem">Current status of EPI Labs hosted services.</p>
+      </header>
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+
+          <div class="status-card">
+            <div class="status-row" id="row-auth">
+              <span class="status-indicator checking" id="dot-auth"></span>
+              <div>
+                <div class="status-name">EPI Cloud</div>
+                <div class="status-detail" id="detail-auth">Checking...</div>
+              </div>
+              <div class="status-time" id="time-auth"></div>
+            </div>
+          </div>
+
+          <p class="z-body" style="margin-top:1.5rem">
+            Legacy Render paths (default <code style="font-family:var(--font-mono);font-size:0.9em">epi share</code> upload, MCP hosting, opt-in telemetry endpoints) have no status probe on this page. Offline <code style="font-family:var(--font-mono);font-size:0.9em">epi verify</code> has no server dependency.
+          </p>
+
+          <div class="infra-note">
+            <strong>Infrastructure note</strong><br><br>
+            EPI Cloud runs on Cloudflare's global edge network (Workers, D1 and R2).
+            Uptime commitments for Enterprise customers are set in the written agreement.
+            Offline CLI verification
+            (<code style="font-family:var(--font-mono);font-size:0.9em">epi verify</code>) has no server dependency and works regardless of
+            hosted service status.<br><br>
+            The checks above run from your browser when you load this page. To report an
+            incident, email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>.
+          </div>
+
         </div>
-      </details></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <details class="mmenu__group">
-    <summary>Architecture</summary>
-    <a href="/how-it-works">How it works</a>
-    <a href="/decision-record">Decision Record</a>
-  </details>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main style="padding-top:120px">
-
-<section style="text-align:center;padding:40px 24px 24px">
-  <h1 style="font-size:2rem;color:var(--ink);margin:0 0 8px">Service Status</h1>
-  <p style="color:var(--ink-soft);font-size:.95rem">Current status of EPI Labs hosted services.</p>
-</section>
-
-<div class="status-card">
-  <div class="status-row" id="row-auth">
-    <span class="status-indicator checking" id="dot-auth"></span>
-    <div>
-      <div class="status-name">EPI Cloud</div>
-      <div class="status-detail" id="detail-auth">Checking...</div>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
-    <div class="status-time" id="time-auth"></div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+  </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
-</div>
 
-<p style="text-align:center;color:var(--ink-soft);font-size:.85rem;max-width:640px;margin:18px auto 0">Legacy Render paths (default <code>epi share</code> upload, MCP hosting, opt-in telemetry endpoints) have no status probe on this page. Offline <code>epi verify</code> has no server dependency.</p>
+  <script>
+  (function(){
+    // Single account system: status checks the new EPI Cloud, not Render.
+    var CLOUD = 'https://cloud.epilabs.org';
 
-<div class="infra-note">
-  <strong>Infrastructure note</strong><br><br>
-  EPI Cloud runs on Cloudflare's global edge network (Workers, D1 and R2).
-  Uptime commitments for Enterprise customers are set in the written agreement.
-  Offline CLI verification
-  (<code>epi verify</code>) has no server dependency and works regardless of
-  hosted service status.<br><br>
-  The checks above run from your browser when you load this page. To report an
-  incident, email <a href="mailto:mohdibrahim@epilabs.org">mohdibrahim@epilabs.org</a>.
-</div>
-
-</main>
-
-<script>
-(function(){
-  // Single account system: status checks the new EPI Cloud, not Render.
-  var CLOUD = 'https://cloud.epilabs.org';
-
-  function check(name, dotId, detailId, timeId, url) {
-    var dot = document.getElementById(dotId);
-    var detail = document.getElementById(detailId);
-    var time = document.getElementById(timeId);
-    var start = Date.now();
-    fetch(url, { cache: 'no-store' }).then(function(r) {
-      var ms = Date.now() - start;
-      if (r.ok) {
-        dot.className = 'status-indicator up';
-        detail.textContent = 'Responding (' + ms + 'ms)';
-      } else {
+    function check(name, dotId, detailId, timeId, url) {
+      var dot = document.getElementById(dotId);
+      var detail = document.getElementById(detailId);
+      var time = document.getElementById(timeId);
+      var start = Date.now();
+      fetch(url, { cache: 'no-store' }).then(function(r) {
+        var ms = Date.now() - start;
+        if (r.ok) {
+          dot.className = 'status-indicator up';
+          detail.textContent = 'Responding (' + ms + 'ms)';
+        } else {
+          dot.className = 'status-indicator down';
+          detail.textContent = 'HTTP ' + r.status + ' (' + ms + 'ms)';
+        }
+        time.textContent = new Date().toLocaleTimeString();
+      }).catch(function() {
         dot.className = 'status-indicator down';
-        detail.textContent = 'HTTP ' + r.status + ' (' + ms + 'ms)';
-      }
-      time.textContent = new Date().toLocaleTimeString();
-    }).catch(function() {
-      dot.className = 'status-indicator down';
-      detail.textContent = 'Unreachable';
-      time.textContent = new Date().toLocaleTimeString();
-    });
-  }
+        detail.textContent = 'Unreachable';
+        time.textContent = new Date().toLocaleTimeString();
+      });
+    }
 
-  check('EPI Cloud', 'dot-auth', 'detail-auth', 'time-auth', CLOUD + '/health');
-
-  // Re-check every 60 seconds
-  setInterval(function() {
-    document.querySelectorAll('.status-indicator').forEach(function(d) { d.className = 'status-indicator checking'; });
-    document.querySelectorAll('.status-detail:not(#detail-note)').forEach(function(d) { d.textContent = 'Re-checking...'; });
     check('EPI Cloud', 'dot-auth', 'detail-auth', 'time-auth', CLOUD + '/health');
-  }, 60000);
-})();
-</script>
 
-<script src="js/instrument-nav.js"></script>
-<script src="js/auth-ui.js"></script>
-
-
-<script src="js/theme.js"></script>
-<script src="js/auth-ui.js"></script>
-<script>
-// Mobile menu + nav scroll (same handler as the other pages).
-(function(){
-  'use strict';
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m){b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});}
-  var nav=document.getElementById('nav');
-  var onS=function(){if(nav)nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-})();
-</script>
-
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <img src="assets/logo.png" alt="EPI Labs">
-        <p>Sealed run records for AI agents, verifiable offline by the party who does not trust you. Sealed .epi files — verify offline, forever.</p>
-      </div>
-      <div class="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="/verify/">Verify a file</a></li>
-          <li><a href="/how-it-works">How it works</a></li>
-          <li><a href="/integrations">Integrations</a></li>
-          <li><a href="/plans">Pricing</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Evidence</h4>
-        <ul>
-          <li><a href="/trust">Trust model</a></li>
-          <li><a href="/use-cases">Use cases</a></li>
-          <li><a href="/reviewers">For reviewers</a></li>
-          <li><a href="/status">Status</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="/account">Account</a></li>
-          <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
-          <li><a href="/terms">Terms</a> <a href="/refund">Refund</a></li>
-          <li><a href="/privacy">Privacy</a></li>
-          <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <span>&copy; 2026 EPI LABS · Apache-2.0</span>
-    </div>
-  </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
-</footer><script src="js/wow.js?v=2"></script>
+    // Re-check every 60 seconds
+    setInterval(function() {
+      document.querySelectorAll('.status-indicator').forEach(function(d) { d.className = 'status-indicator checking'; });
+      document.querySelectorAll('.status-detail:not(#detail-note)').forEach(function(d) { d.textContent = 'Re-checking...'; });
+      check('EPI Cloud', 'dot-auth', 'detail-auth', 'time-auth', CLOUD + '/health');
+    }, 60000);
+  })();
+  </script>
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>
