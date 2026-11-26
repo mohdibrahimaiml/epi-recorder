@@ -104,6 +104,23 @@ def test_sigstore_action_is_pinned_to_a_real_release():
         )
 
 
+def test_release_reupload_replaces_same_named_assets():
+    """Signing an already-published tag re-runs this workflow.
+
+    The second run must overwrite `epi-setup-<v>.exe`, `SHA256SUMS.txt` and the
+    bundles in place. `action-gh-release` defaults `overwrite_files` to true;
+    pin it explicitly so an action bump cannot turn a re-signing into a failed
+    release or leave the old unsigned bytes attached.
+    """
+    text = _text(INSTALLER)
+    steps = [s for s in text.split("- name: ") if "softprops/action-gh-release" in s]
+    assert len(steps) >= 2, "expected one attach step for the exe and one for the bundles"
+    for step in steps:
+        assert "overwrite_files: true" in step, (
+            "a release re-run must replace same-named assets; set overwrite_files: true"
+        )
+
+
 def test_bundled_exe_is_signed_before_the_installer_is_built():
     """The installer's signature does not cover epi.exe inside it.
 
