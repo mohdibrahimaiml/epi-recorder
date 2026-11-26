@@ -1,10 +1,16 @@
 # Releasing epi-recorder
 
-**4.11.1 status (26 Nov 2026): prepared, not yet tagged.** Version bumped in `pyproject.toml` and
-the stamps that must move with it; samples re-sealed at the current spec. To publish: Actions →
-**Cut release** with input `4.11.1` (it refuses a version mismatch, an existing tag, or any branch
-but `main`), then run **Publish to PyPI (Trusted Publishing)** with tag `v4.11.1`, then SBOM and
-Build Windows Installer for the same tag. Manual Deploy is not needed for a Python-only change.
+**4.11.2 status (26 Nov 2026): prepared, not yet tagged.** Fixes the frozen Windows build:
+`epi demo` and the `epi dev` verify/view steps re-entered the CLI through `sys.executable`, so
+`epi demo` failed with "No such command '...demo_refund.py'" in the installer. Version bumped
+in `pyproject.toml` and the stamps that move with it; samples re-sealed at the current spec.
+
+To publish: Actions -> **Cut release** with input `4.11.2` (it refuses a version mismatch, an
+existing tag, or any branch but `main`), then **Publish to PyPI (Trusted Publishing)** with tag
+`v4.11.2`, then SBOM and Build Windows Installer for the same tag.
+
+**4.11.1 status (26 Nov 2026): published.** Tag `v4.11.1`, GitHub Release, and the PyPI upload
+with PEP 740 attestations. No Windows installer asset was published for it.
 
 **4.11.0 status (23 Nov 2026): published.** The **Cut release** workflow
 created tag `v4.11.0` on commit `6cbd13c9` and the GitHub Release (notes from

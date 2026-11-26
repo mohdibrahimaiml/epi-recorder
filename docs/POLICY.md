@@ -1,6 +1,6 @@
 # EPI Policy Guide
 
-**Version:** 4.11.1  
+**Version:** 4.11.2  
 **Docs map:** [README.md](./README.md) · **Verifier contract:** [VERIFICATION_CONTRACT.md](./VERIFICATION_CONTRACT.md)
 
 `epi_policy.json` is the rulebook for an AI workflow.
