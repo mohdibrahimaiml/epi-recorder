@@ -1,123 +1,190 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Privacy Policy — EPI Labs</title>
-<meta name="description" content="What EPI Labs collects, why, who processes it, and how to have it deleted.">
-<link rel="canonical" href="https://epilabs.org/privacy">
-<meta property="og:title" content="Privacy Policy — EPI Labs">
-<meta property="og:description" content="What EPI Labs collects, why, who processes it, and how to have it deleted.">
-<meta name="theme-color" content="#F7F5F0">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="stylesheet" href="/css/aos.css">
-<link rel="stylesheet" href="/css/site.css?v=16">
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | EPI Labs</title>
+  <meta name="description" content="What the open-source recorder, the website and EPI Cloud collect, why, and how long we keep it.">
+  <meta property="og:title" content="Privacy Policy - EPI Labs">
+  <meta property="og:description" content="What the open-source recorder, the website and EPI Cloud collect, why, and how long we keep it.">
+  <link rel="canonical" href="https://epilabs.org/privacy">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="canvas">
-<a class="skip" href="#main">Skip to content</a>
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li class="nlinks__menu"><details>
-        <summary>Architecture</summary>
-        <div class="nlinks__panel">
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
             <a href="/how-it-works">How it works</a>
             <a href="/decision-record">Decision Record</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+
+            <span class="z-eyebrow">Legal &middot; Privacy Policy</span>
+            <h1 id="privacy-heading" class="z-h1" style="margin-top:1rem">
+              What we <span style="color:var(--acc)">collect</span>, and what we never do.
+            </h1>
+            <p class="z-body" style="margin-top:1.25rem;max-width:36rem">
+              The open-source tool runs on your machine and sends us nothing. The website and EPI Cloud collect only what they need to answer you and run the service.
+            </p>
+            <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);margin-top:1rem">LAST UPDATED: 19 NOVEMBER 2026</p>
+      </header>
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+          <nav aria-label="Sections" style="border:1px solid var(--border-grid);padding:1rem 1.25rem;margin-bottom:2.25rem;display:flex;flex-wrap:wrap;gap:0.5rem 1.25rem">
+            <a href="#who" style="color:var(--text-secondary);font-size:0.82rem">Who we are</a>
+            <a href="#tool" style="color:var(--text-secondary);font-size:0.82rem">The open-source tool (epi-recorder)</a>
+            <a href="#browser" style="color:var(--text-secondary);font-size:0.82rem">Checking a file in your browser</a>
+            <a href="#website" style="color:var(--text-secondary);font-size:0.82rem">The website</a>
+            <a href="#contact" style="color:var(--text-secondary);font-size:0.82rem">The contact form</a>
+            <a href="#cloud" style="color:var(--text-secondary);font-size:0.82rem">EPI Cloud</a>
+            <a href="#payments" style="color:var(--text-secondary);font-size:0.82rem">Payments</a>
+            <a href="#never" style="color:var(--text-secondary);font-size:0.82rem">What we never do</a>
+            <a href="#rights" style="color:var(--text-secondary);font-size:0.82rem">Your rights</a>
+            <a href="#changes" style="color:var(--text-secondary);font-size:0.82rem">Changes</a>
+          </nav>
+          <section id="who" style="margin-top:3rem">
+            <h2 class="z-h2">Who we are</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              EPI Labs is run by its founder, Mohd Ibrahim Afridi, who is responsible for the personal data described here. Contact: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>. See <a href="/about" style="color:var(--acc)">About</a>.
+            </p>
+          </section>
+
+          <section id="tool" style="margin-top:2.5rem">
+            <h2 class="z-h2">The open-source tool (epi-recorder)</h2>
+            <ul class="z-body" style="margin-top:0.75rem;padding-left:1.2rem;display:grid;gap:0.6rem">
+              <li>Recording, sealing and checking happen on your machine. Your <code style="font-family:var(--font-mono);font-size:0.9em">.epi</code> files are not sent to us.</li>
+              <li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code style="font-family:var(--font-mono);font-size:0.9em">EPI_TELEMETRY_OPT_IN</code>). If you do, EPI Cloud keeps only coarse fields (command, success, EPI and Python version, operating system, a random install ID) for 12 months, then deletes them. <code style="font-family:var(--font-mono);font-size:0.9em">epi join-pilot</code> sends the email and details you type, with your consent, to our contact inbox (kept 12 months, and emailed to the founder through Resend).</li>
+              <li>When sealing, the tool asks a public timestamp service (by default freetsa.org, then DigiCert) to timestamp the file. Only a hash of the record is sent, never its contents. Turn this off with <code style="font-family:var(--font-mono);font-size:0.9em">EPI_NOTARIZE=0</code>.</li>
+              <li>If you set up a witness or EPI Cloud, a hash-only fingerprint of each sealed record goes to the log you configured.</li>
+            </ul>
+          </section>
+
+          <section id="browser" style="margin-top:2.5rem">
+            <h2 class="z-h2">Checking a file in your browser</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              The check at <a href="/verify/" style="color:var(--acc)">/verify</a> runs in your browser tab. The file you drop in is not uploaded.
+            </p>
+          </section>
+
+          <section id="website" style="margin-top:2.5rem">
+            <h2 class="z-h2">The website</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              The website uses no advertising and no tracking cookies. It uses Cloudflare Web Analytics, which is cookieless and counts page views without identifying you. Our host (Cloudflare) also keeps standard server logs, such as IP address and pages requested, for security and reliability.
+            </p>
+          </section>
+
+          <section id="contact" style="margin-top:2.5rem">
+            <h2 class="z-h2">The contact form</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              When you send the form on <a href="/plans" style="color:var(--acc)">Plans</a>, we receive your name, work email, company, what you are interested in and your message, and use them only to reply and to discuss the engagement you asked about. The form is stored by EPI Cloud on Cloudflare, and a copy is emailed to the founder&rsquo;s inbox through Resend, our email provider, so we can reply quickly. We also store a salted hash of your IP address, never the address itself, to stop spam. We delete form messages 12 months after they arrive. If the form cannot be sent, it opens your own email program instead and says so.
+            </p>
+          </section>
+
+          <section id="cloud" style="margin-top:2.5rem">
+            <h2 class="z-h2">EPI Cloud</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              If you sign in to <a href="https://cloud.epilabs.org/" style="color:var(--acc)">cloud.epilabs.org</a>, we store your account details from your sign-in provider (your name, email and account ID), your workspace, the records you choose to upload or witness, and the share links you create. We use them only to run the service for you. Hosting is on Cloudflare.
+            </p>
+          </section>
+
+          <section id="payments" style="margin-top:2.5rem">
+            <h2 class="z-h2">Payments</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              Card payments for EPI Cloud subscriptions are handled by Paddle.com, our Merchant of Record. Paddle collects and processes your payment details and billing address under its own privacy policy; we never see or store your full card number. We receive from Paddle what we need to run your plan: the customer and subscription ids, your plan, billing email and payment status.
+            </p>
+          </section>
+
+          <section id="never" style="margin-top:2.5rem">
+            <h2 class="z-h2">What we never do</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              We do not sell personal data, use it for advertising, or train AI models on your records.
+            </p>
+          </section>
+
+          <section id="rights" style="margin-top:2.5rem">
+            <h2 class="z-h2">Your rights</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              You can ask us for a copy of your data, to correct it, or to delete it, and you can object to how we use it. Email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>; we answer within 30 days. If you are in the EU or UK, you can also complain to your data protection authority.
+            </p>
+          </section>
+
+          <section id="changes" style="margin-top:2.5rem">
+            <h2 class="z-h2">Changes</h2>
+            <p class="z-body" style="margin-top:0.75rem">
+              If this policy changes, we update the date above and describe the change here.
+            </p>
+          </section>
+
         </div>
-      </details></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <details class="mmenu__group">
-    <summary>Architecture</summary>
-    <a href="/how-it-works">How it works</a>
-    <a href="/decision-record">Decision Record</a>
-  </details>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main id="main">
-<div class="page">
-<span class="tag">Privacy</span>
-<h1>Privacy Policy</h1>
-<p class="lede">The open-source tool runs on your machine and sends us nothing. The website and EPI Cloud collect only what they need to answer you and run the service.</p>
-<p style="font-family:var(--mono);font-size:.72rem;color:var(--dim)">LAST UPDATED: 19 NOVEMBER 2026</p>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
 
-<h2>Who we are</h2>
-<p>EPI Labs is run by its founder, Mohd Ibrahim Afridi, who is responsible for the personal data described here. Contact: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>. See <a href="/about" style="color:var(--acc)">About</a>.</p>
-
-<h2>The open-source tool (epi-recorder)</h2>
-<ul>
-<li>Recording, sealing and checking happen on your machine. Your <code class="k">.epi</code> files are not sent to us.</li>
-<li>Usage telemetry is <strong>off by default</strong>. Nothing is sent unless you turn it on yourself (<code class="k">EPI_TELEMETRY_OPT_IN</code>). If you do, EPI Cloud keeps only coarse fields (command, success, EPI and Python version, operating system, a random install ID) for 12 months, then deletes them. <code class="k">epi join-pilot</code> sends the email and details you type, with your consent, to our contact inbox (kept 12 months, and emailed to the founder through Resend).</li>
-<li>When sealing, the tool asks a public timestamp service (by default freetsa.org, then DigiCert) to timestamp the file. Only a hash of the record is sent, never its contents. Turn this off with <code class="k">EPI_NOTARIZE=0</code>.</li>
-<li>If you set up a witness or EPI Cloud, a hash-only fingerprint of each sealed record goes to the log you configured.</li>
-</ul>
-
-<h2>Checking a file in your browser</h2>
-<p>The check at <a href="/verify/" style="color:var(--acc)">/verify</a> runs in your browser tab. The file you drop in is not uploaded.</p>
-
-<h2>The website</h2>
-<p>The website uses no advertising and no tracking cookies. It uses Cloudflare Web Analytics, which is cookieless and counts page views without identifying you. Our host (Cloudflare) also keeps standard server logs, such as IP address and pages requested, for security and reliability.</p>
-
-<h2>The contact form</h2>
-<p>When you send the form on <a href="/plans" style="color:var(--acc)">Plans</a>, we receive your name, work email, company, what you are interested in and your message, and use them only to reply and to discuss the engagement you asked about. The form is stored by EPI Cloud on Cloudflare, and a copy is emailed to the founder&rsquo;s inbox through Resend, our email provider, so we can reply quickly. We also store a salted hash of your IP address, never the address itself, to stop spam. We delete form messages 12 months after they arrive. If the form cannot be sent, it opens your own email program instead and says so.</p>
-
-<h2>EPI Cloud</h2>
-<p>If you sign in to <a href="https://cloud.epilabs.org/" style="color:var(--acc)">cloud.epilabs.org</a>, we store your account details from your sign-in provider (your name, email and account ID), your workspace, the records you choose to upload or witness, and the share links you create. We use them only to run the service for you. Hosting is on Cloudflare.</p>
-
-<h2>Payments</h2>
-<p>Card payments for EPI Cloud subscriptions are handled by Paddle.com, our Merchant of Record. Paddle collects and processes your payment details and billing address under its own privacy policy; we never see or store your full card number. We receive from Paddle what we need to run your plan: the customer and subscription ids, your plan, billing email and payment status.</p>
-
-<h2>What we never do</h2>
-<p>We do not sell personal data, use it for advertising, or train AI models on your records.</p>
-
-<h2>Your rights</h2>
-<p>You can ask us for a copy of your data, to correct it, or to delete it, and you can object to how we use it. Email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a>; we answer within 30 days. If you are in the EU or UK, you can also complain to your data protection authority.</p>
-
-<h2>Changes</h2>
-<p>If this policy changes, we update the date above and describe the change here.</p>
-</div>
-</main>
-<footer style="border-top:1px solid var(--line);padding:44px 0;background:var(--bg)">
-  <div class="wrap fbot" style="border:0;padding-top:0">
-    <span>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</span>
-    <span><a href="/" style="color:var(--acc)">epilabs.org</a> · <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" style="color:var(--mut)">GitHub</a></span>
-  </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
 </footer>
-<script src="/js/theme.js"></script>
-<script>
-(function(){
-  var nav=document.getElementById('nav');
-  var onS=function(){nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m)b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});
-})();
-</script>
-<script src="/js/aos.js"></script>
-<script>AOS.init({duration:700,easing:"ease-out-cubic",once:true,offset:80});</script>
-<script src="/js/auth-ui.js?v=2"></script>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>
