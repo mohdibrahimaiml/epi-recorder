@@ -2,6 +2,19 @@
 
 All notable changes to EPI Recorder are documented here.
 
+## [Unreleased]
+
+### Fixed: the Windows app no longer flashes and closes on launch
+
+- The Store package's Start-menu entry runs `epi view` with no argument. That
+  printed `Missing argument 'epi_file'` and exited 2, so the window closed
+  immediately — the behaviour the Store rejects during certification.
+- With a keyboard attached, `epi view` now opens the standard Windows file
+  dialog (`OpenFileDialog`, filtered to `.epi`), and falls back to a prompt you
+  can drag a file into. Cancelling exits cleanly.
+- With no terminal (a pipe or a script), it keeps the old usage error and exit
+  code 2, so nothing that depends on the command-line contract changes.
+
 ## [4.11.2] - 2026-11-26
 
 ### Fixed: the Windows build could not run `epi demo`
