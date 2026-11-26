@@ -79,6 +79,47 @@ jobs:
           Write-Host "Installer: $($installer.Name) - $([math]::Round($installer.Length / 1MB, 1)) MB"
         shell: powershell
 
+      # Authenticode signing through SignPath Foundation (free for open-source
+      # projects). Off until the project is approved and these are set:
+      #   repository variables SIGNPATH_ORGANIZATION_ID, SIGNPATH_PROJECT_SLUG,
+      #                        SIGNPATH_SIGNING_POLICY_SLUG
+      #   repository secret    SIGNPATH_API_TOKEN
+      # Until then the installer is published unsigned, as before. Signing runs
+      # before SHA256SUMS and Sigstore, so both cover the signed file.
+      # See docs/WINDOWS-DISTRIBUTION.md and CODE_SIGNING_POLICY.md.
+      - name: Upload unsigned installer for signing
+        id: unsigned-installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: epi-setup-unsigned
+          path: installer/windows/Output/epi-setup-*.exe
+          if-no-files-found: error
+
+      - name: Sign the installer (SignPath Foundation)
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: installer/windows/Output/signed
+
+      - name: Check the signature and use the signed installer
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: powershell
+        run: |
+          $signed = Get-ChildItem "installer\windows\Output\signed\epi-setup-*.exe" | Select-Object -First 1
+          if (-not $signed) { throw "SignPath returned no installer" }
+          $sig = Get-AuthenticodeSignature $signed.FullName
+          if ($sig.Status -ne 'Valid') { throw "Signature check failed: $($sig.Status) $($sig.StatusMessage)" }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
+          Copy-Item $signed.FullName "installer\windows\Output\$($signed.Name)" -Force
+          Remove-Item "installer\windows\Output\signed" -Recurse -Force
+
       - name: Write SHA256SUMS
         run: |
           Get-ChildItem "installer\windows\Output\epi-setup-*.exe" | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" } | Out-File -Encoding ascii "installer\windows\Output\SHA256SUMS.txt"
@@ -98,8 +139,8 @@ jobs:
           # Attach the exe + checksums first, so the release is complete even
           # if Sigstore signing below hiccups. Do not rewrite notes - a human-written body
           # is already on the Release from the tag/publish step.
-          # NOTE: the exe is not Authenticode code-signed yet (no cert).
-          # SHA256SUMS lets a reviewer confirm bytes; it is not a signature.
+          # The exe is Authenticode-signed only when SignPath is configured
+          # (see above). SHA256SUMS lets a reviewer confirm bytes either way.
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
