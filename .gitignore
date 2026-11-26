@@ -304,3 +304,9 @@ AUDIT.md
 _mcp_auth*.log
 _oauth_url*.txt
 pitch-assets/
+
+# Internal working files: never published. The whale board holds named
+# prospects, contact addresses and deal values; .agents holds positioning
+# notes. Both are local to the machine that produced them.
+/.agents/
+/whale/

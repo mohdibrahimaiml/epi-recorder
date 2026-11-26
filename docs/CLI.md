@@ -1,6 +1,6 @@
-# EPI CLI Reference (v4.11.0)
+# EPI CLI Reference (v4.11.1)
 
-**Version:** 4.11.0  
+**Version:** 4.11.1  
 **Primary entrypoint:** `epi`  
 **Docs map:** [README.md](./README.md)
 
@@ -526,7 +526,7 @@ epi doctor
 
 Creates and validates `epi_policy.json` files that define acceptable agent behavior.
 
-In the current **v4.11.0** line, `epi policy init` is the guided front door for
+In the current **v4.11.1** line, `epi policy init` is the guided front door for
 policy. It asks a small number of business-language questions and writes the
 machine-readable rulebook for you.
 It now shares the same starter rule shapes as the browser Rules editor, and the custom starter path can be pinned with repeated `--starter-rule` options.
