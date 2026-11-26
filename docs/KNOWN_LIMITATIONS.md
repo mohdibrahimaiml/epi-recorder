@@ -1,7 +1,7 @@
 # Known Limitations
 
-Current release line: **4.11.1**.
-Published on PyPI: **4.11.1** (26 Nov 2026).
+Current release line: **4.11.2**.
+Published on PyPI: **4.11.2** (26 Nov 2026).
 Docs map: [README.md](./README.md).
 
 This file tracks gaps between what the product can do and what a user might
@@ -358,7 +358,7 @@ See [WEBSITE.md](./WEBSITE.md).
 
 ## PyPI
 
-Current release line: **4.11.1**, published on PyPI: **4.11.1** (26 Nov
+Current release line: **4.11.2**, published on PyPI: **4.11.2** (26 Nov
 2026) through **Trusted Publishing**. Both files carry **PEP 740
 attestations**; check with
 `https://pypi.org/integrity/epi-recorder/<version>/<file>/provenance`
