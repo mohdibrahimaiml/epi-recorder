@@ -1,0 +1,78 @@
+# Build context trim: this repo carries ~1.6 GB of local workspaces, recordings
+# and generated review artefacts that the wheel does not need. Keeping them out
+# keeps `docker build` fast and the context free of local state and secrets.
+# (Source data that packaging requires — LICENSE, NOTICE, README.md and
+# epi_core/assets/*.pem — is deliberately not excluded.)
+
+.git
+.github
+.gitignore
+.gitattributes
+.gitleaksignore
+.vscode
+.agents
+.well-known
+.wrangler
+
+# Local secrets and environment
+.env
+.env.*
+*.p12
+*.pfx
+
+# Python caches and build output
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+build
+dist
+.pytest_cache
+.ruff_cache
+.mypy_cache
+htmlcov
+.coverage
+
+# Large local workspaces, recordings and generated artefacts
+.eval_workspace
+.epi
+.epi-shared-workspace
+.tmp-policy-cli-tests
+.tmp-release-gate
+audit_dir
+audit_sandbox
+brag-output
+challenge
+contact_submissions
+data
+demo_approved_compromised
+demo_master_ws
+demo_policies
+demo_uma
+demo_workflows
+epi-official
+epi-official-check
+epi-recordings
+evidence_vault
+guardrails-fork
+installer
+internal
+media
+mirror-template
+node_modules
+outreach
+pitch-assets
+review
+scratch
+simulation
+site
+test_reviewed_open
+test_run_dir
+verify_portal
+website
+
+# Not needed to build or run the server
+docs
+examples
+tests
+blog

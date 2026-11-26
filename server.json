@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mohdibrahimaiml/epi-recorder",
+  "title": "EPI",
+  "description": "Seals one AI decision into a portable .epi file - hash-chained steps, an Ed25519 signature, and optional RFC 3161 timestamps - which a reviewer verifies offline with no account and no server. A customer-side witness log flags a record that was re-sealed later or never reported.",
+  "repository": {
+    "url": "https://github.com/mohdibrahimaiml/epi-recorder",
+    "source": "github"
+  },
+  "version": "4.11.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "epi-recorder",
+      "version": "4.11.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

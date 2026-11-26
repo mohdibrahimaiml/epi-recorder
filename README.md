@@ -1,6 +1,8 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/mohdibrahimaiml/epi-recorder/main/docs/assets/logo.png" alt="EPI Labs" width="180"/>
 
+<!-- mcp-name: io.github.mohdibrahimaiml/epi-recorder -->
+
 # Decision records for AI agents
 
 ### Every AI decision, in one file your customer can check.
