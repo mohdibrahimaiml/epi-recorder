@@ -35,8 +35,9 @@ Workflow: `.github/workflows/build-msix.yml`. Manifest:
 Without the three variables the workflow builds with a test identity
 (`CN=EPI Labs Test`). That build is installed on the runner, test-signed, to
 check that it installs, that `epi --version` works and that a sample `.epi`
-verifies. This check is required: the job fails if it does not pass.
-Not covered by CI: double-clicking a `.epi` file in Explorer. The Store rejects that test identity, by design.
+verifies. This check is required: the job fails if it does not pass. The Store
+rejects the test identity, by design. Not covered by CI: double-clicking a
+`.epi` file in Explorer.
 
 What the package provides:
 - Start menu entry **EPI Recorder**, which opens the viewer (`epi view`).
