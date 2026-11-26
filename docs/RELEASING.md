@@ -118,13 +118,13 @@ exact upload path was not recorded. Treat 4.6.2 and 4.6.3 as unattested.
 9. Watch **Actions → SBOM** turn green: `sbom.cdx.json` (CycloneDX, resolved
    environment) attaches to the same GitHub release automatically.
 10. Watch **Build Windows Installer** turn green: the `.exe`, `SHA256SUMS.txt`,
-    and free Sigstore bundles (`.sigstore`) attach to the release. A reviewer
+    and free Sigstore bundles (`.sigstore.json`) attach to the release. A reviewer
     checks them with:
 
 ```bash
 sha256sum -c SHA256SUMS.txt
 pip install sigstore
-sigstore verify epi-setup-4.7.0.exe --bundle epi-setup-4.7.0.exe.sigstore \
+sigstore verify identity epi-setup-4.7.0.exe --bundle epi-setup-4.7.0.exe.sigstore.json \
   --cert-identity https://github.com/mohdibrahimaiml/epi-recorder \
   --cert-oidc-issuer https://token.actions.githubusercontent.com
 ```

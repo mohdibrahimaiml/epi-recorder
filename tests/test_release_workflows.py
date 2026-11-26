@@ -104,6 +104,31 @@ def test_sigstore_action_is_pinned_to_a_real_release():
         )
 
 
+def test_sigstore_bundles_are_attached_under_their_real_suffix():
+    """sigstore v3 writes `<artifact>.sigstore.json`, not `<artifact>.sigstore`.
+
+    4.11.2 shipped with the attach step globbing `*.sigstore`, which matched
+    nothing; `softprops/action-gh-release` only warned, so the release went out
+    with no bundles at all. The glob must match what the action writes, and the
+    job must fail rather than attach nothing.
+    """
+    text = _text(INSTALLER)
+    attach = [
+        step
+        for step in text.split("- name: ")
+        if step.strip().startswith("Attach Sigstore bundles")
+    ]
+    assert attach, "the installer no longer attaches Sigstore bundles"
+    for step in attach:
+        assert "*.sigstore.json" in step, (
+            "the sigstore action writes .sigstore.json; a '*.sigstore' glob "
+            "matches nothing and the release ships without bundles"
+        )
+    assert "no Sigstore bundles were produced" in text, (
+        "the job must fail when no bundle is produced, not attach nothing silently"
+    )
+
+
 def test_sbom_workflow_uses_the_cyclonedx_py_flags_it_pins():
     text = _text(SBOM)
     invocation = next(
