@@ -5,7 +5,7 @@ EPI (Evidence Packaged Infrastructure) turns an AI agent's run into a signed, ta
 Two surfaces live in this repo, plus one hosted service that deliberately does not:
 
 - **epi-recorder** — SDK + CLI. Offline record / seal / verify. Required.
-- **EPI Cloud** (`https://cloud.epilabs.org`) — optional private-beta witness, trust pages, Evidence Room. Login for the website and `epi cloud login`. **The server implementation is not part of this repository**; only the open client (`epi_cli/cloud.py`) and the witness protocol are. See [Open core](#open-core-what-is-free-and-what-is-paid).
+- **EPI Cloud** (`https://cloud.epilabs.org`) — optional hosted service: free workspace for storage and sharing; the hosted witness comes with the paid plans (Startup, Growth, Enterprise). Trust pages, Evidence Room. Login for the website and `epi cloud login`. **The server implementation is not part of this repository**; only the open client (`epi_cli/cloud.py`) and the witness protocol are. See [Open core](#open-core-what-is-free-and-what-is-paid).
 - **Website** (`website/` → `https://epilabs.org`) — marketing and in-browser verify. Not a docs site; technical docs live in `docs/`.
 
 ```mermaid
@@ -40,7 +40,7 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 | `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
 | `epi_gateway/` (in `epi-enterprise`) | Self-hosted capture, review, approval and share runtime - paid, not in this repository | `epi gateway serve` |
 | `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |
-| `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** `epi share` default upload, some `/api/*` proxies, telemetry and MCP keep-warm still hit Render — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |
+| `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** Since 4.11.0 `epi share` and opt-in telemetry go to EPI Cloud only (no Render fallback). MCP hosting and some `/api/*` proxies still run on Render until it is retired — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |
 | `pytest_epi/` | Pytest plugin: attach `.epi` evidence to tests | `pytest --epi` |
 | `website/` | Public site source (`epilabs.org`) | Edit here only. [docs/WEBSITE.md](docs/WEBSITE.md) |
 | `site/` | Cloudflare Pages **build output** of `website/` | `npm run build` copies `website/` → `site/`. Do not hand-edit. |

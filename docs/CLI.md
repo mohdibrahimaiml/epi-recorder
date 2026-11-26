@@ -20,7 +20,7 @@ Start with `epi demo` if you want to capture one AI run from Python, open it in 
 
 `epi demo`, `epi run`, `epi record` and the SDK's `record()` seal a **data-only** `.epi` by default: a small plain ZIP (no embedded HTML viewer). Add `--with-viewer` (or `record(..., with_viewer=True)`) to embed the self-opening HTML viewer instead. Both forms verify identically with `epi verify`, and `epi view` opens either one.
 
-To share a sealed run with a customer reviewer (EPI Cloud, free beta):
+To share a sealed run with a customer reviewer (EPI Cloud; a free workspace is enough to share):
 
 ```bash
 epi cloud login
@@ -117,7 +117,7 @@ If you prefer zero local setup for **checking** a file, use the hosted verifier 
 
 ## `epi cloud`
 
-Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`, free beta). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
+Optional. Requires an EPI Cloud workspace (`https://cloud.epilabs.org`; free workspace, hosted witness on paid plans). Recording and `epi verify` never need this. Product rules: [CLOUD.md](./CLOUD.md).
 
 ```bash
 epi cloud login
@@ -413,6 +413,7 @@ Options (from `epi verify --help`):
 | `--strict` | Enforce STRICT policy (fails on any warning, unsigned, or forensic gaps). |
 | `--policy permissive\|standard\|strict` | PERMISSIVE (integrity only), STANDARD (dev default — unpinned identity is WARN, not claim-ready), STRICT (enterprise/insurance — requires org-pinned sealer; use for claim acceptance). Default: `standard`. |
 | `--aiuc1` | Include AIUC-1 trust domain mapping in the verification report. |
+| `--fail-on-warn` | Exit 1 on WARN as well as FAIL. Default is off, so a WARN still exits 0. |
 | `--tsa-root <path>` | Extra TSA trust root (PEM). Repeatable. Adds to the pinned roots for timestamp validation. |
 | `--require-timestamp` | FAIL unless at least one seal-time RFC 3161 token validates. |
 | `--web` | Open verification results in browser at verify.epilabs.org after CLI check. |
@@ -421,12 +422,13 @@ Options (from `epi verify --help`):
 | `--witness-log <path>` | Customer witness log (`received.jsonl`) to check this file against. |
 | `--witness-pubkey <hex>` | Witness Ed25519 public key for signed receipts. Overrides `EPI_WITNESS_PUBKEY` and package-pinned keys. A key shipped inside the log file itself is never trusted. |
 
-Exit code is `1` on FAIL and `0` on PASS **or WARN**. Scripts must rely on
-the exit code **with `--policy strict`**: under the default `standard`
-policy an unpinned sealer, a seal missing from the witness log, or
-incomplete evidence (e.g. a `tool.call` with no `tool.response`, shown as
-`Forensic: FAIL — ...`) is only a WARN and exits `0`. Under `--policy strict`
-each of these FAILs; incomplete evidence reports
+Exit code is `1` on FAIL and `0` on PASS **or WARN**. A text-mode WARN that
+exits 0 prints a note on stderr. `--json` stays a single JSON document and
+does not add that note. Pass `--fail-on-warn` when a script should exit 1
+on WARN as well. Under the default `standard` policy an unpinned sealer, a
+seal missing from the witness log, or incomplete evidence (e.g. a `tool.call`
+with no `tool.response`, shown as `Forensic: FAIL — ...`) is only a WARN.
+Under `--policy strict` each of these FAILs; incomplete evidence reports
 `Reason: Evidence incomplete (Strict Policy requires full telemetry coverage)`.
 
 Recommended for auditors and customers ([AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md)):
@@ -456,10 +458,32 @@ $ epi verify case-002.epi --policy strict --witness-log received.jsonl
 
 All verdict headlines and what they mean: [AUDITORS-GUIDE.md](./AUDITORS-GUIDE.md#reading-the-verdict).
 
+### Caveat lines
+
+When a result is weaker than it looks, `epi verify` prints a yellow `!` line to make it explicit. These lines are additive — they never change the verdict.
+
+| Caveat line | When it appears |
+| --- | --- |
+| `! Signer not confirmed: this key isn't one you've pinned. Pin it with epi keys trust if you got it from the sender another way.` | Signature is valid but the sealing key is not in your trust registry (`identity.status = UNKNOWN / NOT_PINNED`). |
+| `! Signer not confirmed: this key is on this computer but not org-pinned. Pin it with epi keys trust if you obtained it from the sender another way.` | Key is recognised as a local signing key on this machine but has not been org-pinned (`identity.status = LOCAL`). |
+| `! Receipt is self-issued (local), not from an independent transparency service (only checkable on the machine that issued it).` | The file carries a SCITT receipt from `epi-register` without `--service` (`governance.scitt.service_url = "local"`). |
+| `! Timestamp not checked here. Run epi verify to validate it.` | A notarization token is present but the CLI could not evaluate it (e.g. timestamp validation raised an error); only token presence was confirmed. |
+| `! Older seal format: the timestamp covers the contents, not the signing key.` | A validated RFC 3161 token exists but `imprinted_public_key` was null at sealing time, so the timestamp proves the contents existed by time T but does not bind the signing key. |
+
+### New `facts` fields (additive, 4.11.0)
+
+These fields appear in `--json` output under `report.facts`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `signer_not_confirmed` | `bool` | `true` when the signature is valid but the sealing key is `UNKNOWN` or `LOCAL` (not org-pinned). |
+| `scitt_self_issued` | `bool` | `true` when `governance.scitt.service_url` is `"local"` — a self-issued receipt, not an independent ledger entry. |
+| `timestamp_key_bound` | `bool \| null` | `true` = timestamp binds the signing key; `false` = contents-only (older seal); `null` = not evaluated (no token or validation skipped). |
+
 After a successful verification, typical next steps:
 - `https://epilabs.org/verify` for client-side browser verification (no account)
 - EPI Cloud trust link (customer-scoped) — `epi cloud login` then the dashboard
-- `epi share <file.epi>` uploads to EPI Cloud by default, with one automatic fallback to the legacy Render portal while that migration finishes. It is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
+- `epi share <file.epi>` uploads to EPI Cloud. Since 4.11.0 there is no fallback to the legacy Render portal. It is not the Cloud account system ([CLOUD.md](./CLOUD.md)).
 
 ---
 
@@ -467,7 +491,7 @@ After a successful verification, typical next steps:
 
 Uploads a validated `.epi` file to a configured hosted share service and prints a browser link.
 
-The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud does not serve the upload route yet, or is unreachable, the command retries once against the legacy Render portal and says so. Pinning `--api-base-url` or `EPI_SHARE_API_URL` disables the fallback. CLIs older than 4.10.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
+The **default** host is EPI Cloud (`https://cloud.epilabs.org`). If Cloud refuses the upload or is unreachable, the command reports the error and stops; the file is never sent anywhere else. `epi share --local` still works offline. CLIs older than 4.10.0 still point at the legacy portal directly; upgrade to move uploads to Cloud.
 
 ```bash
 epi share demo.epi

@@ -44,7 +44,7 @@ Skip EPI for throwaway chat UIs with no later audit question.
 |--------|-----|
 | **You (vendor / developer)** | Install, record one workflow, keep the `.epi` file. Optionally share it. |
 | **Reviewer (customer, auditor, risk)** | Opens the file with `epi view` or `epi verify`. Pins **your** public key if identity matters. No EPI account. |
-| **EPI Cloud (optional)** | Lets you send a browser link instead of emailing the file. Free beta workspace, created by signing in. Verification stays free either way. |
+| **EPI Cloud (optional)** | Lets you send a browser link instead of emailing the file. Free workspace, created by signing in; the hosted witness needs a paid plan. Verification stays free either way. |
 
 ---
 
@@ -122,7 +122,26 @@ epi record --out refund.epi -- python process_refund.py
 
 Secrets in prompts and headers are **redacted by default**. Do not turn redaction off in production.
 
-Redaction covers common secret and PII patterns: API keys/tokens, email addresses, phone numbers written with separators, card numbers and US SSNs. It cannot know your domain's IDs. If a numeric or dashed field must be preserved (for example `order_id` or `amount_paise`), add its field name to `redaction.allowlist_fields` in `~/.epi/config.toml`:
+Redaction is **best-effort and pattern-based**. It covers common secret and PII patterns: API keys/tokens, email addresses, phone numbers written with separators, card numbers and US SSNs. It cannot know your domain's IDs or a secret format nobody has described to it.
+
+**Add your own patterns.** Built-in patterns always stay on; custom patterns are added to them. Use the config file:
+
+```toml
+[redaction]
+[[redaction.patterns]]
+pattern = "acme_[a-z]{12}"
+description = "Acme key"
+```
+
+or the `EPI_REDACT_PATTERNS` environment variable, which takes a JSON list of regex strings or of `{"pattern", "description"}` objects:
+
+```bash
+export EPI_REDACT_PATTERNS='["acme_[a-z]{12}", {"pattern": "cust_[0-9]{8}", "description": "Customer id"}]'
+```
+
+An invalid regex is reported and skipped; redaction continues with the other patterns.
+
+If a numeric or dashed field must be preserved (for example `order_id` or `amount_paise`), add its field name to `redaction.allowlist_fields` in `~/.epi/config.toml`:
 
 ```toml
 [redaction]
@@ -191,7 +210,7 @@ epi keys generate --name default   # PKCS#8 PEM is written encrypted
 
 The same variable must be set whenever that key is loaded (sealing, `epi verify` with `--key`, Cloud upload, etc.); without it the load fails. There is no recovery path - if you lose the passphrase, the key cannot be recovered. Keep it in your secrets manager, not in shell history. For production, prefer a key that never touches disk: link a PKCS#11 HSM, AWS KMS or Google Cloud KMS key with `epi keys link --name default --uri <vault-uri>` (see [KEY-CUSTODY.md](./KEY-CUSTODY.md)).
 
-**Optional — EPI Cloud** (free beta), when you want a link instead of a file:
+**Optional — EPI Cloud** (free workspace; hosted witness on paid plans), when you want a link instead of a file:
 
 ```bash
 epi cloud login

@@ -813,6 +813,15 @@ def _members_match_manifest(epi_file: Path) -> bool:
         return False
 
 
+def _fail_closed(report: dict, reason: str) -> None:
+    """Force FAIL when a downgrade step itself errors. Never leave a PASS standing."""
+    dec = report.get("decision") if isinstance(report, dict) else None
+    if not isinstance(dec, dict):
+        dec = {}
+        report["decision"] = dec
+    dec["status"] = "FAIL"
+    dec["reason"] = f"Internal verification error ({reason}); result not trusted."
+
 def _sealed_tsa_time(epi_path: Path, manifest) -> str | None:
     """Earliest validated RFC 3161 gen_time for this artifact, or None."""
     try:
@@ -1879,6 +1888,11 @@ def verify_command(
             help="Governance policy: permissive, standard (default), strict (claims/audit: unknown sealer FAILs).",
         ),
     ] = VerificationPolicy.STANDARD,
+    fail_on_warn: bool = typer.Option(
+        False,
+        "--fail-on-warn",
+        help="Exit 1 on WARN as well as FAIL. Use this in CI and audit scripts.",
+    ),
     web: bool = typer.Option(
         False,
         "--web",
@@ -1918,6 +1932,10 @@ def verify_command(
     # direct call cannot silently enable --web (browser pop-up), --qr,
     # --aiuc1 or --offline.
     aiuc1 = _option_flag(aiuc1)
+    # Same OptionInfo trap as the flags above: a direct call leaves the
+    # default object in place, and that object is truthy, so every WARN
+    # would exit 1 unless this is coerced back to the declared False.
+    fail_on_warn = _option_flag(fail_on_warn)
     web = _option_flag(web)
     qr = _option_flag(qr)
     offline = _option_flag(offline)
@@ -2133,7 +2151,7 @@ def verify_command(
                     try:
                         execution_data = EPIContainer.read_member_json(epi_file, "execution.json")
                     except Exception:
-                        pass
+                        execution_data = {}  # unreadable: fall back to the signed manifest.trust steps_hash below
 
                     claimed_hash = execution_data.get("steps_hash") or (manifest.trust or {}).get(
                         "steps_hash"
@@ -2473,12 +2491,12 @@ def verify_command(
                 try:
                     report[_key]["integrity_ok"] = False
                     report[_key]["chain_ok"] = False
-                except Exception:
-                    pass
+                except Exception as exc:
+                    _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["integrity_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["summary"]["integrity"] = _cp_messages[0] if _cp_messages else "FAILED"
             except Exception:
@@ -2525,12 +2543,12 @@ def verify_command(
             try:
                 report["facts"]["integrity_ok"] = False
                 report["facts"]["chain_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["integrity_ok"] = False
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"integrity flag update: {exc}")
             try:
                 report["summary"]["integrity"] = _cc_messages[0] if _cc_messages else "FAILED"
             except Exception:
@@ -2571,6 +2589,18 @@ def verify_command(
                 any(e.get("status") == "valid" for e in _timestamps.get("seal", []))
                 or any(c.get("status") == "valid" for c in _timestamps.get("checkpoints", []))
             )
+        except Exception:
+            pass
+        # Update timestamp_key_bound now that we have the evaluated block.
+        # key_binding: "key-bound" | "contents-only" | "none"
+        try:
+            _kb = _timestamps.get("key_binding", "none")
+            if _kb == "key-bound":
+                report["facts"]["timestamp_key_bound"] = True
+            elif _kb == "contents-only":
+                report["facts"]["timestamp_key_bound"] = False
+            else:
+                report["facts"]["timestamp_key_bound"] = None
         except Exception:
             pass
 
@@ -2624,8 +2654,8 @@ def verify_command(
                 _cp_first = _cp_messages[0] if _cp_messages else "checkpoint verification failed"
                 if _cp_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cp_first}".strip()
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"checkpoint failure: {exc}")
         # Preserve capture-checkpoint failure the same way.
         if not _cc_ok:
             try:
@@ -2634,8 +2664,8 @@ def verify_command(
                 _cc_first = _cc_messages[0] if _cc_messages else "capture checkpoint verification failed"
                 if _cc_first not in _rs:
                     report["decision"]["reason"] = f"{_rs} {_cc_first}".strip()
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"capture checkpoint failure: {exc}")
         # Signed release: MATCHES never changes a verdict. A mismatch is a
         # warning by default and a FAIL with --require-release (one consistent
         # exit-code rule for drift, undeclared, unapproved, after-use, etc.).
@@ -2659,8 +2689,8 @@ def verify_command(
                     report["decision"]["reason"] = (
                         f"release check: {(report.get('release') or {}).get('detail') or _rel_status}"
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"release check: {exc}")
         # Pre-action approval: only an independent, non-colocated approval that
         # precedes the action is clean. Default WARN; FAIL with the flag.
         _pre = report.get("pre_action_approval") or {}
@@ -2701,8 +2731,8 @@ def verify_command(
                             or first.get("status")
                         )
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"pre-action approval check: {exc}")
         # A new-scheme seal token that fails validation means tampering: FAIL
         # in every policy. Missing or legacy tokens never change the decision
         # (unless --require-timestamp is set). The tamper detail REPLACES the
@@ -2719,8 +2749,8 @@ def verify_command(
                 report["decision"]["reason"] = str(
                     _ts_invalid[0].get("detail") or "seal timestamp invalid"
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"seal timestamp check: {exc}")
         if require_timestamp and not any(
             e.get("status") == "valid" for e in _timestamps.get("seal", [])
         ):
@@ -2738,8 +2768,8 @@ def verify_command(
                         report["decision"]["reason"] = (
                             f"{_msg[0].upper()}{_msg[1:]}. The seal itself is intact."
                         )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"--require-timestamp check: {exc}")
         if _timestamps.get("clock_warning") and report.get("decision", {}).get("status") == "PASS":
             try:
                 report["decision"]["status"] = "WARN"
@@ -2747,8 +2777,8 @@ def verify_command(
                 report["decision"]["reason"] = (
                     f"{_rs} {_timestamps['clock_warning']}".strip()
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"clock warning check: {exc}")
         # Preserve downgrade flag through policy application (apply_policy rewrites decision).
         if _cap_downgrade_n > 0 and integrity_ok:
             try:
@@ -2758,8 +2788,8 @@ def verify_command(
                     report["decision"]["reason"] = (
                         f"{_rs} INTEGRITY: VERIFIED (enforcement downgraded for {_cap_downgrade_n} events)".strip()
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"enforcement downgrade check: {exc}")
         # ========== CUSTOMER WITNESS LOG (--witness-log) ==========
         # MISMATCH means the file differs from what the customer was told at
         # seal time: FAIL in every policy. A missing entry is WARN (FAIL under
@@ -2780,8 +2810,8 @@ def verify_command(
                     f"{_rs}; {_msg}" if _prior == "FAIL" else
                     f"Witness check not done: {_msg}. The seal itself is intact."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness unreadable check: {exc}")
         elif _witness.get("status") == "NOT IN WITNESS LOG":
             # A seal the vendor never reported is exactly what a re-run or
             # re-sealed case looks like. Never a clean PASS.
@@ -2797,8 +2827,8 @@ def verify_command(
                         "or re-sealed copy; ask the vendor for the copy that is in your "
                         "witness log."
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness log check: {exc}")
         elif _witness.get("status") == "NOT CONFIRMED":
             # Receipt-bearing file, no trusted key: the stamps are UNCHECKED.
             # Never a clean PASS; FAIL under strict (the auditor acceptance
@@ -2826,8 +2856,8 @@ def verify_command(
                         "Seal and signer are valid, but the witness stamps were not "
                         f"checked ({_witness.get('detail')})"
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness stamp check: {exc}")
         if _witness.get("status") == "MISMATCH":
             # The file's own seal may be perfectly valid (a re-export or a
             # re-signed copy). What failed is: it is not what you were told.
@@ -2842,8 +2872,8 @@ def verify_command(
                     f"Not the version reported to you: {_msg}. Ask the vendor for the "
                     "copy that is in your witness log."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"witness mismatch check: {exc}")
 
         # ========== HUMAN APPROVAL (who approved, if anyone) ==========
         # Computed whenever the file carries reviews or agent approval steps,
@@ -2879,8 +2909,8 @@ def verify_command(
                     f"{_rs}; approval invalid: {_msg}" if _prior == "FAIL"
                     else f"Approval invalid — {_msg}. The seal itself is intact."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"human approval check: {exc}")
         if require_human_approval and not _human.get("requirement_met"):
             try:
                 _prior = report["decision"].get("status")
@@ -2889,8 +2919,8 @@ def verify_command(
                 _msg = f"Human approval required: {_detail}"
                 report["decision"]["status"] = "FAIL"
                 report["decision"]["reason"] = f"{_rs}; {_msg}" if _prior == "FAIL" else _msg
-            except Exception:
-                pass
+            except Exception as exc:
+                _fail_closed(report, f"human approval requirement: {exc}")
 
         # ========== AIUC-1 DOMAIN MAPPING ==========
         if aiuc1:
@@ -3004,6 +3034,17 @@ def verify_command(
             review_report is not None and review_report.get("status") == "failed"
         ):
             raise typer.Exit(1)
+        if report["decision"]["status"] == "WARN":
+            if fail_on_warn:
+                raise typer.Exit(1)
+            # Human runs only. --json is one document on stdout; a stderr note
+            # is merged into CliRunner's .output and breaks json.loads.
+            if not json_output:
+                typer.echo(
+                    "Note: result is WARN but exit code is 0. Use --fail-on-warn or --policy strict "
+                    "if a script relies on the exit code.",
+                    err=True,
+                )
 
     except typer.Exit:
         raise
@@ -3284,6 +3325,20 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         content_lines.append(
             "  [red]- Trust:        This file was not sealed by a key you trust.[/red]"
         )
+    # T4-S1: signer-not-confirmed caveat — one visible yellow line when the
+    # signature is valid but the key hasn't been pinned by the verifier.
+    if signature_valid is True and id_upper in ("UNKNOWN", "LOCAL") and not untrusted_despite_pins:
+        if id_upper == "LOCAL":
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Signer not confirmed: this key is on this computer but "
+                "not org-pinned. Pin it with `epi keys trust` if you obtained it from the "
+                "sender another way.[/yellow]"
+            )
+        else:
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Signer not confirmed: this key isn't one you've pinned. "
+                "Pin it with `epi keys trust` if you got it from the sender another way.[/yellow]"
+            )
     _canon_fp = identity.get("fingerprint") if isinstance(identity, dict) else None
     _name_is_fp = bool(
         _canon_fp and identity_name
@@ -3384,12 +3439,14 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         # signature, chain, and messageImprint are NOT validated (see
         # KNOWN_LIMITATIONS.md), so this never renders green.
         notarization_status = "dim]Not available"
+        _notar_present = False
         try:
             epi_path = Path(epi_file) if isinstance(epi_file, str) else epi_file
             from zipfile import ZipFile
             with ZipFile(epi_path, "r") as zf:
                 if "artifacts/notarization/notarization.json" in zf.namelist():
                     notar_data = json.loads(zf.read("artifacts/notarization/notarization.json"))
+                    _notar_present = True
                     provider = (notar_data.get("notarized_at") or {}).get("provider", "unknown")
                     tsa_url = (notar_data.get("notarized_at") or {}).get("url", "")
                     gen_time = notar_data.get("tsa_genTime") or ""
@@ -3402,6 +3459,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
         except Exception:
             pass
         content_lines.append(f"  - Notarized:    [{notarization_status}")
+        # T4-S3: when a token is present but was not validated, say so explicitly.
+        if _notar_present:
+            content_lines.append(
+                "  [yellow]![/yellow] [yellow]Timestamp not checked here. "
+                "Run `epi verify` to validate it.[/yellow]"
+            )
     else:
         _ts_invalid = [
             e for e in _seal_entries
@@ -3434,6 +3497,12 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
             content_lines.append(
                 f"  [green]- Timestamp:    VERIFIED — {_ts_what} ({_ts_where})[/green]"
             )
+            # T4-S4: separate caveat line when the timestamp doesn't bind the key.
+            if not _ts_keyed:
+                content_lines.append(
+                    "  [yellow]![/yellow] [yellow]Older seal format: the timestamp covers "
+                    "the contents, not the signing key.[/yellow]"
+                )
         elif _ts_legacy:
             content_lines.append(
                 "  [yellow]- Timestamp:    legacy token — imprint not recomputable "
@@ -3597,31 +3666,31 @@ def print_trust_report(report: dict, epi_file: Path, verbose: bool = False, org_
 
     # Transparency (SCITT)
     transparency_ok = facts.get("transparency_ok")
+    _scitt_self_issued = bool(facts.get("scitt_self_issued"))
     _scitt_url_any = (
         ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
         if isinstance(report, dict) else None
     )
-    if transparency_ok is None and str(_scitt_url_any or "").strip().lower() == "local":
-        content_lines.append(
-            "  [yellow]- Transparency: LOCAL (self-issued receipt; only checkable on the "
-            "machine that issued it)[/yellow]"
-        )
-    if transparency_ok is not None:
-        _scitt_url = (
-            ((report.get("identity") or {}).get("scitt") or {}).get("service_url")
-            if isinstance(report, dict) else None
-        )
-        if transparency_ok and str(_scitt_url or "").strip().lower() == "local":
-            # `epi-register` without --service: a receipt the sealer issued to
-            # itself. Valid, but not an independent ledger entry.
+    _is_local_scitt = _scitt_self_issued or (
+        str(_scitt_url_any or "").strip().lower() == "local"
+    )
+    if transparency_ok is not None and not _is_local_scitt:
+        # Independent service: one clear VERIFIED / FAILED line.
+        t_color = "green" if transparency_ok else "red"
+        t_text = "VERIFIED" if transparency_ok else "FAILED"
+        content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
+    if _is_local_scitt:
+        # A local receipt that failed validation keeps its own FAIL line first:
+        # the caveat below must never soften or replace a hard failure.
+        if transparency_ok is False:
             content_lines.append(
-                "  [yellow]- Transparency: LOCAL (self-issued receipt, not an independent "
-                "ledger)[/yellow]"
+                "  [red]- Transparency: FAILED (local SCITT receipt did not validate)[/red]"
             )
-        else:
-            t_color = "green" if transparency_ok else "red"
-            t_text = "VERIFIED" if transparency_ok else "FAILED"
-            content_lines.append(f"  [{t_color}]- Transparency: {t_text} (SCITT)[/{t_color}]")
+        # Self-issued receipt: always a caveat, never an independent-ledger proof.
+        content_lines.append(
+            "  [yellow]![/yellow] [yellow]Receipt is self-issued (local), not from an independent "
+            "transparency service (only checkable on the machine that issued it).[/yellow]"
+        )
 
     # AIUC-1 Domain Layer
     aiuc1_data = report.get("aiuc1")

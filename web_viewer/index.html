@@ -92,6 +92,11 @@
               <span class="dl-key">Identity</span>
               <span id="ind-identity" class="indicator unknown" style="font-size:13px; word-break:break-all;">—</span>
             </div>
+            <!-- T4-S1: shown by JS when signer is valid but not pinned -->
+            <div id="ind-signer-not-confirmed" class="dl-row" style="display:none; margin-top:6px;">
+              <span class="dl-key"></span>
+              <span id="ind-signer-not-confirmed-text" style="font-size:11px; color:var(--color-warn, #b45309);"></span>
+            </div>
           </div>
         </div>
         <!-- Right: diagnostic matrix -->
@@ -130,6 +135,16 @@
             <span class="diag-label">RFC 3161 TSA</span>
             <span id="diag-rfc3161" class="diag-status unknown">—</span>
           </div>
+          <!-- T4-S3: shown when a token is present but this page did not validate it -->
+          <div id="diag-ts-note" class="diag-item" style="display:none;">
+            <span class="diag-label"></span>
+            <span id="diag-ts-note-text" style="font-size:10px; color:var(--color-warn, #b45309);"></span>
+          </div>
+          <!-- T4-S4: shown when timestamp is valid but contents-only -->
+          <div id="diag-ts-contents-only" class="diag-item" style="display:none;">
+            <span class="diag-label"></span>
+            <span id="diag-ts-contents-only-text" style="font-size:10px; color:var(--color-warn, #b45309);"></span>
+          </div>
           <div class="diag-item">
             <span class="diag-label">Bitcoin (OTS)</span>
             <span id="diag-ots" class="diag-status unknown">—</span>
@@ -141,6 +156,16 @@
           <div class="diag-item">
             <span class="diag-label">Payload Hash</span>
             <span id="diag-payload-hash" class="diag-status unknown" style="font-size:9px; word-break:break-all;">—</span>
+          </div>
+          <!-- T4-S2: SCITT transparency row (hidden unless SCITT data present) -->
+          <div id="diag-scitt-row" class="diag-item" style="display:none;">
+            <span class="diag-label">Transparency</span>
+            <span id="diag-scitt-status" class="diag-status unknown">—</span>
+          </div>
+          <!-- T4-S2: self-issued caveat (shown when receipt is local) -->
+          <div id="diag-scitt-self-issued" class="diag-item" style="display:none;">
+            <span class="diag-label"></span>
+            <span id="diag-scitt-self-issued-text" style="font-size:10px; color:var(--color-warn, #b45309);"></span>
           </div>
         </div>
       </div>

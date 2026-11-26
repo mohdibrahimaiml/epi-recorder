@@ -482,7 +482,7 @@ class TrustRegistry:
                 try:
                     revoked.add(rev_file.read_text().strip().lower())
                 except Exception:
-                    continue
+                    return False  # unreadable revocation list: fail closed
             want = public_key_hex.strip().lower()
             for pub_file in self.trusted_keys_dir.glob("*.pub"):
                 try:
@@ -545,7 +545,12 @@ class TrustRegistry:
                             "revoked",
                         )
                 except Exception:
-                    continue
+                    return (
+                        False,
+                        rev_file.stem,
+                        "Revocation list unreadable; key not trusted.",
+                        "revoked",
+                    )
 
         # 2. Local trusted keys (exact match)
         if self.trusted_keys_dir.exists():
@@ -783,6 +788,26 @@ def create_verification_report(
             # this. Factory-only consumers (view/ls/audit/review/portal) never
             # validated tokens, so the honest default is False.
             "timestamp_verified": False,
+            # T4 caveat flags (additive; verify_command may overwrite some).
+            # signer_not_confirmed: True when the signature is valid but the
+            # key is neither locally pinned nor org-trusted (UNKNOWN / LOCAL).
+            # Callers must label this clearly — a valid sig by an unknown key
+            # only proves the file wasn't changed, not who made it.
+            "signer_not_confirmed": (
+                signature_valid is True
+                and identity_status in ("UNKNOWN", "LOCAL")
+            ),
+            # scitt_self_issued: True when the SCITT receipt comes from the
+            # local service (epi-register without --service). That is not an
+            # independent ledger entry and must not read as one.
+            "scitt_self_issued": bool(
+                scitt_gov
+                and str(scitt_gov.get("service_url") or "").strip().lower() == "local"
+            ),
+            # timestamp_key_bound: None = not evaluated yet (default);
+            # True = timestamp binds the signing key; False = contents-only.
+            # verify_command overwrites this after _build_timestamps_block runs.
+            "timestamp_key_bound": None,
         },
         "identity": {
             "status": identity_status,

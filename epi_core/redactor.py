@@ -138,6 +138,67 @@ def load_literal_secrets_from_env() -> List[str]:
     return [text]
 
 
+# Env var carrying user-supplied redaction patterns (JSON list). Each entry is
+# either a regex string or {"pattern": "...", "description": "..."}. These are
+# ADDED to the built-in patterns; built-ins are never replaced or removed.
+REDACT_PATTERNS_ENV_VAR = "EPI_REDACT_PATTERNS"
+
+
+def load_custom_patterns_from_env() -> List[Tuple[str, str]]:
+    """Read user-supplied regex patterns from EPI_REDACT_PATTERNS.
+
+    Accepts a JSON list of strings or of objects:
+        ["myid_[0-9]{6}", {"pattern": "acme_[a-z]{12}", "description": "Acme key"}]
+    A bare single regex string is also accepted. Invalid entries are reported
+    and skipped; built-in patterns always stay on.
+    """
+    import json as _json
+    import warnings as _warnings
+
+    raw = os.environ.get(REDACT_PATTERNS_ENV_VAR, "")
+    if not raw or not raw.strip():
+        return []
+    text = raw.strip()
+    if text.startswith("["):
+        try:
+            parsed = _json.loads(text)
+        except Exception as exc:
+            _warnings.warn(
+                f"{REDACT_PATTERNS_ENV_VAR} looks like a JSON list but does not "
+                f"parse — no custom patterns loaded. Error: {exc}",
+                UserWarning,
+                stacklevel=2,
+            )
+            return []
+        if not isinstance(parsed, list):
+            parsed = [parsed]
+    else:
+        parsed = [text]
+
+    patterns: List[Tuple[str, str]] = []
+    for item in parsed:
+        if isinstance(item, dict):
+            pattern_str = str(item.get("pattern") or "").strip()
+            description = str(item.get("description") or "Custom pattern").strip()
+        else:
+            pattern_str = str(item or "").strip()
+            description = "Custom pattern"
+        if not pattern_str:
+            continue
+        try:
+            re.compile(pattern_str)
+        except re.error as exc:
+            _warnings.warn(
+                f"Ignoring invalid {REDACT_PATTERNS_ENV_VAR} entry "
+                f"{pattern_str!r}: {exc}",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+        patterns.append((pattern_str, description))
+    return patterns
+
+
 def _contains_digit(value: Any) -> bool:
     """True when a value (or anything nested in it) contains a digit."""
     if isinstance(value, dict):
@@ -418,7 +479,19 @@ class Redactor:
             except re.error as e:
                 # Skip invalid patterns (should not happen with defaults)
                 print(f"Warning: Invalid pattern '{pattern_str}': {e}")
-        
+
+        # User-supplied patterns from EPI_REDACT_PATTERNS. Appended after the
+        # built-ins, so a custom pattern can never switch a built-in off.
+        for pattern_str, description in load_custom_patterns_from_env():
+            try:
+                self.patterns.append(
+                    (re.compile(pattern_str, re.IGNORECASE), description)
+                )
+            except re.error:
+                # Validated in load_custom_patterns_from_env already.
+                pass
+
+
         # Load custom config if provided
         if config_path and config_path.exists():
             self._load_config(config_path)
@@ -729,6 +802,8 @@ enabled = true
 # [[redaction.patterns]]
 # pattern = "my_secret_[a-zA-Z0-9]{20}"
 # description = "My custom secret"
+# Prefer the EPI_REDACT_PATTERNS env var (JSON list) so patterns can vary
+# per environment; TOML also works and built-ins are never replaced.
 
 # Additional environment variable names to redact
 # env_vars = ["MY_SECRET_VAR", "CUSTOM_TOKEN"]

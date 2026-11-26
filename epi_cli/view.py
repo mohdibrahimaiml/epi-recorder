@@ -436,6 +436,20 @@ def _build_viewer_context(epi_path: Path) -> dict:
             "requests": [],
             "detail": f"human approval not evaluated: {exc}",
         }
+    # T4-S4: inject key_binding so the viewer can label contents-only timestamps.
+    # _build_timestamps_block is expensive; read imprinted_public_key directly.
+    try:
+        from epi_core.container import EPIContainer as _EPI
+
+        _notar = _EPI.read_member_json(epi_path, "artifacts/notarization/notarization.json")
+        if isinstance(_notar, dict):
+            _imp_key = _notar.get("imprinted_public_key")
+            _has_tsa = bool(_notar.get("tsa_token_available") or _notar.get("tsa_tokens"))
+            if _has_tsa:
+                _kb = "key-bound" if _imp_key else "contents-only"
+                report.setdefault("timestamps", {})["key_binding"] = _kb
+    except Exception:
+        pass
     return report
 
 

@@ -612,6 +612,11 @@ def verify(
         "--aiuc1",
         help="Include AIUC-1 trust domain mapping in the verification report",
     ),
+    fail_on_warn: bool = typer.Option(
+        False,
+        "--fail-on-warn",
+        help="Exit 1 on WARN as well as FAIL. Use this in CI and audit scripts.",
+    ),
     tsa_root: list[Path] | None = typer.Option(
         None,
         "--tsa-root",
@@ -683,7 +688,8 @@ def verify(
 ):
     return verify_command(
         ctx, Path(epi_file), json_output, verbose, report_out,
-        review=review, strict=strict, policy=policy, aiuc1=aiuc1, web=web, qr=qr,
+        review=review, strict=strict, policy=policy, aiuc1=aiuc1,
+        fail_on_warn=fail_on_warn, web=web, qr=qr,
         offline=offline,
         witness_log=witness_log,
         witness_pubkey=witness_pubkey,

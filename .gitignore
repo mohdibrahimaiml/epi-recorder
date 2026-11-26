@@ -294,3 +294,13 @@ cloud/node_modules/
 
 # Security audit output: lists the app's weaknesses. Never commit or serve this.
 AUDIT.md
+
+# --- Secrets & sensitive data (added 2026-11-24, risk register S2/P1) ---
+.epi/keys/
+**/.epi/keys/
+*.key
+*.hex
+.secrets/
+_mcp_auth*.log
+_oauth_url*.txt
+pitch-assets/

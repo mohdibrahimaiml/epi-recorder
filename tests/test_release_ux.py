@@ -291,7 +291,8 @@ def test_local_scitt_receipt_is_not_labelled_verified(monkeypatch, tmp_path: Pat
     import re
 
     text = re.sub(r"[│\s]+", " ", runner.invoke(cli_app, ["verify", str(out)]).output)
-    assert "LOCAL (self-issued receipt" in text
+    assert "Receipt is self-issued (local)" in text
+    assert "not from an independent transparency service" in text
     assert "VERIFIED (SCITT)" not in text
 
 

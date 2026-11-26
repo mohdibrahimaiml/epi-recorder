@@ -52,7 +52,7 @@ INSURANCE = [
         "Was the record made at the time of the decision, not assembled later for an exam?",
     ),
     (
-        "Tamper-evident",
+        "Changes detectable",
         "Would the carrier notice if the record were changed after it was handed over?",
     ),
 ]

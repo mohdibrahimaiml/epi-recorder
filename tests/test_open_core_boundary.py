@@ -165,8 +165,11 @@ def test_hosted_service_is_not_in_the_public_tree():
 
 
 def test_billing_internals_are_not_publicly_testable():
-    """Billing tests belong with the private service, not in the public suite."""
-    assert not (REPO / "tests" / "test_tier_gating_plans.py").exists()
+    """Paddle catalog tooling stays out of the public suite.
+
+    Plan-alias checks live next to verify_portal/tier_gating.py, which is still
+    the public portal module. The catalog seed script does not.
+    """
     assert not (REPO / "scripts" / "_tier_capability_matrix.py").exists()
     assert not (REPO / "scripts" / "seed-paddle-catalog.mjs").exists()
 
