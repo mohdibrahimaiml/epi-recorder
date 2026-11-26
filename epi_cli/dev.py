@@ -524,13 +524,25 @@ def _sign_demo_approval(epi_path: Path) -> tuple[str, str] | None:
         return None
 
 
+def _epi_argv(*args: str) -> list[str]:
+    """argv that invokes this build's own EPI CLI.
+
+    In a source checkout that is ``python -m epi_cli``. In a frozen build
+    (the Windows installer) ``sys.executable`` is ``epi.exe`` itself, so
+    ``-m epi_cli`` would be read as a command name and fail.
+    """
+    if getattr(sys, "frozen", False):
+        return [sys.executable, *args]
+    return [sys.executable, "-m", "epi_cli", *args]
+
+
 def _demo_approval_check(epi_path: Path) -> bool:
     """Run the real policy check against the demo's pinned approver."""
     result = subprocess.run(
-        [
-            sys.executable, "-m", "epi_cli", "verify",
+        _epi_argv(
+            "verify",
             "--require-human-approval", "--json", str(epi_path),
-        ],
+        ),
         capture_output=True,
         text=True,
         timeout=30,
@@ -575,11 +587,51 @@ def _show_demo_script_output(stdout: str, stderr: str) -> None:
         console.print(f"  [dim]{escape(line)}[/dim]")
 
 
+def _run_demo_script_in_process(script_path: Path, child_env: dict) -> bool:
+    """Run the demo script in this process (frozen builds only).
+
+    The environment is swapped for the duration so the script sees exactly what
+    it would have seen as a child process, then restored.
+    """
+    import contextlib
+    import io
+    import runpy
+
+    saved: dict[str, Optional[str]] = {k: os.environ.get(k) for k in child_env}
+    os.environ.update(child_env)
+    stdout, stderr = io.StringIO(), io.StringIO()
+    code = 0
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            runpy.run_path(str(script_path), run_name="__main__")
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
+    except Exception as exc:
+        stderr.write(f"{type(exc).__name__}: {exc}\n")
+        code = 1
+    finally:
+        for key, previous in saved.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+    _show_demo_script_output(stdout.getvalue(), stderr.getvalue())
+    return code == 0
+
+
 def _run_demo_script(script_path: Path, env: dict, witness_file: Optional[Path] = None) -> bool:
-    """Run the demo script. Returns True if it exited with code 0."""
+    """Run the demo script. Returns True if it exited with code 0.
+
+    A frozen build cannot spawn ``python <script>``: ``sys.executable`` is the
+    EPI executable, so the child would re-enter the CLI and treat the path as a
+    command name. Frozen builds run the script in this process instead, with
+    the same environment the subprocess would have received.
+    """
     child_env = _demo_subprocess_env(env)
     if witness_file is not None:
         child_env["EPI_WITNESS_RESULT_FILE"] = str(witness_file)
+    if getattr(sys, "frozen", False):
+        return _run_demo_script_in_process(script_path, child_env)
     try:
         result = subprocess.run(
             [sys.executable, str(script_path)],
@@ -727,7 +779,7 @@ def _auto_export_and_verify(storage_dir: Path, case_id: str) -> Optional[Path]:
     console.print()
 
     result = subprocess.run(
-        [sys.executable, "-m", "epi_cli", "verify", str(out_path)],
+        _epi_argv("verify", str(out_path)),
         capture_output=False,     # let output flow to terminal
         timeout=15,
     )
@@ -954,7 +1006,7 @@ def _run_fast_demo(
     if not no_verify and epi_path is not None:
         console.print("  [dim]Verifying offline…[/dim]")
         result = subprocess.run(
-            [sys.executable, "-m", "epi_cli", "verify", "--json", str(epi_path)],
+            _epi_argv("verify", "--json", str(epi_path)),
             capture_output=True,
             text=True,
             timeout=30,
@@ -1041,7 +1093,7 @@ def _run_fast_demo(
     if not no_browser and epi_path is not None:
         console.print("  [dim]Opening viewer…[/dim]")
         view_rc = subprocess.run(
-            [sys.executable, "-m", "epi_cli", "view", "--native", str(epi_path)],
+            _epi_argv("view", "--native", str(epi_path)),
             timeout=30,
             env=(
                 _demo_subprocess_env(_demo_approver_env(dict(os.environ)))
@@ -1063,10 +1115,9 @@ def _run_fast_demo(
 
                 td = Path(tempfile.mkdtemp(prefix="epi_demo_view_"))
                 built = subprocess.run(
-                    [
-                        sys.executable, "-m", "epi_cli", "view",
-                        "--extract", str(td), str(epi_path),
-                    ],
+                    _epi_argv(
+                        "view", "--extract", str(td), str(epi_path)
+                    ),
                     capture_output=True,
                     text=True,
                     encoding="utf-8",

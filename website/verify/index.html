@@ -188,9 +188,9 @@
           <p class="z-body" style="margin-top:0.75rem">
             The browser check above covers the seal. The demo ships the release, the witness log and the demo keys next to the record; check them with the CLI:
           </p>
-          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid var(--acc-envelope);font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">epi keys trust demo-sealer.pub --name demo-sealer --fingerprint "b501 0a90 c0cb a3fd"
-epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "3acb 264d c573 be59"
-epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "9fc1 67ee b28b a09e"
+          <pre style="margin-top:0.85rem;padding:0.85rem 1rem;background:#080b0d;border-left:3px solid var(--acc-envelope);font-family:var(--font-mono);font-size:0.72rem;line-height:1.7;color:#c9d1d9;overflow-x:auto;white-space:pre-wrap">epi keys trust demo-sealer.pub --name demo-sealer --fingerprint "084c 250f 25ca e0b0"
+epi approvers add demo-key.pub --name "DEMO KEY" --fingerprint "2da1 dc36 14d8 b97c"
+epi approvers add demo-approver.pub --name "DEMO APPROVER" --fingerprint "8bb1 43b3 33c4 fa4c"
 epi verify decision-example.epi --release claims-policy-1.4.epi \
   --witness-log witness.jsonl --require-release --min-approvals 1 \
   --require-pre-action-approval</pre>
@@ -213,7 +213,7 @@ epi verify decision-example.epi --release claims-policy-1.4.epi \
     <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
     <footer class="z-center z-footer" aria-label="Site footer">
       <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
-        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.1</div>
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</div>
         <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
           <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
           <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
