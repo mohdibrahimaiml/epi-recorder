@@ -70,12 +70,11 @@ jobs:
           .\scripts\build_msix.ps1 -Version $version -IdentityName $env:IDENTITY_NAME `
             -Publisher $env:PUBLISHER -PublisherDisplayName $env:PUBLISHER_DISPLAY_NAME
 
-      # Install a self-signed copy (test identity only) and run it. The uploaded
-      # artifact stays unsigned. Non-blocking while the runner's support for
-      # sideloading is proven; read this step's log before submitting.
+      # Install a self-signed copy (test identity only) and run it: the package
+      # installs, `epi --version` works through the alias, and the sample .epi
+      # verifies. The uploaded artifact stays unsigned.
       - name: Smoke test - install a test-signed copy and run it
         if: env.PUBLISHER == env.TEST_PUBLISHER
-        continue-on-error: true
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
