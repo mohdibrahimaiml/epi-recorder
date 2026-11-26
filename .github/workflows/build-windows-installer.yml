@@ -184,6 +184,12 @@ jobs:
           # is already on the Release from the tag/publish step.
           # The exe is Authenticode-signed only when SignPath is configured
           # (see above). SHA256SUMS lets a reviewer confirm bytes either way.
+          # A re-run for an existing tag (for example to publish a signed
+          # installer after SignPath approval) must replace the same-named
+          # assets, not fail on duplicates or leave the old unsigned bytes.
+          # The action defaults this to true; pin it so an action bump cannot
+          # turn a re-signing into a broken release.
+          overwrite_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -212,6 +218,7 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: installer/windows/Output/*.sigstore.json
+          overwrite_files: true
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

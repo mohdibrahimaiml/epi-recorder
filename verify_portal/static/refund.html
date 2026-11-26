@@ -1,156 +1,153 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Policy | EPI Labs</title>
+  <meta name="description" content="Refund terms for EPI Cloud subscriptions, the free workspace and paid engagements.">
+  <meta property="og:title" content="Refund Policy | EPI Labs">
+  <meta property="og:description" content="Refund terms for EPI Cloud subscriptions, the free workspace and paid engagements.">
   <link rel="canonical" href="https://epilabs.org/refund">
-<title>EPI Labs Refund Policy</title>
-<meta name="description" content="EPI Labs refund policy. 14-day refund window for EPI Cloud Startup and Growth subscriptions. Enterprise refunds handled per agreement.">
-<link rel="icon" type="image/x-icon" href="favicon.ico">
-<link rel="icon" type="image/png" sizes="32x32" href="favicon.ico">
-<link rel="apple-touch-icon" href="favicon.ico">
-<style>
-.refund-main{max-width:700px;margin:0 auto;padding:120px 24px 80px}
-.refund-main h1{font-size:1.8rem;color:var(--ink);margin:0 0 8px}
-.refund-main p,.refund-main li{color:var(--ink-soft);line-height:1.7;font-size:.92rem}
-.refund-main h3{font-size:1.1rem;color:var(--ink);margin:32px 0 8px}
-</style>
-<script>
-(function(){try{var t=localStorage.getItem('epi-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();
-</script>
-  <link rel="stylesheet" href="css/meridian.css?v=2">
-  <link rel="stylesheet" href="/css/site.css?v=16">
-  <meta name="theme-color" content="#0A0B0D">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
 </head>
-<body class="epi-instrument">
-<!-- ═══ SITE NAV ═══ -->
-<nav class="nav" id="nav">
-  <div class="nav-in">
-    <a href="/" class="logo"><img src="/assets/logo.png" alt="EPI Labs"></a>
-    <ul class="nlinks">
-      <li><a href="/verify/">Verify</a></li>
-      <li class="nlinks__menu"><details>
-        <summary>Architecture</summary>
-        <div class="nlinks__panel">
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
             <a href="/how-it-works">How it works</a>
             <a href="/decision-record">Decision Record</a>
-        </div>
-      </details></li>
-      <li><a href="/trust">Trust model</a></li>
-      <li><a href="/use-cases">Use cases</a></li>
-      <li><a href="/reviewers">For reviewers</a></li>
-      <li><a href="/plans">Pricing</a></li>
-      <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a></li>
-      <li id="nav-auth-slot"><a href="/account" class="nav-cta" id="nav-auth" data-auth-link="1">Sign In</a></li>
-      <li><button type="button" class="tgl" data-theme-toggle aria-label="Toggle color theme" title="Toggle theme">&#9788;</button></li>
-    </ul>
-    <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu"><span></span><span></span><span></span></button>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
   </div>
-</nav>
-<div class="mmenu" id="mmenu">
-  <a href="/verify/">Verify a file</a>
-  <details class="mmenu__group">
-    <summary>Architecture</summary>
-    <a href="/how-it-works">How it works</a>
-    <a href="/decision-record">Decision Record</a>
-  </details>
-  <a href="/trust">Trust model</a>
-  <a href="/use-cases">Use cases</a>
-  <a href="/reviewers">For reviewers</a>
-  <a href="/plans">Pricing</a>
-  <a href="/account" class="nav-cta" id="mob-nav-auth" data-auth-link="1">Sign In</a>
-  <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a>
-  <button type="button" class="tgl" data-theme-toggle style="margin-top:14px;width:100%" aria-label="Toggle theme">Toggle theme</button>
-</div>
-<main class="refund-main">
-  <h1>Refund Policy</h1>
-  <p>Last updated: 19 November 2026</p>
 
-  <h3>Who processes card payments</h3>
-  <p>Card payments for EPI Cloud subscriptions are processed by our online reseller <strong>Paddle.com</strong>, which is the Merchant of Record for those orders. Paddle handles payment, invoicing and sales tax, and issues any refund to your original payment method. Paid engagements and Enterprise agreements are invoiced directly by EPI Labs.</p>
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+            <span class="z-eyebrow">Legal &middot; Refund Policy</span>
+            <h1 id="refund-heading" class="z-h1" style="margin-top:1rem">Refund Policy</h1>
+            <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);margin-top:1rem">LAST UPDATED: 19 NOVEMBER 2026</p>
+      </header>
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+          <nav aria-label="Sections" style="border:1px solid var(--border-grid);padding:1rem 1.25rem;margin-bottom:2.25rem;display:flex;flex-wrap:wrap;gap:0.5rem 1.25rem">
+            <a href="#who-processes-card-payments" style="color:var(--text-secondary);font-size:0.82rem">Who processes card payments</a>
+            <a href="#epi-cloud-startup-and-growth" style="color:var(--text-secondary);font-size:0.82rem">EPI Cloud Startup and Growth</a>
+            <a href="#free-workspace-and-open-source" style="color:var(--text-secondary);font-size:0.82rem">Free workspace and open source</a>
+            <a href="#paid-engagements" style="color:var(--text-secondary);font-size:0.82rem">Paid engagements</a>
+            <a href="#enterprise-agreements" style="color:var(--text-secondary);font-size:0.82rem">Enterprise agreements</a>
+            <a href="#retired-hosted-and-team-plans" style="color:var(--text-secondary);font-size:0.82rem">Retired Hosted and Team plans</a>
+            <a href="#how-to-request-a-refund" style="color:var(--text-secondary);font-size:0.82rem">How to request a refund</a>
+            <a href="#contact" style="color:var(--text-secondary);font-size:0.82rem">Contact</a>
+          </nav>
+          <section id="who-processes-card-payments" style="margin-top:2.5rem">
+            <h2 class="z-h2">Who processes card payments</h2>
+            <p class="z-body" style="margin-top:0.75rem">Card payments for EPI Cloud subscriptions are processed by our online reseller <strong>Paddle.com</strong>, which is the Merchant of Record for those orders. Paddle handles payment, invoicing and sales tax, and issues any refund to your original payment method. Paid engagements and Enterprise agreements are invoiced directly by EPI Labs.</p>
+          </section>
 
-  <h3>EPI Cloud Startup and Growth</h3>
-  <ul>
+          <section id="epi-cloud-startup-and-growth" style="margin-top:2.5rem">
+            <h2 class="z-h2">EPI Cloud Startup and Growth</h2>
+            <ul class="z-body" style="margin-top:0.75rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
     <li><strong>14-day refund on your first payment.</strong> If EPI Cloud is not right for you, ask within 14 days of your first payment for a monthly or annual plan and we refund it in full.</li>
     <li><strong>Renewals.</strong> Subscriptions renew automatically at the end of each monthly or annual period. Renewal payments are not refundable, except where the law requires it.</li>
     <li><strong>Cancel any time.</strong> Cancel from <em>Manage billing</em> in your EPI Cloud dashboard, or by email. Cancellation stops future renewals; your plan stays active until the end of the period you have paid for.</li>
     <li><strong>Changing plans.</strong> Upgrading from Free takes effect as soon as payment clears. To move between Startup and Growth, write to us; an upgrade is switched the same day and a downgrade takes effect at your next renewal.</li>
   </ul>
+          </section>
 
-  <h3>Free workspace and open source</h3>
-  <p>The free EPI Cloud workspace and the open-source epi-recorder CLI and Python SDK cost nothing, so no refund applies. The open-source tool is Apache-2.0 (4.10.0 and later; 4.9.0 and earlier are MIT).</p>
+          <section id="free-workspace-and-open-source" style="margin-top:2.5rem">
+            <h2 class="z-h2">Free workspace and open source</h2>
+            <p class="z-body" style="margin-top:0.75rem">The free EPI Cloud workspace and the open-source epi-recorder CLI and Python SDK cost nothing, so no refund applies. The open-source tool is Apache-2.0 (4.10.0 and later; 4.9.0 and earlier are MIT).</p>
+          </section>
 
-  <h3>Paid engagements</h3>
-  <p>The readiness assessment and the full engagement are invoiced in full at the start, as described on <a href="/plans" style="color:var(--accent)">Plans</a>. Their cancellation and refund terms are the ones set out in your written order.</p>
+          <section id="paid-engagements" style="margin-top:2.5rem">
+            <h2 class="z-h2">Paid engagements</h2>
+            <p class="z-body" style="margin-top:0.75rem">The readiness assessment and the full engagement are invoiced in full at the start, as described on <a href="/plans" style="color:var(--acc)">Plans</a>. Their cancellation and refund terms are the ones set out in your written order.</p>
+          </section>
 
-  <h3>Enterprise agreements</h3>
-  <p>Enterprise refund terms are defined in your individual enterprise agreement.</p>
+          <section id="enterprise-agreements" style="margin-top:2.5rem">
+            <h2 class="z-h2">Enterprise agreements</h2>
+            <p class="z-body" style="margin-top:0.75rem">Enterprise refund terms are defined in your individual enterprise agreement.</p>
+          </section>
 
-  <h3>Retired Hosted and Team plans</h3>
-  <p>If you bought one of the retired Hosted or Team subscriptions, the 14-day refund window above still applies to that purchase.</p>
+          <section id="retired-hosted-and-team-plans" style="margin-top:2.5rem">
+            <h2 class="z-h2">Retired Hosted and Team plans</h2>
+            <p class="z-body" style="margin-top:0.75rem">If you bought one of the retired Hosted or Team subscriptions, the 14-day refund window above still applies to that purchase.</p>
+          </section>
 
-  <h3>How to request a refund</h3>
-  <p>Email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">mohdibrahim@epilabs.org</a> with the subject line "Refund Request" and include the email address on your account, your plan, and the date of payment. You can also contact Paddle directly through the link on your payment receipt. Refunds are normally processed within 5 business days and returned to the original payment method.</p>
+          <section id="how-to-request-a-refund" style="margin-top:2.5rem">
+            <h2 class="z-h2">How to request a refund</h2>
+            <p class="z-body" style="margin-top:0.75rem">Email <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a> with the subject line "Refund Request" and include the email address on your account, your plan, and the date of payment. You can also contact Paddle directly through the link on your payment receipt. Refunds are normally processed within 5 business days and returned to the original payment method.</p>
+          </section>
 
-  <h3>Contact</h3>
-  <p>For refund or billing questions: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--accent)">mohdibrahim@epilabs.org</a></p>
-</main>
-<script src="js/theme.js"></script><script src="js/instrument-nav.js"></script>
-<script src="js/auth-ui.js"></script>
-
-
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="footer-brand">
-        <img src="assets/logo.png" alt="EPI Labs">
-        <p>Sealed run records for AI agents, verifiable offline by the party who does not trust you. Sealed .epi files — verify offline, forever.</p>
+          <section id="contact" style="margin-top:2.5rem">
+            <h2 class="z-h2">Contact</h2>
+            <p class="z-body" style="margin-top:0.75rem">For refund or billing questions: <a href="mailto:mohdibrahim@epilabs.org" style="color:var(--acc)">mohdibrahim@epilabs.org</a></p>
+          </section>
+        </div>
       </div>
-      <div class="footer-col">
-        <h4>Product</h4>
-        <ul>
-          <li><a href="/verify/">Verify a file</a></li>
-          <li><a href="/how-it-works">How it works</a></li>
-          <li><a href="/integrations">Integrations</a></li>
-          <li><a href="/plans">Pricing</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Evidence</h4>
-        <ul>
-          <li><a href="/trust">Trust model</a></li>
-          <li><a href="/use-cases">Use cases</a></li>
-          <li><a href="/reviewers">For reviewers</a></li>
-          <li><a href="/status">Status</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="/account">Account</a></li>
-          <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener">GitHub</a></li>
-          <li><a href="/terms">Terms</a> <a href="/refund">Refund</a></li>
-          <li><a href="/privacy">Privacy</a></li>
-          <li><a href="mailto:mohdibrahim@epilabs.org">Contact</a></li>
-        </ul>
-      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
     </div>
-    <div class="footer-bottom">
-      <span>&copy; 2026 EPI LABS · Apache-2.0</span>
-    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS &middot; Apache-2.0 &middot; v4.11.2</div>
+        <div style="display:flex;gap:1.25rem">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+        </div>
+      </div>
+    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
+</footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
-<p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
-</footer><script src="js/wow.js?v=2"></script>
-<script>
-// Mobile menu + nav scroll (same handler as the other pages).
-(function(){
-  'use strict';
-  var b=document.getElementById('burger'),m=document.getElementById('mmenu');
-  if(b&&m){b.addEventListener('click',function(){var o=m.classList.toggle('open');b.classList.toggle('x',o);b.setAttribute('aria-expanded',o);document.body.style.overflow=o?'hidden':''});}
-  var nav=document.getElementById('nav');
-  var onS=function(){if(nav)nav.classList.toggle('scrolled',scrollY>10)};
-  addEventListener('scroll',onS,{passive:true});onS();
-})();
-</script>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
 </body>
 </html>

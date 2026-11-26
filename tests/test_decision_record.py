@@ -76,6 +76,9 @@ def test_decision_record_sits_inside_the_architecture_nav():
     assert '<summary class="z-nav__link">Architecture</summary>' in plans
     assert 'href="/decision-record">Decision Record</a>' in plans
 
+    # /reviewers was migrated to the shared shell, so it carries the same
+    # Architecture popover as /plans rather than the retired nlinks menu.
     reviewers = (SITE / "reviewers.html").read_text(encoding="utf-8")
-    assert 'class="nlinks__menu"' in reviewers
+    assert '<details class="z-nav__menu">' in reviewers
+    assert '<summary class="z-nav__link">Architecture</summary>' in reviewers
     assert 'href="/decision-record">Decision Record</a>' in reviewers
