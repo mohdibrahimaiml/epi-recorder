@@ -43,18 +43,14 @@ Release **v4.11.2** — [what changed](https://github.com/mohdibrahimaiml/epi-re
 
 ## Who this is for
 
-AI vendors selling decision-making agents into **insurance, lending and banking** — and the
-carriers, banks and auditors reviewing them.
+AI vendors selling decision-making agents into **insurance, lending and banking**, and the
+carriers, banks and auditors reviewing them. The question that stalls every review is: *"For claim
+4471, what did the model see, decide, why, which version answered, and who overrode it?"* Logs do
+not answer it and a vendor dashboard is what the reviewer trusts least. EPI answers with **one file
+per decision** that leaves your platform and is checkable by the party who does not trust you.
 
-The question that stalls those reviews is always the same: *"For claim 4471, what did your model
-see, what did it decide, why, which version answered, and who overrode it?"* Logs do not answer it,
-and a vendor-hosted dashboard is the thing the reviewer is least willing to trust.
+If you would rather not instrument it yourself, we run a readiness assessment: one workflow, 5 working days, €4,500. See https://epilabs.org/plans.
 
-EPI answers it with **one file per decision** that leaves your platform and can be checked by the
-party who does not trust you.
-
-If you would rather not instrument it yourself, we run a readiness assessment: one workflow,
-5 working days, €4,500. See https://epilabs.org/plans.
 
 ## 60-second path
 
@@ -212,12 +208,21 @@ API keys in prompts and headers are redacted before they reach the file.
 | Microsoft AGT | `epi import agt <path>` |
 | Any HTTP client | `epi gateway serve` records traffic without the SDK (EPI Enterprise) |
 
-**TRACE export** (`epi export trace`) produces a self-consistent Level 0 record. Signing order is
-`--key` → the key that sealed the `.epi` → `TRACE_PRIVATE_KEY_PEM` → ephemeral. `policy.enforcement_mode`
-is `"declared"`: we did not run a Cedar engine, and `policy.bundle_hash` hashes the sealed EPI policy,
-not a Cedar bundle. Details:
-[FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md).
+**TRACE export** (`epi export trace`) produces a self-consistent Level 0 record. Signing order:
+`--key` → the sealing key → `TRACE_PRIVATE_KEY_PEM` → ephemeral. `policy.enforcement_mode` is
+`"declared"`: no Cedar engine ran, and `policy.bundle_hash` covers the sealed EPI policy, not a
+Cedar bundle. Details: [FRAMEWORK-INTEGRATIONS-5-MINUTES.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/FRAMEWORK-INTEGRATIONS-5-MINUTES.md).
 
+## Use it from an MCP client
+
+Three tools: `epi_seal_record`, `epi_verify`, `epi_export_summary`. The SDK is an
+extra and the package ships three executables, so name both:
+
+```json
+{"mcpServers":{"epi":{"command":"uvx","args":["--from","epi-recorder[mcp]","epi-mcp"]}}}
+```
+
+Remote hosts: `epi-mcp-http --port 8000`. Contract: [EPI-MCP-CONTRACT.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EPI-MCP-CONTRACT.md).
 ## Open core: what is free, what is paid
 
 **Free and open source (Apache-2.0 from 4.10.0; MIT up to 4.9.0), in this repository:** the `.epi`
@@ -239,18 +244,17 @@ verifier. Exact boundary:
 
 ## Share a run with a customer (optional)
 
-Sealed runs stay offline unless you push them. EPI Cloud gives a reviewer a link they open in a
-browser — nothing to install:
+Sealed runs stay offline unless you push them. EPI Cloud gives a reviewer a browser link:
 
 ```bash
 epi cloud login     # device code; nothing secret to copy
 epi demo            # record, seal, upload for that customer
-# then create a share link on cloud.epilabs.org
 ```
 
-Free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year and 30-day storage.
-Startup and Growth are self-serve by card in the dashboard; Enterprise is arranged directly. On paid plans every decision is independently witnessed by EPI Cloud, with no limit (Free records, seals and shares but does not witness); file limits count only records stored and shared in EPI Cloud.
+Free workspace: 1 customer relationship, 1 share link (7 days), 10 files a year and 30-day storage. Startup and Growth are self-serve by card in the dashboard; Enterprise is arranged directly.
+On paid plans every decision is independently witnessed by EPI Cloud, with no limit; Free records, seals and shares but does not witness.
 Recording and verification never depend on Cloud.
+
 
 ## Security defaults
 
@@ -269,16 +273,13 @@ Recording and verification never depend on Cloud.
 | `epi demo` | Guided: record → seal → verify |
 | `epi verify <file.epi>` | Offline integrity + signature (`--policy strict` for exit-code trust) |
 | `epi view <file.epi>` | Local browser viewer |
-| `epi analyze <file.epi>` | Fault / policy summary from the sealed analysis |
-| `epi export-summary <file.epi>` | One-page HTML or text summary per decision |
+| `epi analyze` / `epi export-summary` | Fault and policy summary, or a one-page HTML/text summary |
 | `epi keys generate` / `list` / `trust` / `revoke` | Signing and pinned keys; fingerprints printed |
 | `epi policy init` | Create `epi_policy.json` |
 | `epi approvers` / `epi review` | Pin approver keys; the approver signs |
 | `epi witness serve` / `report` | Customer-side witness receiver |
-| `epi oversight report` | Decisions by outcome, model and approval over a period |
-| `epi org bundle` | The customer's own key history |
-| `epi import agt` / `epi export trace` | Microsoft AGT in, TRACE Level 0 out |
-| `epi scitt register` | SCITT receipt (local self-issued unless `--service <url>`) |
+| `epi oversight report` / `epi org bundle` | Decisions by outcome, model and approval over a period; the customer's own key history |
+| `epi import agt` / `epi export trace` / `epi scitt register` | AGT in, TRACE Level 0 out, SCITT receipt (self-issued unless `--service <url>`) |
 
 Full surface: [CLI.md](https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/CLI.md).
 

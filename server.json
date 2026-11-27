@@ -7,12 +7,12 @@
     "url": "https://github.com/mohdibrahimaiml/epi-recorder",
     "source": "github"
   },
-  "version": "4.11.1",
+  "version": "4.11.2",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "epi-recorder",
-      "version": "4.11.1",
+      "version": "4.11.2",
       "transport": {
         "type": "stdio"
       }
