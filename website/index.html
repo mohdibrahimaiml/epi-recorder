@@ -1084,66 +1084,74 @@ Pre-action: <span style="color:#ef4444">ACTION BEFORE APPROVAL</span></div>
   <div class="z-shell" style="margin-top:auto">
     <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
     <footer class="z-center z-footer" aria-label="Site footer">
-      <div class="z-footer-grid">
-        <div class="z-footer-brand">
-          <a href="/" class="z-brand z-footer-logo">
-            <span class="sr-only">EPI Labs home</span>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:2.25rem 2rem">
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:0.9rem;max-width:34rem">
+          <a href="/" class="z-brand z-footer-logo" aria-label="EPI Labs home">
             <span class="z-brand__stack" aria-hidden="true">
-              <img src="/assets/logo-white.png" alt="" width="320" height="132" class="z-brand__img--dark">
-              <img src="/assets/logo-trimmed.png" alt="" width="320" height="132" class="z-brand__img--light">
+              <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+              <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
             </span>
           </a>
-          <p class="z-body" style="margin-top:1rem;max-width:22rem;font-size:0.875rem">
-            Sealed run records for AI agents: portable, verifiable offline by the party who does not trust you. Open-source tooling under Apache-2.0.
-          </p>
+          <p class="z-body" style="font-size:0.85rem;max-width:28rem">One signed file per AI decision. Anyone can check it offline, without an account.</p>
         </div>
-
-        <div class="z-footer-col">
-          <p class="z-footer-col__heading">Product</p>
-          <ul class="z-footer-col__list">
-            <li><a href="/" class="z-footer-col__link">Platform</a></li>
-            <li><a href="/verify/" class="z-footer-col__link">Verify a .epi file</a></li>
-            <li><a href="/how-it-works" class="z-footer-col__link">Architecture</a></li>
-            <li><a href="/trust" class="z-footer-col__link">Trust model</a></li>
-            <li><a href="/plans" class="z-footer-col__link">Pricing &amp; Plans</a></li>
-          </ul>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Product</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/" class="z-footer-col__link" style="font-size:0.8rem">Platform</a>
+            <a href="/how-it-works" class="z-footer-col__link" style="font-size:0.8rem">How it works</a>
+            <a href="/decision-record" class="z-footer-col__link" style="font-size:0.8rem">Decision Record</a>
+            <a href="/verify/" class="z-footer-col__link" style="font-size:0.8rem">Verify a file</a>
+            <a href="/plans" class="z-footer-col__link" style="font-size:0.8rem">Pricing</a>
+          </div>
         </div>
-
-        <div class="z-footer-col">
-          <p class="z-footer-col__heading">Modules</p>
-          <ul class="z-footer-col__list">
-            <li><a href="/how-it-works" class="z-footer-col__link">Envelope v2</a></li>
-            <li><a href="/trust" class="z-footer-col__link">Identity Pinning</a></li>
-            <li><a href="/integrations" class="z-footer-col__link">Gateway Proxy</a></li>
-            <li><a href="/trust#witness" class="z-footer-col__link">Cloud Witness</a></li>
-            <li><a href="/how-it-works#policy" class="z-footer-col__link">Policy Analyzer</a></li>
-          </ul>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Evidence</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/trust" class="z-footer-col__link" style="font-size:0.8rem">Trust model</a>
+            <a href="/proof/" class="z-footer-col__link" style="font-size:0.8rem">Proof</a>
+            <a href="/checklist/" class="z-footer-col__link" style="font-size:0.8rem">Checklist</a>
+            <a href="/standards" class="z-footer-col__link" style="font-size:0.8rem">Standards</a>
+            <a href="/insurance/sample-claim-record" class="z-footer-col__link" style="font-size:0.8rem">Sample record</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">Known limitations</a>
+          </div>
         </div>
-
-        <div class="z-footer-col z-footer-col--wide">
-          <p class="z-footer-col__heading">Resources &amp; Trust</p>
-          <ul class="z-footer-col__list">
-            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">GitHub Repository</a></li>
-            <li><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">PyPI Package (epi-recorder)</a></li>
-            <li><a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" target="_blank" rel="noopener noreferrer" class="z-footer-col__link">Known Limitations</a></li>
-            <li><a href="https://cloud.epilabs.org/" class="z-footer-col__link">EPI Cloud Sign In</a></li>
-            <li><a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link">mohdibrahim@epilabs.org</a></li>
-          </ul>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Solutions</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/use-cases" class="z-footer-col__link" style="font-size:0.8rem">Use cases</a>
+            <a href="/reviewers" class="z-footer-col__link" style="font-size:0.8rem">For reviewers</a>
+            <a href="/insurance/ai-vendor-decision-record" class="z-footer-col__link" style="font-size:0.8rem">For AI vendors</a>
+            <a href="/integrations" class="z-footer-col__link" style="font-size:0.8rem">Integrations</a>
+            <a href="/docs" class="z-footer-col__link" style="font-size:0.8rem">Docs</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Company</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/about" class="z-footer-col__link" style="font-size:0.8rem">About</a>
+            <a href="/faq/" class="z-footer-col__link" style="font-size:0.8rem">FAQ</a>
+            <a href="/blog/" class="z-footer-col__link" style="font-size:0.8rem">Blog</a>
+            <a href="/status" class="z-footer-col__link" style="font-size:0.8rem">Status</a>
+            <a href="https://cloud.epilabs.org/" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">EPI Cloud</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Legal</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/terms" class="z-footer-col__link" style="font-size:0.8rem">Terms</a>
+            <a href="/privacy" class="z-footer-col__link" style="font-size:0.8rem">Privacy</a>
+            <a href="/refund" class="z-footer-col__link" style="font-size:0.8rem">Refund</a>
+            <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.8rem">Security.txt</a>
+            <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.8rem">Trust registry</a>
+          </div>
         </div>
       </div>
-
-      <div class="z-footer-bottom">
-        <div>&copy; 2026 EPI LABS · Apache-2.0 · Envelope v2</div>
-        <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
-          <a href="/standards" class="z-footer-col__link" style="font-size:0.75rem">Standards</a>
-          <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.75rem">Security.txt</a>
-          <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.75rem">Trust Registry JSON</a>
-          <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">GitHub</a>
-        </div>
+      <div class="z-footer-bottom" style="margin-top:2.5rem">
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</div>
+        <div><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">v4.11.2 on PyPI</a> · <a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link" style="font-size:0.75rem">mohdibrahim@epilabs.org</a></div>
       </div>
-      <div style="font-size:.7rem;color:var(--text-muted);margin-top:0.5rem">v4.11.2 on PyPI</div>
-    <p style="text-align:center;font-size:0.75rem;margin:1rem 0 0;opacity:0.8"><a href="/about" style="color:inherit">About</a> &middot; <a href="/privacy" style="color:inherit">Privacy</a> &middot; <a href="/terms" style="color:inherit">Terms</a> &middot; <a href="/refund" style="color:inherit">Refund</a> &middot; <a href="mailto:mohdibrahim@epilabs.org" style="color:inherit">mohdibrahim@epilabs.org</a></p>
-</footer>
+    </footer>
     <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
   </div>
 
