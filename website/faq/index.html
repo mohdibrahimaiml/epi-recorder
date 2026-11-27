@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buyer questions | EPI Labs</title>
+  <meta name="description" content="Straight answers to what buyers ask about EPI: what a sealed decision record proves and does not prove, data and security, setup, regulation, pricing and payment.">
+  <link rel="canonical" href="https://epilabs.org/faq/">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is EPI, in one sentence?", "acceptedAnswer": {"@type": "Answer", "text": "EPI turns each decision an AI system makes into one sealed file (a .epi file): what the AI was given, what it decided and why, which model and version answered, and who approved it. Anyone can check that file themselves, offline, without trusting whoever made it."}}, {"@type": "Question", "name": "Who is it for?", "acceptedAnswer": {"@type": "Answer", "text": "Two people. AI vendors whose systems make or recommend decisions for regulated customers, such as insurers, lenders and banks. And the reviewers on the customer side (compliance, risk, audit) who have to explain or defend those decisions."}}, {"@type": "Question", "name": "How is this different from logs and observability tools?", "acceptedAnswer": {"@type": "Answer", "text": "Logs and tracing tools (LangSmith, Arize, Datadog and similar) are built for your engineers and live inside your systems, so your customer has to trust you. A .epi file leaves your platform: your customer keeps it and checks it without you."}}, {"@type": "Question", "name": "How is it different from AI governance platforms?", "acceptedAnswer": {"@type": "Answer", "text": "Governance platforms (Credo AI, Monitaur and similar) document your policies, model inventory and risk assessments. EPI produces the record of each individual decision. They work well together: the platform says what should happen, the record shows what did."}}, {"@type": "Question", "name": "Signing a log sounds easy. Why can't we build this ourselves?", "acceptedAnswer": {"@type": "Answer", "text": "Signing is the easy part. What matters is who holds the record and who can check it: the customer keeps the file, checks it offline with an open-source verifier, a reviewer can read it in a browser, and an independent witness exposes a record that was later edited, re-signed or deleted. You can build all of that; EPI is that work already done and open source."}}, {"@type": "Question", "name": "What does a passing check prove?", "acceptedAnswer": {"@type": "Answer", "text": "That the file has not changed since it was sealed, and that its signature matches the key it carries. With a timestamp from a public timestamp service, it also proves the file existed no later than that time."}}, {"@type": "Question", "name": "What does it not prove?", "acceptedAnswer": {"@type": "Answer", "text": "It does not prove the AI's decision was right, that every action of the system was recorded, or who signed it until you pin the signer's key yourself. A .epi file is evidence you can inspect, not a certificate. See the trust model."}}, {"@type": "Question", "name": "What if the vendor edits a record and signs it again?", "acceptedAnswer": {"@type": "Answer", "text": "On its own, a re-signed file would check out. That is what the witness is for: when a record is sealed, its fingerprint is sent to a log the vendor does not control. A re-signed file no longer matches that fingerprint, and a record that disappears shows up as a gap in the numbering. EPI Cloud runs a hosted witness on paid plans, and the customer can run their own witness for free with epi witness serve."}}, {"@type": "Question", "name": "How does the customer know who signed the file?", "acceptedAnswer": {"@type": "Answer", "text": "The key inside a file is only the file's own claim. The customer pins the sender's key once, through a separate channel (for example a fingerprint read out on a call), with epi keys trust. With --policy strict, a check fails until the signer is pinned."}}, {"@type": "Question", "name": "Can we see the record fail?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open the verifier, drop in the sample file and use the tamper lab to change one byte: the check fails. The proof page shows the same tests on the command line, including an edited decision inside a properly rebuilt file."}}, {"@type": "Question", "name": "Do you see our data or our customers' data?", "acceptedAnswer": {"@type": "Answer", "text": "Recording, sealing and checking happen on your own machines; your .epi files are not sent to us. The browser check at /verify runs in the browser tab and uploads nothing. A witness receives only a fingerprint (a hash), never the record. EPI Cloud stores only the files you choose to upload. See the privacy policy."}}, {"@type": "Question", "name": "Are secrets and personal data removed?", "acceptedAnswer": {"@type": "Answer", "text": "Redaction is on by default. It removes API keys, tokens, email addresses, phone numbers, card numbers and US social security number patterns. It works by matching patterns, so review what your system records before relying on it."}}, {"@type": "Question", "name": "Is anything sent over the internet when a record is sealed?", "acceptedAnswer": {"@type": "Answer", "text": "By default the tool asks a public timestamp service (freetsa.org, then DigiCert) to timestamp the record. Only a hash is sent, never the contents. Turn it off with EPI_NOTARIZE=0, or use your own timestamp service. Usage telemetry is off unless you turn it on."}}, {"@type": "Question", "name": "Where is EPI Cloud hosted?", "acceptedAnswer": {"@type": "Answer", "text": "On Cloudflare. Card payments for Cloud subscriptions are handled by Paddle, our Merchant of Record."}}, {"@type": "Question", "name": "Can we run everything ourselves?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The recorder, the witness receiver and the verifier run on your own infrastructure, and EPI Cloud is optional. The paid epi-enterprise package (Growth, Enterprise and the full engagement) adds the gateway, adapters, guardrails, private deployment and a licence issued to your organisation."}}, {"@type": "Question", "name": "Do you sign NDAs and data processing agreements?", "acceptedAnswer": {"@type": "Answer", "text": "NDAs: yes, mutual, on your paper or ours. For any work that involves personal data we review your data processing agreement first, and if we cannot accept a term we say so before the engagement starts."}}, {"@type": "Question", "name": "Is it open source?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The recorder, verifier and viewer are open source under Apache-2.0 on GitHub. Releases ship checksums, Sigstore signatures, a software bill of materials, and PyPI build attestations, so you can trace every package to the public build that made it."}}, {"@type": "Question", "name": "Which AI stacks does it work with?", "acceptedAnswer": {"@type": "Answer", "text": "Free: OpenAI and Anthropic clients, LangChain, pytest, and AGT traces. In the paid epi-enterprise package: LiteLLM, LangGraph, OpenTelemetry, Guardrails and a self-hosted gateway. See integrations."}}, {"@type": "Question", "name": "How much code do we have to change?", "acceptedAnswer": {"@type": "Answer", "text": "For an OpenAI-based agent, a few lines: wrap the client and put the run inside with record(\"decision.epi\"):. In the paid readiness assessment we do the integration for one of your workflows in five working days."}}, {"@type": "Question", "name": "Will it slow our system down?", "acceptedAnswer": {"@type": "Answer", "text": "Recording happens in your own process and the file is sealed when the run ends. The overhead depends on your workload, so we measure it on one of your real workflows during the assessment rather than quote a number here."}}, {"@type": "Question", "name": "Does the reviewer need to install anything?", "acceptedAnswer": {"@type": "Answer", "text": "No. They open epilabs.org/verify in a browser and drop the file in. Nothing is uploaded. Technical reviewers can also use the free command line (pip install epi-recorder) or the Windows app."}}, {"@type": "Question", "name": "Does EPI make us compliant with the EU AI Act?", "acceptedAnswer": {"@type": "Answer", "text": "No tool does that on its own. EPI gives you evidence: a sealed record of each decision, and (with epi-enterprise) a pack you can use as input to the technical documentation Annex IV asks for. Whether you comply is for your compliance team and regulators to decide. This is not legal advice. See standards."}}, {"@type": "Question", "name": "Does it help with explaining credit or claim decisions?", "acceptedAnswer": {"@type": "Answer", "text": "It keeps a sealed record of the reasons your system gave for each decision, together with the inputs, model and approval, so you can show them later exactly as they were. Whether those reasons meet a specific rule is a judgement for your compliance team."}}, {"@type": "Question", "name": "What does it cost?", "acceptedAnswer": {"@type": "Answer", "text": "Recording, sealing and checking are free forever. EPI Cloud has a free workspace; Startup is $500 a month and Growth $2,000 a month; Enterprise starts at $40,000 a year. A readiness assessment is €4,500 for five working days and is credited toward the full 30-day engagement (€9,500 for our first three customers, then €15,000). Details on plans."}}, {"@type": "Question", "name": "What do you need from us for an assessment?", "acceptedAnswer": {"@type": "Answer", "text": "One workflow, a test case that looks like a real decision, access to the agent's code and configuration, and a named reviewer on your customer's side."}}, {"@type": "Question", "name": "How do we pay?", "acceptedAnswer": {"@type": "Answer", "text": "EPI Cloud subscriptions are paid by card through Paddle in your dashboard. The assessment, the full engagement and Enterprise agreements are invoiced directly by EPI Labs. See the refund policy."}}, {"@type": "Question", "name": "Can we cancel?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Cloud subscriptions can be cancelled any time and have a 14-day refund on the first payment. After cancelling you have 90 days to export everything."}}, {"@type": "Question", "name": "What happens to our records if EPI Labs disappears?", "acceptedAnswer": {"@type": "Answer", "text": "Nothing changes for your files. The format is open, the verifier is open source and runs offline, and the files are yours. Anyone can keep checking them without us."}}, {"@type": "Question", "name": "Who is behind EPI?", "acceptedAnswer": {"@type": "Answer", "text": "EPI Labs is founder-led: you talk directly to the person who built it, Mohd Ibrahim Afridi. See about."}}, {"@type": "Question", "name": "How can we try it?", "acceptedAnswer": {"@type": "Answer", "text": "Look at the sample claim record, check it yourself at /verify, or run pip install epi-recorder then epi demo. To see it on one of your own decisions, book a 30-minute demo."}}, {"@type": "Question", "name": "Can an AI assistant use it?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The MCP server exposes epi_seal_record, epi_verify and epi_export_summary. The SDK is an optional extra and the package ships three executables, so name both: uvx --from \"epi-recorder[mcp]\" epi-mcp. Hosts that need a URL use epi-mcp-http (Streamable HTTP at /mcp)."}}]}</script>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/proof/">Tamper test</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/proof/">Tamper test</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <section class="z-center" aria-labelledby="faq-heading" style="padding-left:1.5rem;padding-right:1.5rem">
+        <div class="z-eyebrow">
+          <span class="z-eyebrow__dot" aria-hidden="true"></span>
+          <span>Buyer questions</span>
+        </div>
+        <h1 id="faq-heading" class="z-h1" style="margin-top:1rem">
+          What buyers ask, answered straight.
+        </h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:40rem">
+          The questions AI vendors, compliance teams and reviewers ask before they trust a decision record,
+          including what it does <strong>not</strong> prove. If yours is missing, write to
+          <a style="color:var(--acc-envelope)" href="mailto:mohdibrahim@epilabs.org">mohdibrahim@epilabs.org</a>.
+        </p>
+        <p class="z-body" style="margin-top:0.75rem;font-size:0.85rem;color:var(--text-secondary)">Last updated: 27 November 2026</p>
+        <p class="z-body" style="margin-top:1rem;font-size:0.9rem"><a style="color:var(--acc-envelope)" href="#s1">What EPI is</a> &middot; <a style="color:var(--acc-envelope)" href="#s2">What a check proves, and what it does not</a> &middot; <a style="color:var(--acc-envelope)" href="#s3">Data, privacy and security</a> &middot; <a style="color:var(--acc-envelope)" href="#s4">Setup</a> &middot; <a style="color:var(--acc-envelope)" href="#s5">Regulation</a> &middot; <a style="color:var(--acc-envelope)" href="#s6">Buying</a></p>
+        <h2 class="z-h2" id="s1" style="margin-top:2.25rem">What EPI is</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What is EPI, in one sentence?</summary>
+            <p class="z-body" style="margin-top:0.75rem">EPI turns each decision an AI system makes into one sealed file (a <code>.epi</code> file): what the AI was given, what it decided and why, which model and version answered, and who approved it. Anyone can check that file themselves, offline, without trusting whoever made it.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Who is it for?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Two people. <strong>AI vendors</strong> whose systems make or recommend decisions for regulated customers, such as insurers, lenders and banks. And the <strong>reviewers on the customer side</strong> (compliance, risk, audit) who have to explain or defend those decisions.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How is this different from logs and observability tools?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Logs and tracing tools (LangSmith, Arize, Datadog and similar) are built for your engineers and live inside your systems, so your customer has to trust you. A <code>.epi</code> file leaves your platform: your customer keeps it and checks it without you.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How is it different from AI governance platforms?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Governance platforms (Credo AI, Monitaur and similar) document your policies, model inventory and risk assessments. EPI produces the record of <em>each individual decision</em>. They work well together: the platform says what should happen, the record shows what did.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Signing a log sounds easy. Why can&#x27;t we build this ourselves?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Signing is the easy part. What matters is who holds the record and who can check it: the customer keeps the file, checks it offline with an open-source verifier, a reviewer can read it in a browser, and an independent witness exposes a record that was later edited, re-signed or deleted. You can build all of that; EPI is that work already done and open source.</p>
+          </details>
+        </div>
+        <h2 class="z-h2" id="s2" style="margin-top:2.5rem">What a check proves, and what it does not</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What does a passing check prove?</summary>
+            <p class="z-body" style="margin-top:0.75rem">That the file has not changed since it was sealed, and that its signature matches the key it carries. With a timestamp from a public timestamp service, it also proves the file existed no later than that time.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What does it not prove?</summary>
+            <p class="z-body" style="margin-top:0.75rem">It does not prove the AI's decision was right, that every action of the system was recorded, or who signed it until you pin the signer's key yourself. A <code>.epi</code> file is evidence you can inspect, not a certificate. See the <a style="color:var(--acc-envelope)" href="/trust">trust model</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What if the vendor edits a record and signs it again?</summary>
+            <p class="z-body" style="margin-top:0.75rem">On its own, a re-signed file would check out. That is what the witness is for: when a record is sealed, its fingerprint is sent to a log the vendor does not control. A re-signed file no longer matches that fingerprint, and a record that disappears shows up as a gap in the numbering. EPI Cloud runs a hosted witness on paid plans, and the customer can run their own witness for free with <code>epi witness serve</code>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How does the customer know who signed the file?</summary>
+            <p class="z-body" style="margin-top:0.75rem">The key inside a file is only the file's own claim. The customer pins the sender's key once, through a separate channel (for example a fingerprint read out on a call), with <code>epi keys trust</code>. With <code>--policy strict</code>, a check fails until the signer is pinned.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Can we see the record fail?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Yes. Open the <a style="color:var(--acc-envelope)" href="/verify/">verifier</a>, drop in the sample file and use the tamper lab to change one byte: the check fails. The <a style="color:var(--acc-envelope)" href="/proof/">proof page</a> shows the same tests on the command line, including an edited decision inside a properly rebuilt file.</p>
+          </details>
+        </div>
+        <h2 class="z-h2" id="s3" style="margin-top:2.5rem">Data, privacy and security</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Do you see our data or our customers&#x27; data?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Recording, sealing and checking happen on your own machines; your <code>.epi</code> files are not sent to us. The browser check at <a style="color:var(--acc-envelope)" href="/verify/">/verify</a> runs in the browser tab and uploads nothing. A witness receives only a fingerprint (a hash), never the record. EPI Cloud stores only the files you choose to upload. See the <a style="color:var(--acc-envelope)" href="/privacy">privacy policy</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Are secrets and personal data removed?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Redaction is on by default. It removes API keys, tokens, email addresses, phone numbers, card numbers and US social security number patterns. It works by matching patterns, so review what your system records before relying on it.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Is anything sent over the internet when a record is sealed?</summary>
+            <p class="z-body" style="margin-top:0.75rem">By default the tool asks a public timestamp service (freetsa.org, then DigiCert) to timestamp the record. Only a hash is sent, never the contents. Turn it off with <code>EPI_NOTARIZE=0</code>, or use your own timestamp service. Usage telemetry is off unless you turn it on.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Where is EPI Cloud hosted?</summary>
+            <p class="z-body" style="margin-top:0.75rem">On Cloudflare. Card payments for Cloud subscriptions are handled by Paddle, our Merchant of Record.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Can we run everything ourselves?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Yes. The recorder, the witness receiver and the verifier run on your own infrastructure, and EPI Cloud is optional. The paid epi-enterprise package (Growth, Enterprise and the full engagement) adds the gateway, adapters, guardrails, private deployment and a licence issued to your organisation.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Do you sign NDAs and data processing agreements?</summary>
+            <p class="z-body" style="margin-top:0.75rem">NDAs: yes, mutual, on your paper or ours. For any work that involves personal data we review your data processing agreement first, and if we cannot accept a term we say so before the engagement starts.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Is it open source?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Yes. The recorder, verifier and viewer are open source under Apache-2.0 on <a style="color:var(--acc-envelope)" href="https://github.com/mohdibrahimaiml/epi-recorder">GitHub</a>. Releases ship checksums, Sigstore signatures, a software bill of materials, and PyPI build attestations, so you can trace every package to the public build that made it.</p>
+          </details>
+        </div>
+        <h2 class="z-h2" id="s4" style="margin-top:2.5rem">Setup</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Which AI stacks does it work with?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Free: OpenAI and Anthropic clients, LangChain, pytest, and AGT traces. In the paid epi-enterprise package: LiteLLM, LangGraph, OpenTelemetry, Guardrails and a self-hosted gateway. See <a style="color:var(--acc-envelope)" href="/integrations">integrations</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Can an AI assistant use it?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Yes. The MCP server exposes <code>epi_seal_record</code>, <code>epi_verify</code> and <code>epi_export_summary</code>. The MCP SDK is an optional extra and the package ships three executables, so name both: <code>uvx --from &quot;epi-recorder[mcp]&quot; epi-mcp</code>. Hosts that need a URL use <code>epi-mcp-http</code> (Streamable HTTP at <code>/mcp</code>).</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How much code do we have to change?</summary>
+            <p class="z-body" style="margin-top:0.75rem">For an OpenAI-based agent, a few lines: wrap the client and put the run inside <code>with record("decision.epi"):</code>. In the paid readiness assessment we do the integration for one of your workflows in five working days.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Will it slow our system down?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Recording happens in your own process and the file is sealed when the run ends. The overhead depends on your workload, so we measure it on one of your real workflows during the assessment rather than quote a number here.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Does the reviewer need to install anything?</summary>
+            <p class="z-body" style="margin-top:0.75rem">No. They open <a style="color:var(--acc-envelope)" href="/verify/">epilabs.org/verify</a> in a browser and drop the file in. Nothing is uploaded. Technical reviewers can also use the free command line (<code>pip install epi-recorder</code>) or the <a style="color:var(--acc-envelope)" href="https://github.com/mohdibrahimaiml/epi-recorder/releases/latest">Windows installer</a> (unsigned until SignPath approval, so SmartScreen will warn).</p>
+          </details>
+        </div>
+        <h2 class="z-h2" id="s5" style="margin-top:2.5rem">Regulation</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Does EPI make us compliant with the EU AI Act?</summary>
+            <p class="z-body" style="margin-top:0.75rem">No tool does that on its own. EPI gives you evidence: a sealed record of each decision, and (with epi-enterprise) a pack you can use as input to the technical documentation Annex IV asks for. Whether you comply is for your compliance team and regulators to decide. This is not legal advice. See <a style="color:var(--acc-envelope)" href="/standards">standards</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Does it help with explaining credit or claim decisions?</summary>
+            <p class="z-body" style="margin-top:0.75rem">It keeps a sealed record of the reasons your system gave for each decision, together with the inputs, model and approval, so you can show them later exactly as they were. Whether those reasons meet a specific rule is a judgement for your compliance team.</p>
+          </details>
+        </div>
+        <h2 class="z-h2" id="s6" style="margin-top:2.5rem">Buying</h2>
+        <div style="margin-top:0.75rem;max-width:46rem">
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What does it cost?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Recording, sealing and checking are free forever. EPI Cloud has a free workspace; Startup is $500 a month and Growth $2,000 a month; Enterprise starts at $40,000 a year. A readiness assessment is &euro;4,500 for five working days and is credited toward the full 30-day engagement (&euro;9,500 for our first three customers, then &euro;15,000). Details on <a style="color:var(--acc-envelope)" href="/plans">plans</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What do you need from us for an assessment?</summary>
+            <p class="z-body" style="margin-top:0.75rem">One workflow, a test case that looks like a real decision, access to the agent's code and configuration, and a named reviewer on your customer's side.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How do we pay?</summary>
+            <p class="z-body" style="margin-top:0.75rem">EPI Cloud subscriptions are paid by card through Paddle in your dashboard. The assessment, the full engagement and Enterprise agreements are invoiced directly by EPI Labs. See the <a style="color:var(--acc-envelope)" href="/refund">refund policy</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Can we cancel?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Yes. Cloud subscriptions can be cancelled any time and have a 14-day refund on the first payment. After cancelling you have 90 days to export everything.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">What happens to our records if EPI Labs disappears?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Nothing changes for your files. The format is open, the verifier is open source and runs offline, and the files are yours. Anyone can keep checking them without us.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">Who is behind EPI?</summary>
+            <p class="z-body" style="margin-top:0.75rem">EPI Labs is founder-led: you talk directly to the person who built it, Mohd Ibrahim Afridi. See <a style="color:var(--acc-envelope)" href="/about">about</a>.</p>
+          </details>
+          <details style="border-top:1px solid var(--line);padding:1rem 0">
+            <summary style="cursor:pointer;color:var(--text);font-weight:500">How can we try it?</summary>
+            <p class="z-body" style="margin-top:0.75rem">Look at the <a style="color:var(--acc-envelope)" href="/insurance/sample-claim-record">sample claim record</a>, check it yourself at <a style="color:var(--acc-envelope)" href="/verify/">/verify</a>, or run <code>pip install epi-recorder</code> then <code>epi demo</code>. To see it on one of your own decisions, <a style="color:var(--acc-envelope)" href="/plans#contact">book a 30-minute demo</a>.</p>
+          </details>
+        </div>
+        <div class="z-tri-card" style="margin-top:2.5rem;border-color:var(--acc-envelope)">
+          <div class="z-tri-card__step" style="margin-top:0">Next step</div>
+          <h2 class="z-h3-card" style="margin-top:0.5rem">See it on one of your own decisions</h2>
+          <p class="z-body" style="margin-top:0.75rem">30 minutes with the founder. We seal one decision from your workflow and show your customer&rsquo;s reviewer checking it on their own.</p>
+          <p style="margin-top:1.25rem"><a href="/plans#contact" class="z-btn-primary">Book a demo</a></p>
+        </div>
+      </section>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div class="z-footer-bottom" style="margin-top:0;padding-top:0;border-top:0">
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</div>
+        <div style="display:flex;gap:1.25rem;flex-wrap:wrap">
+          <a href="/" class="z-footer-col__link" style="font-size:0.75rem">Platform</a>
+          <a href="/verify/" class="z-footer-col__link" style="font-size:0.75rem">Verify</a>
+          <a href="/trust" class="z-footer-col__link" style="font-size:0.75rem">Trust model</a>
+          <a href="/plans" class="z-footer-col__link" style="font-size:0.75rem">Pricing</a>
+          <a href="/privacy" class="z-footer-col__link" style="font-size:0.75rem">Privacy</a>
+          <a href="/terms" class="z-footer-col__link" style="font-size:0.75rem">Terms</a>
+          <a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link" style="font-size:0.75rem">mohdibrahim@epilabs.org</a>
+        </div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+
+</body>
+</html>
+
