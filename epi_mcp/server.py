@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from epi_core._version import get_version as _get_version
+
 try:
     from mcp.server.mcpserver import MCPServer
 except ModuleNotFoundError as exc:
@@ -77,6 +79,7 @@ SEAL_GUIDE = (
 
 server = MCPServer(
     name="epi-evidence",
+    version=_get_version(),
     icons=_server_icons(),
     instructions=(
         "Use epi_seal_record when someone asks to seal, save, export or certify "
