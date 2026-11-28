@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from epi_core.container import EPIContainer
-from epi_core.operation_identity import SCHEME, audit_event_sequence
+from epi_core.operation_identity import audit_event_sequence
 from epi_recorder.api import record
 
 LIFECYCLE = {
