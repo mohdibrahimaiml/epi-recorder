@@ -24,6 +24,10 @@ from epi_cli.view import _resolve_epi_file
 from epi_core._version import JCS_INTRODUCED_VERSION, get_version
 from epi_core.aiuc1_mapping import aiuc1_summary, map_verification_to_aiuc1
 from epi_core.container import EPIContainer
+from epi_core.operation_identity import (
+    audit_event_sequence,
+    compatibility_completeness_ok,
+)
 from epi_core.review import verify_review_trust
 from epi_core.trust import (
     TrustRegistry,
@@ -583,97 +587,18 @@ def _audit_step_sequence_completeness(
     answered_approval_ids: set[str] | None = None,
     case_level_answered: bool = False,
 ) -> tuple[bool, list[str]]:
+    """AUD-CO-01 compatibility adapter over ``audit_event_sequence``.
+
+    Returns ``(ok, human_gaps)`` unchanged for callers that predate the
+    ``facts.event_audit`` contract. Pairing is decided by operation identity,
+    never by event order - see ``epi_core.operation_identity``.
     """
-    AUD-CO-01: Step Sequence Completeness Audit.
-    Ensures:
-      - Every tool.call has a corresponding tool.response
-      - Every llm.request has a corresponding llm.response or llm.error
-      - Every agent.approval.request has a corresponding agent.approval.response
-        or a human-signed approval bound to this artifact for that request
-
-    A person signs *after* sealing, so their approval is a review record, not an
-    in-run step. Without the second clause an honestly-built run (no
-    self-reported response) would fail strict completeness for having done
-    exactly the right thing.
-    """
-    answered_ids = answered_approval_ids or set()
-    gaps: list[str] = []
-
-    pending_tool_calls: list[tuple[int, str | None]] = []
-    pending_llm_requests: list[tuple[int, str | None]] = []
-    pending_pre_commits: list[tuple[int, str | None]] = []
-    pending_approvals: list[tuple[int, str | None, str | None]] = []
-
-    for s in steps:
-        kind = s.get("kind", "")
-        content = s.get("content", {}) or {}
-        idx = s.get("index", 0)
-        span_id = s.get("span_id")
-
-        if kind == "tool.call":
-            call_id = content.get("call_id")
-            pending_tool_calls.append((idx, call_id))
-        elif kind == "tool.response":
-            call_id = content.get("call_id")
-            matched = False
-            if call_id is not None:
-                for item in reversed(pending_tool_calls):
-                    if item[1] == call_id:
-                        pending_tool_calls.remove(item)
-                        matched = True
-                        break
-            if not matched and pending_tool_calls:
-                pending_tool_calls.pop(0)
-
-        elif kind == "llm.pre_commit":
-            pending_pre_commits.append((idx, span_id))
-        elif kind == "llm.request":
-            pending_llm_requests.append((idx, span_id))
-        elif kind in ("llm.response", "llm.error"):
-            matched = False
-            if span_id is not None:
-                for item in reversed(pending_llm_requests):
-                    if item[1] == span_id:
-                        pending_llm_requests.remove(item)
-                        matched = True
-                        break
-            if not matched and pending_llm_requests:
-                pending_llm_requests.pop(0)
-            # Clear the oldest pending pre-commit when any LLM response arrives
-            if pending_pre_commits:
-                pending_pre_commits.pop(0)
-
-        elif kind == "agent.approval.request":
-            action = content.get("action")
-            pending_approvals.append((idx, action, content.get("approval_id")))
-        elif kind == "agent.approval.response":
-            action = content.get("action")
-            matched = False
-            if action is not None:
-                for item in reversed(pending_approvals):
-                    if item[1] == action:
-                        pending_approvals.remove(item)
-                        matched = True
-                        break
-            if not matched and pending_approvals:
-                pending_approvals.pop(0)
-
-    # Step references are 1-based throughout every surface (viewer §3/§4/§6,
-    # analyzer step_number): a gap at list index i is reported as step i+1.
-    for idx, call_id in pending_tool_calls:
-        gaps.append(f"tool.call at step {idx + 1} is missing a corresponding tool.response")
-    for idx, call_id in pending_pre_commits:
-        gaps.append(f"llm.pre_commit at step {idx + 1} was committed but never executed — response never arrived (crash, timeout, or cancellation)")
-    for idx, span_id in pending_llm_requests:
-        gaps.append(f"llm.request at step {idx + 1} is missing a corresponding response or error")
-    for idx, action, approval_id in pending_approvals:
-        if case_level_answered:
-            continue
-        if approval_id is not None and str(approval_id) in answered_ids:
-            continue
-        gaps.append(f"agent.approval.request for '{action}' at step {idx + 1} is missing a response")
-
-    return len(gaps) == 0, gaps
+    audit = audit_event_sequence(
+        steps,
+        answered_approval_ids=answered_approval_ids,
+        case_level_answered=case_level_answered,
+    )
+    return compatibility_completeness_ok(audit), list(audit.get("gaps") or [])
 
 
 def _print_share_hint() -> None:
@@ -2075,6 +2000,7 @@ def verify_command(
         chain_breaks = []
         chain_present = True
         seq_comp_gaps = []
+        event_audit: dict = {}
         step_count_ok = True  # AUD-CO-02: safe default for old artifacts
         steps: list[dict] = []
         actual_step_count = 0
@@ -2141,9 +2067,13 @@ def verify_command(
                     _answered_ids, _case_level_answered = _human_answered_approval_ids(
                         _human_cached
                     )
-                    seq_comp_ok, seq_comp_gaps = _audit_step_sequence_completeness(
-                        steps, _answered_ids, _case_level_answered
+                    event_audit = audit_event_sequence(
+                        steps,
+                        answered_approval_ids=_answered_ids,
+                        case_level_answered=_case_level_answered,
                     )
+                    seq_comp_ok = compatibility_completeness_ok(event_audit)
+                    seq_comp_gaps = list(event_audit.get("gaps") or [])
                     completeness_ok = completeness_ok and seq_comp_ok
 
                     # 4. Steps Hash Verification
@@ -2202,6 +2132,12 @@ def verify_command(
         except Exception as _e:
             if verbose:
                 console.print(f"  [yellow]![/yellow] Forensic audit warning: {_e}")
+
+        if not event_audit:
+            # No audited lifecycle events (or the step block could not read
+            # them). Still report the honest status rather than implying a
+            # completeness result we did not compute.
+            event_audit = audit_event_sequence(steps)
 
         integrity_ok = integrity_ok and steps_hash_ok and chain_ok and step_count_ok
 
@@ -2400,6 +2336,16 @@ def verify_command(
         elif content_truncated is True:
             forensic_reason = "manifest content_truncated=true (payload shortened before seal)"
 
+        # Human-facing strings stay out of the report schema: facts carries the
+        # structured findings, facts.completeness_gaps carries the messages.
+        # (A "step N" string inside an unrelated warning would collide with the
+        # CLI/viewer parity contract that step references are findings only.)
+        event_audit_facts = {
+            key: value
+            for key, value in event_audit.items()
+            if key not in ("gaps", "warnings")
+        }
+
         report = create_verification_report(
             integrity_ok=integrity_ok,
             signature_valid=signature_valid,
@@ -2414,6 +2360,7 @@ def verify_command(
             transparency_ok=transparency_ok,
             completeness_gaps=seq_comp_gaps,
             forensic_reason=forensic_reason,
+            event_audit=event_audit_facts,
         )
 
         # ========== STEP 4.8: CAPTURE MANIFEST (Feature 1) ==========
@@ -2444,6 +2391,29 @@ def verify_command(
             report["capture_manifest_present"] = False
             report["enforcement_downgraded"] = False
             report["enforcement_downgrade_count"] = 0
+
+        # P1: declared capture scope vs observed evidence. Disclosure, not proof:
+        # a declared surface that was never observed means the declaration was
+        # broader than the run, not that evidence was lost.
+        from epi_core.capture_scope import assess_capture_scope
+
+        report["facts"]["capture_scope"] = assess_capture_scope(
+            _cap_manifest if isinstance(_cap_manifest, dict) else None,
+            getattr(manifest, "spec_version", None),
+        )
+        if verbose:
+            _sc = report["facts"]["capture_scope"]
+            if _sc.get("status") == "declared":
+                console.print(
+                    f"  [green][OK][/green] Capture scope declared "
+                    f"({len(_sc.get('declared') or [])} surface(s), "
+                    f"{len(_sc.get('declared_not_observed') or [])} not observed)"
+                )
+            else:
+                console.print(
+                    "  [yellow]![/yellow] Capture scope not declared "
+                    "(coverage unknown)"
+                )
         if verbose:
             if _cap_manifest is None:
                 console.print(
@@ -2816,7 +2786,13 @@ def verify_command(
             # A seal the vendor never reported is exactly what a re-run or
             # re-sealed case looks like. Never a clean PASS.
             try:
-                if report["decision"].get("status") == "PASS":
+                _prior = report["decision"].get("status")
+                # Strict is the auditor acceptance command: a seal the customer
+                # never received must FAIL even when the base verdict is WARN
+                # (e.g. legacy artifacts whose event pairing is name-based only).
+                if _prior == "PASS" or (
+                    active_policy == VerificationPolicy.STRICT and _prior == "WARN"
+                ):
                     # strict = claim/audit acceptance (scripts rely on exit 1).
                     report["decision"]["status"] = (
                         "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
@@ -2848,7 +2824,9 @@ def verify_command(
                         report["decision"]["reason"] = (
                             f"{_rs}; {_msg}".strip("; ") if _prior == "WARN" else _msg
                         )
-                elif _prior == "PASS":
+                elif _prior == "PASS" or (
+                    active_policy == VerificationPolicy.STRICT and _prior == "WARN"
+                ):
                     report["decision"]["status"] = (
                         "FAIL" if active_policy == VerificationPolicy.STRICT else "WARN"
                     )

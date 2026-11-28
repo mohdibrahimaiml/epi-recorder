@@ -110,6 +110,12 @@ FROZEN_FACTS_KEYS = {
     "scitt_self_issued",
     # timestamp_key_bound: None=not evaluated, True=key-bound, False=contents-only.
     "timestamp_key_bound",
+    # Added with the operation-identity contract: per-family lifecycle audit,
+    # recomputed by the verifier. None on reports built by older callers.
+    "event_audit",
+    # Added with P1 declared capture scope: declared vs observed surfaces.
+    # None in factory-only reports; verify_command computes it.
+    "capture_scope",
 }
 
 

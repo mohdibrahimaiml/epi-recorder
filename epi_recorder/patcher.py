@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from functools import wraps
 
+from epi_core.operation_identity import (
+    make_correlation,
+    new_group_id,
+    new_operation_id,
+)
 from epi_core.schemas import StepModel
 from epi_core.redactor import get_default_redactor
 from epi_core.storage import EpiStorage
@@ -388,9 +393,11 @@ def _patch_openai_v1() -> bool:
             except Exception:
                 _pre_hash = None
             # Log request step
+            correlation = make_correlation(new_group_id(), new_operation_id())
+            request_data["correlation"] = correlation
             context.add_step("llm.request", request_data)
             if _pre_hash:
-                context.add_step("llm.pre_commit", {"model": request_data.get("model"), "messages_hash": _pre_hash, "message_count": len(request_data.get("messages") or [])})
+                context.add_step("llm.pre_commit", {"model": request_data.get("model"), "messages_hash": _pre_hash, "message_count": len(request_data.get("messages") or []), "correlation": correlation})
             
             # Streaming branch (was missing — fell through to response.model AttributeError)
             if kwargs.get("stream"):
@@ -400,28 +407,46 @@ def _patch_openai_v1() -> bool:
                     def _iter():
                         acc = []
                         tcs: dict = {}
-                        for chunk in stream:
-                            if hasattr(chunk, "choices") and chunk.choices:
-                                d = chunk.choices[0].delta
-                                if getattr(d, "content", None):
-                                    acc.append(d.content)
-                                if getattr(d, "tool_calls", None):
-                                    for tc in d.tool_calls:
-                                        idx = getattr(tc, "index", 0) or 0
-                                        e = tcs.setdefault(idx, {"function": {"name": "", "arguments": ""}})
-                                        if getattr(tc, "function", None):
-                                            if getattr(tc.function, "name", None):
-                                                e["function"]["name"] = tc.function.name
-                                            if getattr(tc.function, "arguments", None):
-                                                e["function"]["arguments"] += tc.function.arguments
-                            yield chunk
-                        msg = {"role": "assistant", "content": "".join(acc)}
-                        if tcs:
-                            msg["tool_calls"] = [tcs[k] for k in sorted(tcs)]
-                        context.add_step("llm.response", {"model": request_data.get("model"), "choices": [{"message": msg}], "stream": True})
+                        terminal_logged = False
+                        try:
+                            for chunk in stream:
+                                if hasattr(chunk, "choices") and chunk.choices:
+                                    d = chunk.choices[0].delta
+                                    if getattr(d, "content", None):
+                                        acc.append(d.content)
+                                    if getattr(d, "tool_calls", None):
+                                        for tc in d.tool_calls:
+                                            idx = getattr(tc, "index", 0) or 0
+                                            e = tcs.setdefault(idx, {"function": {"name": "", "arguments": ""}})
+                                            if getattr(tc, "function", None):
+                                                if getattr(tc.function, "name", None):
+                                                    e["function"]["name"] = tc.function.name
+                                                if getattr(tc.function, "arguments", None):
+                                                    e["function"]["arguments"] += tc.function.arguments
+                                yield chunk
+                            msg = {"role": "assistant", "content": "".join(acc)}
+                            if tcs:
+                                msg["tool_calls"] = [tcs[k] for k in sorted(tcs)]
+                            context.add_step("llm.response", {"model": request_data.get("model"), "choices": [{"message": msg}], "stream": True, "correlation": correlation})
+                            terminal_logged = True
+                        finally:
+                            # Abandoned stream: record a terminal so the operation
+                            # is not left looking like a missing response.
+                            if not terminal_logged:
+                                try:
+                                    context.add_step("llm.response", {
+                                        "model": request_data.get("model"),
+                                        "choices": [],
+                                        "stream": True,
+                                        "finish_reason": "cancelled",
+                                        "cancelled": True,
+                                        "correlation": correlation,
+                                    })
+                                except Exception:
+                                    pass
                     return _iter()
                 except Exception as e:
-                    context.add_step("llm.error", {"provider": "openai", "error": str(e), "error_type": type(e).__name__, "stream": True})
+                    context.add_step("llm.error", {"provider": "openai", "error": str(e), "error_type": type(e).__name__, "stream": True, "correlation": correlation})
                     raise
 
             # Execute original call
@@ -448,7 +473,8 @@ def _patch_openai_v1() -> bool:
                         "completion_tokens": response.usage.completion_tokens,
                         "total_tokens": response.usage.total_tokens
                     } if response.usage else None,
-                    "latency_seconds": round(elapsed, 3)
+                    "latency_seconds": round(elapsed, 3),
+                    "correlation": correlation,
                 }
                 
                 # Log response step
@@ -461,7 +487,8 @@ def _patch_openai_v1() -> bool:
                 context.add_step("llm.error", {
                     "provider": "openai",
                     "error": str(e),
-                    "error_type": type(e).__name__
+                    "error_type": type(e).__name__,
+                    "correlation": correlation,
                 })
                 raise
         
@@ -513,6 +540,8 @@ def _patch_openai_legacy() -> bool:
             request_data = {k: v for k, v in request_data.items() if v is not None}
             
             # Log request step
+            correlation = make_correlation(new_group_id(), new_operation_id())
+            request_data["correlation"] = correlation
             context.add_step("llm.request", request_data)
             
             # Execute original call
@@ -535,7 +564,8 @@ def _patch_openai_legacy() -> bool:
                         for choice in response.choices
                     ],
                     "usage": dict(response.usage) if hasattr(response, 'usage') else None,
-                    "latency_seconds": round(elapsed, 3)
+                    "latency_seconds": round(elapsed, 3),
+                    "correlation": correlation,
                 }
                 
                 # Log response step
@@ -548,7 +578,8 @@ def _patch_openai_legacy() -> bool:
                 context.add_step("llm.error", {
                     "provider": "openai",
                     "error": str(e),
-                    "error_type": type(e).__name__
+                    "error_type": type(e).__name__,
+                    "correlation": correlation,
                 })
                 raise
         
@@ -614,6 +645,8 @@ def patch_gemini() -> bool:
             }
             
             # Log request step
+            correlation = make_correlation(new_group_id(), new_operation_id())
+            request_data["correlation"] = correlation
             context.add_step("llm.request", request_data)
             
             # Execute original call
@@ -664,6 +697,7 @@ def patch_gemini() -> bool:
                     pass
                 
                 # Log response step
+                response_data["correlation"] = correlation
                 context.add_step("llm.response", response_data)
                 
                 return response
@@ -673,7 +707,8 @@ def patch_gemini() -> bool:
                 context.add_step("llm.error", {
                     "provider": "google",
                     "error": str(e),
-                    "error_type": type(e).__name__
+                    "error_type": type(e).__name__,
+                    "correlation": correlation,
                 })
                 raise
         

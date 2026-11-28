@@ -693,6 +693,8 @@ def create_verification_report(
     transparency_ok: bool | None = None,
     completeness_gaps: list[str] | None = None,
     forensic_reason: str | None = None,
+    event_audit: dict | None = None,
+    capture_scope: dict | None = None,
 ) -> dict:
     """
     Create a structured verification report separating Facts and Identity.
@@ -782,6 +784,14 @@ def create_verification_report(
             "mismatches": mismatches,
             "completeness_gaps": gaps,
             "forensic_reason": forensic_reason,
+            # Additive: per-family operation-lifecycle audit. Recomputed by the
+            # verifier; never a producer-written verdict. Absent (None) on
+            # reports built by callers that predate this contract.
+            "event_audit": event_audit,
+            # Additive: declared capture scope vs observed evidence (P1).
+            # Computed by verify_command after the capture manifest is read;
+            # None on reports built by callers that predate this contract.
+            "capture_scope": capture_scope,
             "content_truncated": manifest.content_truncated,
             "content_complete_asserted": manifest.content_truncated is False,
             # Timestamp validation happens in verify_command, which overwrites
@@ -985,6 +995,16 @@ def create_verification_report(
     return report
 
 
+def _event_audit_status(facts: dict) -> str | None:
+    """Operation-lifecycle audit status, or None when the report predates it."""
+    audit = facts.get("event_audit")
+    if isinstance(audit, dict):
+        status = audit.get("status")
+        if isinstance(status, str):
+            return status
+    return None
+
+
 def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.STANDARD) -> dict:
     """
     Evaluate a verification report against a specific governance policy.
@@ -1134,9 +1154,55 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "order). The steps carry no prev_hash links, so the recorded order "
                 "could be rewritten and re-signed without detection."
             )
+        elif _event_audit_status(facts) == "consistent_scope_unknown":
+            # Legacy artifact: events may pair, but operation identity was never
+            # recorded, so pairing was decided by name only. Never a clean PASS.
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Event completeness audited by name only; operation identity is not "
+                "proven (legacy artifact). Re-seal with a current recorder to obtain a "
+                "provable audit. Capture scope was not checked."
+            )
+        elif _event_audit_status(facts) == "no_observed_lifecycle_events":
+            # Nothing was audited, so nothing failed. `event_audit.status`
+            # already says so; the decision must not invent a gap it never
+            # detected. This is still not a completeness claim — the reason
+            # states plainly that coverage is not established (P1/P2 work).
+            decision["status"] = "PASS"
+            decision["reason"] = (
+                "All strict criteria met (Integrity, Identity). No audited lifecycle "
+                "events were present and capture scope is not declared, so this does "
+                "not establish that every operation was captured."
+            )
         else:
             decision["status"] = "PASS"
-            decision["reason"] = "All strict criteria met (Integrity, Identity, Completeness)"
+            decision["reason"] = (
+                "All strict criteria met (Integrity, Identity, Event completeness "
+                "- capture scope not declared)"
+            )
+
+        # P1 declared capture scope. Dormant until SCOPE_ENFORCED_VERSION, so
+        # every artifact sealed today keeps its verdict; the data is reported
+        # regardless. Never overrides a FAIL.
+        _scope = facts.get("capture_scope")
+        if (
+            decision["status"] == "PASS"
+            and isinstance(_scope, dict)
+            and _scope.get("enforced")
+        ):
+            if _scope.get("status") != "declared":
+                decision["status"] = "WARN"
+                decision["reason"] = (
+                    "No declared capture scope. Event completeness was audited, "
+                    "but whether every operation was captured is not established."
+                )
+            elif _scope.get("verdict") == "declaration_unmet":
+                missing = ", ".join(_scope.get("declared_not_observed") or [])
+                decision["status"] = "WARN"
+                decision["reason"] = (
+                    "Declared capture scope was not fully observed "
+                    f"({missing}). The declaration may be broader than this run."
+                )
 
     report["decision"] = decision
     return report
