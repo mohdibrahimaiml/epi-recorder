@@ -99,8 +99,11 @@ def test_cli_verify_fails_tampered_file(tampered):
     path, key = tampered
     result = CliRunner().invoke(cli_app, ["verify", str(path)])
     assert result.exit_code != 0, result.output
-    assert "duplicate JSON key" in result.output
-    assert FAKE not in result.output
+    # Rich wraps to the terminal width (narrower on Windows runners), so
+    # compare with line breaks collapsed.
+    flat = " ".join(result.output.split())
+    assert f"duplicate JSON key '{key}'" in flat, result.output
+    assert FAKE not in flat
 
 
 def test_cli_verify_still_passes_untouched_demo():
