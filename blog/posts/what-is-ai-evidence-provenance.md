@@ -1,7 +1,7 @@
 ---
 title: What Is AI Evidence Provenance
 date: June 22, 2026
-description: AI evidence provenance explained
+description: Why mutable cloud logs fail audits and how cryptographic AI evidence provenance seals agent runs into portable, offline-verifiable .epi files.
 excerpt: Make AI execution trails cryptographic and independently verifiable.
 ---
 

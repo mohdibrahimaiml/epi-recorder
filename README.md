@@ -5,11 +5,9 @@
 
 # Decision records for AI agents
 
-### Every AI decision, in one file your customer can check.
+### Tamper-evident AI auditability, explainability, and verifiable observability — in one file your customer can check offline.
 
-Record what the model saw, what it decided and why, which model answered, and who approved it.
-Seal it into a signed `.epi`. Anyone can verify it offline — no account, no server, and no Python
-required if they use the browser verifier.
+Record what an AI agent saw, decided, and why — inputs, tool calls, model version (OpenAI, Anthropic, LangChain, MCP), and human approvals. Go beyond internal AI observability logs: seal each decision into a signed `.epi` artifact (SHA-256, Ed25519, optional RFC 3161 timestamp) for independent [AI auditability](https://epilabs.org/ai-auditability/) and [explainability](https://epilabs.org/ai-explainability/) with no account or server.
 
 [![PyPI](https://img.shields.io/pypi/v/epi-recorder?color=blue&label=PyPI)](https://pypi.org/project/epi-recorder/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://pypi.org/project/epi-recorder/)

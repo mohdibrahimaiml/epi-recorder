@@ -1,7 +1,7 @@
 ---
 title: SCITT for Agentic AI
 date: June 22, 2026
-description: How IETF SCITT transparency receipts work for AI agent evidence.
+description: How IETF SCITT COSE Sign1 statements, append-only transparency logs, and Merkle receipts prove when and how an AI agent decision was produced.
 excerpt: COSE Sign1 statements, Merkle proofs, and transparency receipts for AI.
 ---
 
