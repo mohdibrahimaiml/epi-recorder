@@ -56,22 +56,27 @@ approver key.
 
 ---
 
-## The signature covers the canonical manifest, not its raw bytes (red-team F-07)
+## A manifest with a duplicate JSON key is refused (red-team F-07; fixed on main, unreleased)
 
-**What you see:** `epi verify` passes a `manifest.json` that contains a duplicate
-JSON key.
+**What you saw (4.11.2 and earlier):** `epi verify` passed a `manifest.json`
+that contained a duplicate JSON key.
 
-**What is true:** the Ed25519 signature is computed over the RFC 8785 canonical
-form of the manifest, not over its raw bytes. Duplicate keys and insignificant
-whitespace therefore sit **outside** the signature. Python and the browser
-canonicalizer both resolve duplicate keys last-wins, so they agree today — but a
-consumer that resolves them first-wins could read a different `goal` or
-`decision` than the verifier did.
+**Why it mattered:** the Ed25519 signature is computed over the RFC 8785
+canonical form of the manifest, not over its raw bytes, and in that form a
+duplicate key collapses to its last value. A duplicate added after sealing left
+the signature valid, while a consumer that resolves duplicates first-wins could
+read a different `goal` or `decision` than the verifier did. It was a
+display-layer divergence risk, not a signature bypass.
 
-**Whether yours is affected:** only files that were modified after sealing (the
-signature would otherwise fail). It is a display-layer divergence risk, not a
-signature bypass: the canonical form the verifier checked is the authoritative
-one for EPI itself.
+**What is true now (main, ships in the next release):** EPI never writes a
+duplicate key, so every verifier refuses one, at any depth, before anything
+else is checked: `epi verify` (`EPIContainer.read_manifest`, exit code 1), the
+browser viewer (`epi_viewer_static/crypto.js`) and epilabs.org/verify
+(`website/js/epi-verify-core.js`). Tests:
+`tests/test_manifest_duplicate_keys.py`.
+
+**Still true:** insignificant whitespace sits outside the signature, which is
+harmless because it cannot change any value.
 
 ---
 

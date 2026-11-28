@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EPI Labs | Every AI decision needs a Decision Record</title>
-  <meta name="description" content="A Decision Record is one readable record per AI decision: what the model saw, what it decided and why, which model answered, and who approved it. Your customer can open and check it without asking you to log in.">
+  <title>EPI Labs | AI Auditability, Explainability &amp; Decision Records</title>
+  <meta name="description" content="AI auditability and decision explainability beyond observability dashboards: seal what an AI saw, decided, and why into a signed .epi file verifiable offline.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://epilabs.org/">
-  <meta property="og:title" content="EPI Labs | Every AI decision needs a Decision Record">
-  <meta property="og:description" content="One readable Decision Record per AI decision: the outcome, the reasons, the model, the approval and what happened next. Your customer can open and check it without asking you to log in.">
+  <meta property="og:title" content="EPI Labs | AI Auditability, Explainability &amp; Decision Records">
+  <meta property="og:description" content="AI auditability and explainability beyond observability dashboards: inputs, reasons, model version, approval, and Ed25519 seal verifiable offline.">
   <meta property="og:url" content="https://epilabs.org/">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
@@ -20,6 +20,8 @@
   <meta property="og:video:width" content="1920">
   <meta property="og:video:height" content="1080">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="EPI Labs | Every AI decision needs a Decision Record">
+  <meta name="twitter:description" content="One signed .epi Decision Record per AI decision — tamper-evident, offline-verifiable, and open source.">
   <meta name="twitter:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="preload" as="image" href="/assets/logo-white.png">
@@ -29,14 +31,52 @@
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "VideoObject",
-      "name": "EPI Labs — Don't argue with auditors. Hand them a file.",
-      "description": "Why immutable cloud logs are incomplete evidence, and how EPI seals an AI agent run into a portable .epi file that any auditor can verify offline.",
-      "thumbnailUrl": ["https://epilabs.org/assets/epi-walkthrough-og.jpg"],
-      "uploadDate": "2026-10-24T09:00:00+05:30",
-      "duration": "PT60S",
-      "contentUrl": "https://epilabs.org/assets/epi-walkthrough.mp4",
-      "publisher": { "@type": "Organization", "name": "EPI Labs", "url": "https://epilabs.org" }
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://epilabs.org/#organization",
+          "name": "EPI Labs",
+          "url": "https://epilabs.org",
+          "logo": "https://epilabs.org/assets/epi-logo.png",
+          "founder": {
+            "@type": "Person",
+            "name": "Mohd Ibrahim Afridi",
+            "url": "https://epilabs.org/about"
+          },
+          "sameAs": [
+            "https://github.com/mohdibrahimaiml/epi-recorder",
+            "https://pypi.org/project/epi-recorder/"
+          ]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "EPI Recorder",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Cross-platform",
+          "softwareVersion": "4.11.2",
+          "license": "https://www.apache.org/licenses/LICENSE-2.0",
+          "url": "https://epilabs.org/",
+          "downloadUrl": "https://pypi.org/project/epi-recorder/",
+          "codeRepository": "https://github.com/mohdibrahimaiml/epi-recorder",
+          "description": "Open-source Python SDK and CLI that seals AI agent runs into signed, offline-verifiable .epi Decision Records using SHA-256, Ed25519, and RFC 3161 timestamps.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+          },
+          "publisher": { "@id": "https://epilabs.org/#organization" }
+        },
+        {
+          "@type": "VideoObject",
+          "name": "EPI Labs — Don't argue with auditors. Hand them a file.",
+          "description": "Why immutable cloud logs are incomplete evidence, and how EPI seals an AI agent run into a portable .epi file that any auditor can verify offline.",
+          "thumbnailUrl": ["https://epilabs.org/assets/epi-walkthrough-og.jpg"],
+          "uploadDate": "2026-10-24T09:00:00+05:30",
+          "duration": "PT60S",
+          "contentUrl": "https://epilabs.org/assets/epi-walkthrough.mp4",
+          "publisher": { "@id": "https://epilabs.org/#organization" }
+        }
+      ]
     }
   </script>
 </head>
@@ -1121,6 +1161,9 @@ Pre-action: <span style="color:#ef4444">ACTION BEFORE APPROVAL</span></div>
         <div>
           <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Solutions</div>
           <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/ai-auditability/" class="z-footer-col__link" style="font-size:0.8rem">AI Auditability</a>
+            <a href="/ai-explainability/" class="z-footer-col__link" style="font-size:0.8rem">AI Explainability</a>
+            <a href="/ai-observability/" class="z-footer-col__link" style="font-size:0.8rem">AI Observability</a>
             <a href="/use-cases" class="z-footer-col__link" style="font-size:0.8rem">Use cases</a>
             <a href="/reviewers" class="z-footer-col__link" style="font-size:0.8rem">For reviewers</a>
             <a href="/insurance/ai-vendor-decision-record" class="z-footer-col__link" style="font-size:0.8rem">For AI vendors</a>

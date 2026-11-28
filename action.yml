@@ -1,5 +1,8 @@
-name: 'EPI Evidence'  
-description: 'Generate signed .epi evidence files from AI agent tests'  
+name: 'EPI Evidence'
+description: 'Generate signed, tamper-evident .epi evidence artifacts from pytest AI agent tests'
+branding:
+  icon: 'shield'
+  color: 'blue'
   
 inputs:  
   epi-dir:  
