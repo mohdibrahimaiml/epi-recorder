@@ -2,6 +2,22 @@
 
 **Status:** Approved implementation contract
 **Branch:** `feat/epi-operation-identity`
+
+## Implementation status
+
+| Item | State |
+|---|---|
+| P0 — auditor rewrite, `facts.event_audit`, strict-policy ceiling | complete |
+| P0 — OpenAI wrapper (stream + non-stream) | complete |
+| P0b — Anthropic wrapper (stream + non-stream) | complete |
+| P0b — LangChain adapter (`llm.call` alias, tool lifecycle) | complete |
+| P0b — manual API (`AgentRun.operation`, identity-linked calls) | complete |
+| P0b — legacy patcher (OpenAI v1/legacy, Gemini) | complete |
+| P0b — `wrappers/base.py` | deprecated, accepts `correlation=` |
+| Producer conformance gate | `tests/test_producer_conformance.py` |
+| P1 — capture scope declaration | not started |
+| P2 — instrumentation provenance | not started |
+| Version bump | not made; `pyproject.toml` remains `4.11.2` until release |
 **Scope:** P0 / P0b (event pairing). P1/P2 (capture scope) are referenced, not implemented here.
 **Related:** `docs/VERIFICATION_CONTRACT.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/adr/`
 
