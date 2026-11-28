@@ -694,6 +694,7 @@ def create_verification_report(
     completeness_gaps: list[str] | None = None,
     forensic_reason: str | None = None,
     event_audit: dict | None = None,
+    capture_scope: dict | None = None,
 ) -> dict:
     """
     Create a structured verification report separating Facts and Identity.
@@ -787,6 +788,10 @@ def create_verification_report(
             # verifier; never a producer-written verdict. Absent (None) on
             # reports built by callers that predate this contract.
             "event_audit": event_audit,
+            # Additive: declared capture scope vs observed evidence (P1).
+            # Computed by verify_command after the capture manifest is read;
+            # None on reports built by callers that predate this contract.
+            "capture_scope": capture_scope,
             "content_truncated": manifest.content_truncated,
             "content_complete_asserted": manifest.content_truncated is False,
             # Timestamp validation happens in verify_command, which overwrites
@@ -1175,6 +1180,29 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "All strict criteria met (Integrity, Identity, Event completeness "
                 "- capture scope not declared)"
             )
+
+        # P1 declared capture scope. Dormant until SCOPE_ENFORCED_VERSION, so
+        # every artifact sealed today keeps its verdict; the data is reported
+        # regardless. Never overrides a FAIL.
+        _scope = facts.get("capture_scope")
+        if (
+            decision["status"] == "PASS"
+            and isinstance(_scope, dict)
+            and _scope.get("enforced")
+        ):
+            if _scope.get("status") != "declared":
+                decision["status"] = "WARN"
+                decision["reason"] = (
+                    "No declared capture scope. Event completeness was audited, "
+                    "but whether every operation was captured is not established."
+                )
+            elif _scope.get("verdict") == "declaration_unmet":
+                missing = ", ".join(_scope.get("declared_not_observed") or [])
+                decision["status"] = "WARN"
+                decision["reason"] = (
+                    "Declared capture scope was not fully observed "
+                    f"({missing}). The declaration may be broader than this run."
+                )
 
     report["decision"] = decision
     return report

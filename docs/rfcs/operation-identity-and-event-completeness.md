@@ -15,9 +15,29 @@
 | P0b — legacy patcher (OpenAI v1/legacy, Gemini) | complete |
 | P0b — `wrappers/base.py` | deprecated, accepts `correlation=` |
 | Producer conformance gate | `tests/test_producer_conformance.py` |
-| P1 — capture scope declaration | not started |
+| P1 — capture scope declaration | implemented; policy gated at `4.12.0` (dormant) |
 | P2 — instrumentation provenance | not started |
 | Version bump | not made; `pyproject.toml` remains `4.11.2` until release |
+
+### P1 as implemented
+
+Declared capture scope is sealed beside the artifact, not asserted by the verifier:
+
+- `record(..., capture_scope=[...])` (or a dict with `surfaces`/`exclusions`/
+  `enforcement`) normalises a declaration and writes `artifacts/capture_scope.json`
+  into the workspace before evidence is recorded. `build_capture_manifest`
+  embeds it in `artifacts/manifest.json`.
+- `epi verify` assesses it in `facts.capture_scope`: `declared`, `observed`,
+  `declared_not_observed`, `observed_not_declared`, `exclusions`, `enforcement`,
+  `verdict` and `enforced`.
+- Policy consequence is gated on `SCOPE_ENFORCED_VERSION` (`4.12.0`). Because
+  this branch does not bump `spec_version`, the data is reported everywhere and
+  no artifact's verdict changes. When the release bumps the version, strict
+  gains: no declaration → WARN; `declaration_unmet` → WARN. Never a FAIL —
+  scope is disclosure, not proof.
+- A declaration that was never observed means the declaration was broader than
+  the run, not that evidence was lost. That distinction is why scope cannot
+  fail verification.
 **Scope:** P0 / P0b (event pairing). P1/P2 (capture scope) are referenced, not implemented here.
 **Related:** `docs/VERIFICATION_CONTRACT.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/adr/`
 
