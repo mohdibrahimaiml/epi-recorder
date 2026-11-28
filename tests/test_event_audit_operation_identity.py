@@ -406,9 +406,11 @@ def test_strict_incomplete_fails():
     assert decision["status"] == "FAIL"
 
 
-def test_strict_no_events_is_warn():
+def test_strict_no_events_passes_without_coverage_claim():
     decision = apply_policy(_report(STATUS_NO_EVENTS), VerificationPolicy.STRICT)["decision"]
-    assert decision["status"] == "WARN"
+    # Nothing was audited, so nothing failed; the reason disclaims coverage.
+    assert decision["status"] == "PASS"
+    assert "does not establish" in decision["reason"]
 
 
 def test_strict_complete_passes_with_honest_wording():

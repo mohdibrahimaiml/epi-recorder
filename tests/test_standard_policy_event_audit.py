@@ -103,12 +103,18 @@ def test_empty_lifecycle_artifact_standard_still_passes(tmp_path, monkeypatch):
     assert exit_code == 0
 
 
-def test_empty_lifecycle_artifact_strict_is_warn(tmp_path, monkeypatch):
+def test_empty_lifecycle_artifact_strict_passes_without_coverage_claim(
+    tmp_path, monkeypatch
+):
     artifact = _seal(tmp_path, monkeypatch, EMPTY_STEPS)
     trusted = _pin(tmp_path, artifact)
 
     _exit_code, report = _verify(monkeypatch, artifact, trusted, "--policy", "strict")
-    assert report["decision"]["status"] == "WARN", report["decision"]
+    # Nothing was audited, so nothing failed. The status stays honest and the
+    # reason must not read as a coverage claim.
+    assert report["facts"]["event_audit"]["status"] == "no_observed_lifecycle_events"
+    assert report["decision"]["status"] == "PASS", report["decision"]
+    assert "does not establish" in report["decision"]["reason"]
 
 
 # ---------------------------------------------------------------- governed

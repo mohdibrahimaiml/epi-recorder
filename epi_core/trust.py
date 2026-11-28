@@ -1159,10 +1159,15 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "provable audit. Capture scope was not checked."
             )
         elif _event_audit_status(facts) == "no_observed_lifecycle_events":
-            decision["status"] = "WARN"
+            # Nothing was audited, so nothing failed. `event_audit.status`
+            # already says so; the decision must not invent a gap it never
+            # detected. This is still not a completeness claim — the reason
+            # states plainly that coverage is not established (P1/P2 work).
+            decision["status"] = "PASS"
             decision["reason"] = (
-                "No audited lifecycle events observed. Capture scope was not declared, "
-                "so the absence of LLM, tool and approval operations is not established."
+                "All strict criteria met (Integrity, Identity). No audited lifecycle "
+                "events were present and capture scope is not declared, so this does "
+                "not establish that every operation was captured."
             )
         else:
             decision["status"] = "PASS"

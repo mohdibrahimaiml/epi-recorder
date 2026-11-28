@@ -283,8 +283,17 @@ Three values stay separate (condition #4):
 | `complete` | no constraint | no constraint |
 | `incomplete` (governed) | WARN | **FAIL** |
 | `incomplete` (legacy, unambiguous) | WARN | **FAIL** (unchanged behaviour) |
-| `consistent_scope_unknown` | WARN | **WARN** |
-| `no_observed_lifecycle_events` | WARN | **WARN** |
+| `consistent_scope_unknown` | no constraint (PASS unchanged) | **WARN** |
+| `no_observed_lifecycle_events` | no constraint (PASS unchanged) | PASS, reason disclaims coverage |
+
+Standard makes no completeness claim, so the strict correlation ceiling must not leak into
+it: a legacy or no-lifecycle artifact keeps its pre-existing standard verdict. Strict is
+where correlation certainty is evaluated.
+
+`no_observed_lifecycle_events` is deliberately **not** a failure or a warning: nothing was
+audited, so nothing failed. The status records the truth and the strict reason states that
+coverage is not established. Closing that gap is P1/P2 work (declared scope), not a reason
+to downgrade every document-seal or trust-pack artifact.
 
 Existing conditions (integrity, signature, identity, `chain_present`) are evaluated first
 and unchanged. Exit codes are unchanged: WARN exits 0, FAIL exits 1.
