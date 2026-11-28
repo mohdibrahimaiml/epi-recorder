@@ -10,6 +10,11 @@ import time
 import warnings
 from typing import Any
 
+from epi_core.operation_identity import (
+    make_correlation,
+    new_group_id,
+    new_operation_id,
+)
 from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase
 from epi_recorder.wrappers._extract import (
@@ -79,6 +84,10 @@ class TracedCompletions:
         # to decide.
         request_fields = openai_request_fields(kwargs)
 
+        # One observed attempt gets one EPI-owned identity. The provider's own
+        # retries are invisible to this wrapper and are not represented.
+        correlation = make_correlation(new_group_id(), new_operation_id())
+
         # Log request if session is active
         if session:
             import hashlib as _hashlib
@@ -94,6 +103,7 @@ class TracedCompletions:
                 "messages": messages,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex,
+                "correlation": correlation,
                 **request_fields,
             })
             # Pre-execution commitment: log intent before the API call fires.
@@ -103,6 +113,7 @@ class TracedCompletions:
                 "messages_hash": pre_hash_hex,
                 "message_count": len(messages),
                 "timestamp": utc_now_iso(),
+                "correlation": correlation,
             })
             # NOTE: per-call TSA anchoring was attempted here (notarize the
             # pre-commit hash on every LLM call) and deliberately removed.
@@ -148,6 +159,7 @@ class TracedCompletions:
                 response_data.update(openai_response_meta(response))
                 if decisions:
                     response_data["tool_calls"] = tool_call_summary(decisions)
+                response_data["correlation"] = correlation
 
                 session.log_step("llm.response", response_data)
             
@@ -165,6 +177,7 @@ class TracedCompletions:
                     "error_type": type(e).__name__,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
+                    "correlation": correlation,
                 })
             
             raise
@@ -183,6 +196,8 @@ class TracedCompletions:
         messages = kwargs.get("messages", [])
         request_fields = openai_request_fields(kwargs)
 
+        correlation = make_correlation(new_group_id(), new_operation_id())
+
         # Log request + pre_commit for streaming (was missing)
         if session:
             import hashlib as _hashlib2
@@ -199,6 +214,7 @@ class TracedCompletions:
                 "stream": True,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex2,
+                "correlation": correlation,
                 **request_fields,
             })
             session.log_step("llm.pre_commit", {
@@ -208,6 +224,7 @@ class TracedCompletions:
                 "message_count": len(messages),
                 "stream": True,
                 "timestamp": utc_now_iso(),
+                "correlation": correlation,
             })
             # NOTE: per-call TSA anchoring was attempted here and deliberately
             # removed — see note above. Heartbeat checkpoints supersede it.
@@ -225,6 +242,7 @@ class TracedCompletions:
         response_id = None
         system_fingerprint = None
         created = None
+        terminal_logged = False
         
         try:
             stream = self._completions.create(*args, **kwargs)
@@ -320,8 +338,10 @@ class TracedCompletions:
                     response_data["tool_calls"] = tool_call_summary(tool_calls)
                 if usage:
                     response_data["usage"] = usage
+                response_data["correlation"] = correlation
                 
                 session.log_step("llm.response", response_data)
+                terminal_logged = True
         
         except Exception as e:
             latency = time.time() - start_time
@@ -335,10 +355,33 @@ class TracedCompletions:
                     "stream": True,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
+                    "correlation": correlation,
                 })
-            
+                terminal_logged = True
             
             raise
+        finally:
+            # A consumer that stops iterating (break / close / GeneratorExit)
+            # never reaches the success block. The operation DID start, so it
+            # must end in a recorded terminal event — otherwise the verifier
+            # correctly reports a missing terminal, which is a real gap, not
+            # a cancelled stream.
+            if session and not terminal_logged:
+                try:
+                    session.log_step("llm.response", {
+                        "provider": self._provider,
+                        "model": model,
+                        "choices": [],
+                        "stream": True,
+                        "finish_reason": "cancelled",
+                        "cancelled": True,
+                        "latency_seconds": round(time.time() - start_time, 3),
+                        "timestamp": utc_now_iso(),
+                        "correlation": correlation,
+                    })
+                except Exception:
+                    # Closing a generator must never raise into the caller.
+                    pass
 
 
 class TracedChat:

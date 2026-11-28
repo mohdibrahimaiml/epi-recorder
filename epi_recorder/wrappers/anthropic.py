@@ -10,6 +10,11 @@ import time
 import warnings
 from typing import Any
 
+from epi_core.operation_identity import (
+    make_correlation,
+    new_group_id,
+    new_operation_id,
+)
 from epi_core.time_utils import utc_now_iso
 from epi_recorder.wrappers.base import TracedClientBase
 from epi_recorder.wrappers._extract import (
@@ -48,6 +53,9 @@ class TracedMessages:
         temperature = kwargs.get("temperature", None)
         top_p = kwargs.get("top_p", None)
         system = kwargs.get("system", None)
+
+        # One observed attempt gets one EPI-owned identity.
+        correlation = make_correlation(new_group_id(), new_operation_id())
         
         if session is None and os.getenv("EPI_QUIET", "0") != "1":
             warnings.warn(
@@ -86,6 +94,7 @@ class TracedMessages:
             # and the tools the model was offered.
             for key, value in anthropic_request_fields(kwargs).items():
                 request_data.setdefault(key, value)
+            request_data["correlation"] = correlation
 
             session.log_step("llm.request", request_data)
             session.log_step("llm.pre_commit", {
@@ -94,6 +103,7 @@ class TracedMessages:
                 "messages_hash": pre_hash_hex,
                 "message_count": len(messages),
                 "timestamp": utc_now_iso(),
+                "correlation": correlation,
             })
             # NOTE: per-call TSA anchoring was attempted here (notarize the
             # pre-commit hash on every LLM call) and deliberately removed.
@@ -142,6 +152,7 @@ class TracedMessages:
                         {"id": b.get("id", ""), "name": b.get("name", ""), "input": b.get("input")}
                         for b in tool_uses
                     ]
+                response_data["correlation"] = correlation
 
                 session.log_step("llm.response", response_data)
             
@@ -159,6 +170,7 @@ class TracedMessages:
                     "error_type": type(e).__name__,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
+                    "correlation": correlation,
                 })
             
             raise
@@ -176,6 +188,8 @@ class TracedMessages:
         messages = kwargs.get("messages", [])
         stream_request_fields = anthropic_request_fields(kwargs)
 
+        correlation = make_correlation(new_group_id(), new_operation_id())
+
         # Log request + pre_commit for streaming (was missing)
         if session:
             import hashlib as _hashlib2
@@ -192,6 +206,7 @@ class TracedMessages:
                 "stream": True,
                 "timestamp": utc_now_iso(),
                 "pre_commit_hash": pre_hash_hex2,
+                "correlation": correlation,
                 **stream_request_fields,
             })
             session.log_step("llm.pre_commit", {
@@ -201,6 +216,7 @@ class TracedMessages:
                 "message_count": len(messages),
                 "stream": True,
                 "timestamp": utc_now_iso(),
+                "correlation": correlation,
             })
             # NOTE: per-call TSA anchoring was attempted here and deliberately
             # removed — see note above. Heartbeat checkpoints supersede it.
@@ -212,6 +228,7 @@ class TracedMessages:
         served_model: str | None = None
         response_id: str | None = None
         stop_reason: str | None = None
+        terminal_logged = False
         
         try:
             # Stream the response
@@ -291,7 +308,9 @@ class TracedMessages:
                         for b in content_blocks
                         if b.get("type") == "tool_use"
                     ]
+                response_data["correlation"] = correlation
                 session.log_step("llm.response", response_data)
+                terminal_logged = True
                 
         except Exception as e:
             latency = time.time() - start_time
@@ -305,9 +324,30 @@ class TracedMessages:
                     "stream": True,
                     "latency_seconds": round(latency, 3),
                     "timestamp": utc_now_iso(),
+                    "correlation": correlation,
                 })
+                terminal_logged = True
             
             raise
+        finally:
+            # Abandoned stream: the operation started, so it must end in a
+            # recorded terminal rather than looking like a missing response.
+            if session and not terminal_logged:
+                try:
+                    session.log_step("llm.response", {
+                        "provider": self._provider,
+                        "model": model,
+                        "role": "assistant",
+                        "content": [],
+                        "stream": True,
+                        "stop_reason": "cancelled",
+                        "cancelled": True,
+                        "latency_seconds": round(time.time() - start_time, 3),
+                        "timestamp": utc_now_iso(),
+                        "correlation": correlation,
+                    })
+                except Exception:
+                    pass
 
 
 class TracedAnthropic(TracedClientBase):

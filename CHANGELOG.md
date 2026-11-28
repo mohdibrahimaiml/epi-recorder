@@ -4,6 +4,40 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Changed: `epi verify` audits operation lifecycles by identity, not by order
+
+- **The completeness audit no longer pairs events by their position in the
+  file.** It previously consumed the oldest pending operation when an event
+  carried no identifier, so a response belonging to one operation could
+  discharge a different one. Pairing now requires a recorder-owned identity
+  (`epi-operation/v1`), and ambiguity is reported instead of guessed.
+- **LangChain LLM calls are now audited.** The adapter emits `llm.call`, which
+  the auditor previously ignored, so a call that never returned was invisible.
+  LangChain responses could also discharge pending OpenAI requests; they no
+  longer can.
+- **`facts.event_audit` is added to `epi verify --json`.** It reports a status
+  (`complete`, `incomplete`, `consistent_scope_unknown`,
+  `no_observed_lifecycle_events`), a per-family breakdown, and the specific
+  findings. The verifier recomputes it; nothing in the artifact is trusted as a
+  verdict.
+- **Strict mode and older files:** a file sealed before this change carries no
+  operation identity, so `--policy strict` reports **WARN** — "event
+  completeness audited by name only; operation identity is not proven" — instead
+  of PASS, when the signer is pinned. The exit code stays `0`, so scripts are
+  unaffected. Re-seal with a current recorder to obtain a provable audit.
+- **A gap that was already detectable still fails.** An old file with a call
+  that has no matching response remains a strict FAIL, exactly as before.
+- **Standard mode is unchanged:** no new warnings, and demo/sample verdicts are
+  identical to 4.11.2.
+- **Streams that are abandoned now record a terminal.** A consumer that stops
+  iterating produces `finish_reason: "cancelled"` instead of leaving the
+  operation unresolved. A process crash still leaves a real gap.
+- **Not covered yet:** whether every operation the application performed was
+  captured. `event_audit` is scoped to what the recorder observed; declared
+  capture scope and instrumentation provenance are follow-on work.
+- The CLI and `--json` report are the only surfaces that show this. The viewer
+  and epilabs.org/verify do not, and neither claims completeness.
+
 ### Security: a manifest with a duplicate JSON key no longer verifies (red-team F-07)
 
 - The signature covers the canonical manifest, where a duplicate key collapses
@@ -20,6 +54,7 @@ All notable changes to EPI Recorder are documented here.
 - `record()`, `epi run` and `epi record` seal data-only files unless
   `--with-viewer` / `with_viewer=True` is passed. Only the low-level
   `EPIContainer.pack()` keeps `embed_viewer=True` as its default.
+
 
 ### Fixed: the Windows app no longer flashes and closes on launch
 

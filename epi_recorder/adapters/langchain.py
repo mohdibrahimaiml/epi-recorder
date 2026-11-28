@@ -25,6 +25,12 @@ import warnings
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
+from epi_core.operation_identity import (
+    make_correlation,
+    new_group_id,
+    new_operation_id,
+)
+
 _logger = logging.getLogger(__name__)
 
 # Optional: langchain-core (or legacy langchain). Never hard-require at package import.
@@ -112,8 +118,10 @@ class EpiCallbackHandler(BaseCallbackHandler):
       ``tool.response`` so AUD-CO-01 completeness stays PASS on failure paths.
     - Nested chains are captured too (with parent_run_id/is_nested) so
       nested agent work is not silently dropped from evidence.
-    - LLM steps use kind ``llm.call`` (not ``llm.request``). AUD-CO-01 currently
-      pairs ``llm.request`` only; tool completeness is fully covered via ``call_id``.
+    - LLM steps use kind ``llm.call`` (not ``llm.request``). The auditor treats
+      ``llm.call`` as a first-class start alias, and every lifecycle step
+      carries an ``epi-operation/v1`` correlation identity so pairing never
+      depends on event order.
     """
 
     raise_error: bool = False  # never break the LangChain run
@@ -134,6 +142,8 @@ class EpiCallbackHandler(BaseCallbackHandler):
         # Internal maps keyed by run_id string (callbacks may fire on worker threads)
         self._tool_names: Dict[str, str] = {}
         self._llm_models: Dict[str, str] = {}
+        # run_id -> epi-operation/v1 identity minted at start, consumed at terminal
+        self._correlations: Dict[str, Dict[str, Any]] = {}
 
     # ------------------------------------------------------------------ logging
 
@@ -194,6 +204,28 @@ class EpiCallbackHandler(BaseCallbackHandler):
         except Exception:
             pass
 
+    # ------------------------------------------------------- operation identity
+
+    def _start_correlation(self, rid: str) -> Dict[str, Any]:
+        """Mint the identity for one observed operation and remember it."""
+        corr = make_correlation(new_group_id(), new_operation_id(), external_id=rid)
+        with self._lock:
+            self._correlations[rid] = corr
+        return corr
+
+    def _take_correlation(self, rid: str) -> Dict[str, Any]:
+        """Return the terminal's identity; mint one if the start was missed.
+
+        A terminal whose start never arrived becomes an *orphan* finding under
+        the verifier, which is the honest outcome. Leaving it uncorrelated in a
+        governed family would instead make the whole family fail closed.
+        """
+        with self._lock:
+            corr = self._correlations.pop(rid, None)
+        return corr or make_correlation(
+            new_group_id(), new_operation_id(), external_id=rid
+        )
+
     # ------------------------------------------------------------------ LLM
 
     def on_llm_start(
@@ -211,6 +243,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             self._llm_models[rid] = model
+        correlation = self._start_correlation(rid)
         # Cap prompts; redaction applied by session.log → RecordingContext
         prompt_list = list(prompts or [])[:8]
         self._log(
@@ -220,6 +253,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "prompts": prompt_list,
                 "run_id": rid,
                 "provider": "langchain",
+                "correlation": correlation,
             },
         )
 
@@ -239,6 +273,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             self._llm_models[rid] = model
+        correlation = self._start_correlation(rid)
         # Flatten message batches into prompt-like strings for the llm.call schema
         prompts: List[str] = []
         for batch in messages or []:
@@ -254,6 +289,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "prompts": prompts[:8],
                 "run_id": rid,
                 "provider": "langchain",
+                "correlation": correlation,
             },
         )
 
@@ -268,6 +304,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             model = self._llm_models.pop(rid, None)
+        correlation = self._take_correlation(rid)
 
         generations_summary: List[str] = []
         token_usage: Optional[Dict[str, Any]] = None
@@ -306,6 +343,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
             "generations": generations_summary,
             "run_id": rid,
             "provider": "langchain",
+            "correlation": correlation,
         }
         if model:
             payload["model"] = model
@@ -328,12 +366,14 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             model = self._llm_models.pop(rid, None)
+        correlation = self._take_correlation(rid)
         payload: Dict[str, Any] = {
             "ok": False,
             "error": str(error),
             "error_type": type(error).__name__,
             "run_id": rid,
             "provider": "langchain",
+            "correlation": correlation,
         }
         if model:
             payload["model"] = model
@@ -360,6 +400,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         tool_input: Any = input_str
         if inputs is not None:
             tool_input = inputs
+        correlation = self._start_correlation(rid)
         self._log(
             "tool.call",
             {
@@ -367,6 +408,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "input": tool_input,
                 "call_id": rid,  # AUD-CO-01 pairing key
                 "run_id": rid,
+                "correlation": correlation,
             },
         )
 
@@ -381,6 +423,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             tool_name = self._tool_names.pop(rid, None)
+        correlation = self._take_correlation(rid)
         self._log(
             "tool.response",
             {
@@ -389,6 +432,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "ok": True,
                 "call_id": rid,
                 "run_id": rid,
+                "correlation": correlation,
             },
         )
 
@@ -403,6 +447,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
         rid = _run_id_str(run_id)
         with self._lock:
             tool_name = self._tool_names.pop(rid, None)
+        correlation = self._take_correlation(rid)
         self._log(
             "tool.response",
             {
@@ -411,6 +456,7 @@ class EpiCallbackHandler(BaseCallbackHandler):
                 "error": str(error),  # string only — no traceback objects
                 "call_id": rid,
                 "run_id": rid,
+                "correlation": correlation,
             },
         )
 

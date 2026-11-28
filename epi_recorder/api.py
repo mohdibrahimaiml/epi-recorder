@@ -26,6 +26,11 @@ from epi_core.container import (
     EPI_CONTAINER_FORMAT_ENVELOPE,
     EPI_CONTAINER_FORMAT_LEGACY,
 )
+from epi_core.operation_identity import (
+    make_correlation,
+    new_group_id,
+    new_operation_id,
+)
 from epi_core.policy import EPIPolicy
 from epi_core.schemas import ManifestModel
 from epi_core.time_utils import utc_now, utc_now_iso
@@ -198,6 +203,120 @@ def _compact_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {key: value for key, value in payload.items() if value is not None}
 
 
+class Operation:
+    """One observed execution unit with an EPI-owned ``epi-operation/v1`` id.
+
+    Start and terminal are emitted by the same object, so pairing never depends
+    on event order. ``complete()`` is idempotent; leaving the ``with`` block
+    without an exception records a successful terminal.
+    """
+
+    _START_KIND = {
+        "tool": "tool.call",
+        "llm": "llm.request",
+        "approval": "agent.approval.request",
+    }
+
+    def __init__(
+        self,
+        run: "AgentRun",
+        family: str,
+        name: str,
+        *,
+        payload: Optional[Any] = None,
+        external_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        if family not in self._START_KIND:
+            raise ValueError(
+                f"unknown operation family {family!r}; expected one of "
+                f"{sorted(self._START_KIND)}"
+            )
+        self._run = run
+        self.family = family
+        self.name = name
+        self.payload = payload
+        self._metadata = metadata or {}
+        self.correlation = run._begin_operation(
+            operation_id,
+            external_id=external_id,
+            group_id=group_id,
+            operation_id=operation_id,
+        )
+        self._done = False
+
+    @property
+    def operation_id(self) -> str:
+        return str(self.correlation["operation_id"])
+
+    def _content(self) -> Dict[str, Any]:
+        content = dict(self._metadata)
+        if self.family == "tool":
+            content.update({"tool": self.name, "input": self.payload})
+        elif self.family == "llm":
+            content.update({"model": self.name, "messages": self.payload})
+        else:
+            content.update({"action": self.name, "reason": self.payload})
+        content["correlation"] = self.correlation
+        return content
+
+    def start(self) -> "Operation":
+        self._run._log(self._START_KIND[self.family], self._content())
+        return self
+
+    def complete(
+        self,
+        result: Optional[Any] = None,
+        *,
+        error: Optional[BaseException] = None,
+        **extra: Any,
+    ) -> None:
+        if self._done:
+            return
+        self._done = True
+        self._run._operations.pop(self.operation_id, None)
+        content: Dict[str, Any] = dict(self._metadata)
+        if self.family == "tool":
+            kind = "tool.response"
+            content.update(
+                {"tool": self.name, "ok": error is None,
+                 "status": "error" if error is not None else "success"}
+            )
+            if error is not None:
+                content["error"] = str(error)
+            else:
+                content["output"] = result
+        elif self.family == "llm":
+            kind = "llm.error" if error is not None else "llm.response"
+            content.update({"model": self.name})
+            if error is not None:
+                content.update(
+                    {"error": str(error), "error_type": type(error).__name__}
+                )
+            else:
+                content["choices"] = result if isinstance(result, list) else []
+        else:
+            kind = "agent.approval.response"
+            content.update({"action": self.name, "approved": bool(result)})
+            if error is not None:
+                content["error"] = str(error)
+        content.update(extra)
+        content["correlation"] = self.correlation
+        self._run._log(kind, content)
+
+    def __enter__(self) -> "Operation":
+        return self.start()
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        if exc is not None:
+            self.complete(error=exc)
+        else:
+            self.complete()
+        return False
+
+
 class AgentRun:
     """
     High-level helper for recording AI-agent execution as readable EPI steps.
@@ -247,6 +366,8 @@ class AgentRun:
         self.run_id = str(uuid4())
         self.started_at: Optional[datetime] = None
         self._entered = False
+        # operation key (operation_id / call_id) -> epi-operation/v1 identity
+        self._operations: Dict[str, Dict[str, Any]] = {}
 
     def _payload(self, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         payload = dict(self.metadata)
@@ -272,6 +393,77 @@ class AgentRun:
 
     async def _alog(self, kind: str, payload: Optional[Dict[str, Any]] = None) -> None:
         await self._async_step_logger(kind, self._payload(payload))
+
+    # ------------------------------------------------------ operation identity
+
+    def _begin_operation(
+        self,
+        key: Optional[str],
+        *,
+        external_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Mint one ``epi-operation/v1`` identity and remember it under ``key``."""
+        corr = make_correlation(
+            group_id or new_group_id(),
+            operation_id or new_operation_id(),
+            external_id=external_id,
+        )
+        if key:
+            self._operations[key] = corr
+        return corr
+
+    def _end_operation(
+        self,
+        key: Optional[str],
+        *,
+        external_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Return the identity bound to ``key``; mint one if the start was missed.
+
+        A terminal whose start never arrived becomes a reported *orphan*; it is
+        never paired with whatever operation happens to be open.
+        """
+        corr = self._operations.pop(key, None) if key else None
+        if corr is not None:
+            return corr
+        return make_correlation(
+            group_id or new_group_id(),
+            operation_id or new_operation_id(),
+            external_id=external_id,
+        )
+
+    def operation(
+        self,
+        family: str,
+        name: str,
+        *,
+        payload: Optional[Any] = None,
+        external_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        **metadata: Any,
+    ) -> "Operation":
+        """Record one operation's full lifecycle without manual pairing.
+
+        Example::
+
+            with agent.operation("tool", "payment.execute", payload=args) as op:
+                op.complete(payment.execute(**args))
+        """
+        return Operation(
+            self,
+            family,
+            name,
+            payload=payload,
+            external_id=external_id,
+            group_id=group_id,
+            operation_id=operation_id,
+            metadata=metadata,
+        )
 
     def start(self) -> "AgentRun":
         if self._entered:
@@ -343,11 +535,53 @@ class AgentRun:
     async def amessage(self, role: str, content: Any, **metadata: Any) -> None:
         await self._alog("agent.message", {"role": role, "content": content, **metadata})
 
-    def tool_call(self, tool: str, tool_input: Optional[Any] = None, **metadata: Any) -> None:
-        self._log("tool.call", {"tool": tool, "input": tool_input, **metadata})
+    def tool_call(
+        self,
+        tool: str,
+        tool_input: Optional[Any] = None,
+        *,
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        **metadata: Any,
+    ) -> Optional[Dict[str, Any]]:
+        content: Dict[str, Any] = {"tool": tool, "input": tool_input, **metadata}
+        if call_id is not None:
+            content["call_id"] = call_id
+        key = operation_id or call_id
+        if key:
+            content["correlation"] = self._begin_operation(
+                key,
+                external_id=call_id,
+                group_id=group_id,
+                operation_id=operation_id,
+            )
+        self._log("tool.call", content)
+        return content.get("correlation")
 
-    async def atool_call(self, tool: str, tool_input: Optional[Any] = None, **metadata: Any) -> None:
-        await self._alog("tool.call", {"tool": tool, "input": tool_input, **metadata})
+    async def atool_call(
+        self,
+        tool: str,
+        tool_input: Optional[Any] = None,
+        *,
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+        **metadata: Any,
+    ) -> Optional[Dict[str, Any]]:
+        content: Dict[str, Any] = {"tool": tool, "input": tool_input, **metadata}
+        if call_id is not None:
+            content["call_id"] = call_id
+        key = operation_id or call_id
+        if key:
+            content["correlation"] = self._begin_operation(
+                key,
+                external_id=call_id,
+                group_id=group_id,
+                operation_id=operation_id,
+            )
+        await self._alog("tool.call", content)
+        return content.get("correlation")
 
     def tool_result(
         self,
@@ -355,17 +589,28 @@ class AgentRun:
         output: Optional[Any] = None,
         *,
         status: str = "success",
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        self._log(
-            "tool.response",
-            {
-                "tool": tool,
-                "output": output,
-                "status": status,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "tool": tool,
+            "output": output,
+            "status": status,
+            **metadata,
+        }
+        if call_id is not None:
+            content["call_id"] = call_id
+        key = operation_id or call_id
+        if key:
+            content["correlation"] = self._end_operation(
+                key,
+                external_id=call_id,
+                group_id=group_id,
+                operation_id=operation_id,
+            )
+        self._log("tool.response", content)
 
     async def atool_result(
         self,
@@ -373,17 +618,28 @@ class AgentRun:
         output: Optional[Any] = None,
         *,
         status: str = "success",
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        await self._alog(
-            "tool.response",
-            {
-                "tool": tool,
-                "output": output,
-                "status": status,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "tool": tool,
+            "output": output,
+            "status": status,
+            **metadata,
+        }
+        if call_id is not None:
+            content["call_id"] = call_id
+        key = operation_id or call_id
+        if key:
+            content["correlation"] = self._end_operation(
+                key,
+                external_id=call_id,
+                group_id=group_id,
+                operation_id=operation_id,
+            )
+        await self._alog("tool.response", content)
 
     def decision(
         self,
@@ -441,19 +697,23 @@ class AgentRun:
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
         approval_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        self._log(
-            "agent.approval.request",
-            {
-                "action": action,
-                "reason": reason,
-                "risk_level": risk_level,
-                "requested_by": requested_by or self.agent_name,
-                "approval_id": approval_id,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "action": action,
+            "reason": reason,
+            "risk_level": risk_level,
+            "requested_by": requested_by or self.agent_name,
+            "approval_id": approval_id,
+            **metadata,
+        }
+        if operation_id:
+            content["correlation"] = self._begin_operation(
+                operation_id, group_id=group_id, operation_id=operation_id
+            )
+        self._log("agent.approval.request", content)
 
     async def aapproval_request(
         self,
@@ -463,19 +723,23 @@ class AgentRun:
         risk_level: Optional[str] = None,
         requested_by: Optional[str] = None,
         approval_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        await self._alog(
-            "agent.approval.request",
-            {
-                "action": action,
-                "reason": reason,
-                "risk_level": risk_level,
-                "requested_by": requested_by or self.agent_name,
-                "approval_id": approval_id,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "action": action,
+            "reason": reason,
+            "risk_level": risk_level,
+            "requested_by": requested_by or self.agent_name,
+            "approval_id": approval_id,
+            **metadata,
+        }
+        if operation_id:
+            content["correlation"] = self._begin_operation(
+                operation_id, group_id=group_id, operation_id=operation_id
+            )
+        await self._alog("agent.approval.request", content)
 
     def approval_response(
         self,
@@ -485,19 +749,26 @@ class AgentRun:
         reviewer: Optional[str] = None,
         notes: Optional[str] = None,
         approval_source: str = "raw_api_unverified",
+        approval_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        self._log(
-            "agent.approval.response",
-            {
-                "action": action,
-                "approved": approved,
-                "reviewer": reviewer,
-                "notes": notes,
-                "approval_source": approval_source,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "action": action,
+            "approved": approved,
+            "reviewer": reviewer,
+            "notes": notes,
+            "approval_source": approval_source,
+            **metadata,
+        }
+        if approval_id is not None:
+            content["approval_id"] = approval_id
+        if operation_id:
+            content["correlation"] = self._end_operation(
+                operation_id, group_id=group_id, operation_id=operation_id
+            )
+        self._log("agent.approval.response", content)
 
     async def aapproval_response(
         self,
@@ -507,19 +778,26 @@ class AgentRun:
         reviewer: Optional[str] = None,
         notes: Optional[str] = None,
         approval_source: str = "raw_api_unverified",
+        approval_id: Optional[str] = None,
+        operation_id: Optional[str] = None,
+        group_id: Optional[str] = None,
         **metadata: Any,
     ) -> None:
-        await self._alog(
-            "agent.approval.response",
-            {
-                "action": action,
-                "approved": approved,
-                "reviewer": reviewer,
-                "notes": notes,
-                "approval_source": approval_source,
-                **metadata,
-            },
-        )
+        content: Dict[str, Any] = {
+            "action": action,
+            "approved": approved,
+            "reviewer": reviewer,
+            "notes": notes,
+            "approval_source": approval_source,
+            **metadata,
+        }
+        if approval_id is not None:
+            content["approval_id"] = approval_id
+        if operation_id:
+            content["correlation"] = self._end_operation(
+                operation_id, group_id=group_id, operation_id=operation_id
+            )
+        await self._alog("agent.approval.response", content)
 
     def handoff(self, to_agent: str, *, reason: Optional[str] = None, **metadata: Any) -> None:
         self._log(
@@ -1345,6 +1623,14 @@ class EpiRecorderSession:
             "release_digest": str(self.release_document.get("release_digest") or ""),
         }
 
+    def _operation_store(self) -> Dict[str, Dict[str, Any]]:
+        """Pending identities for split request/response logging methods."""
+        store = getattr(self, "_pending_llm_operations", None)
+        if store is None:
+            store = {}
+            self._pending_llm_operations = store
+        return store
+
     def log_step_unredacted(self, kind: str, content: Dict[str, Any]) -> None:
         """Log evidence that must survive byte-exact (signed approvals).
 
@@ -1394,6 +1680,8 @@ class EpiRecorderSession:
         reason: str | None = None,
         risk_level: str | None = None,
         requested_by: str | None = None,
+        operation_id: str | None = None,
+        group_id: str | None = None,
         **metadata: Any,
     ) -> None:
         """Ask a person to approve ``action`` — the front door for human sign-off.
@@ -1404,6 +1692,10 @@ class EpiRecorderSession:
         Pass the same ``approval_id`` here and there to bind the two, then check
         the claim with ``epi verify <file.epi> --require-human-approval``.
 
+        Pass ``operation_id`` only when an in-run terminal will also be recorded
+        with the same value; otherwise the request stays name-based rather than
+        claiming an identity the run cannot complete.
+
         Example::
 
             with record("run.epi") as session:
@@ -1413,6 +1705,12 @@ class EpiRecorderSession:
                     reason="over the auto-approve limit",
                 )
         """
+        if operation_id:
+            correlation = make_correlation(
+                group_id or new_group_id(), operation_id
+            )
+            self._operation_store()[operation_id] = correlation
+            metadata["correlation"] = correlation
         self.log(
             "agent.approval.request",
             action=action,
@@ -1505,40 +1803,81 @@ class EpiRecorderSession:
             metadata=metadata,
         )
     
-    def log_llm_request(self, model: str, payload: Dict[str, Any]) -> None:
+    def log_llm_request(
+        self,
+        model: str,
+        payload: Dict[str, Any],
+        *,
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+    ) -> None:
         """
         Log an LLM API request.
         
         Args:
             model: Model name (e.g., "gpt-4")
             payload: Request payload
+            operation_id: Optional pairing id; pass the same value to
+                ``log_llm_response`` to make the pair auditable by identity.
+            call_id: Optional provider/tool identifier used as the pairing key.
             
         Note:
             This is typically called automatically by patchers.
             Manual use is for custom integrations.
         """
-        self.log_step("llm.request", {
+        content: Dict[str, Any] = {
             "provider": "custom",
             "model": model,
             "timestamp": utc_now_iso(),
-            **payload
-        })
+            **payload,
+        }
+        if call_id is not None:
+            content["call_id"] = call_id
+        key = operation_id or call_id
+        if key:
+            corr = make_correlation(
+                group_id or new_group_id(),
+                operation_id or new_operation_id(),
+                external_id=call_id,
+            )
+            self._operation_store()[key] = corr
+            content["correlation"] = corr
+        self.log_step("llm.request", content)
     
-    def log_llm_response(self, response_payload: Dict[str, Any]) -> None:
+    def log_llm_response(
+        self,
+        response_payload: Dict[str, Any],
+        *,
+        operation_id: Optional[str] = None,
+        call_id: Optional[str] = None,
+        group_id: Optional[str] = None,
+    ) -> None:
         """
         Log an LLM API response.
 
         Args:
             response_payload: Response data
+            operation_id: Pairing id supplied to ``log_llm_request``.
+            call_id: Optional provider/tool identifier used as the pairing key.
 
         Note:
             This is typically called automatically by patchers.
             Manual use is for custom integrations.
         """
-        self.log_step("llm.response", {
+        content: Dict[str, Any] = {
             "timestamp": utc_now_iso(),
-            **response_payload
-        })
+            **response_payload,
+        }
+        key = operation_id or call_id
+        if key:
+            corr = self._operation_store().pop(key, None)
+            content["correlation"] = corr or make_correlation(
+                group_id or new_group_id(),
+                operation_id or new_operation_id(),
+                external_id=call_id,
+            )
+        self.log_step("llm.response", content)
 
     def log_validation(
         self,
@@ -1698,13 +2037,21 @@ class EpiRecorderSession:
                 content = str(response)
             choices = [{"message": {"role": "assistant", "content": content}}]
         
-        # Log request if messages provided
+        # Log request if messages provided. The identity is only emitted when
+        # both sides of the pair are recorded: a response-only call would
+        # otherwise look like a governed orphan.
+        correlation = (
+            make_correlation(new_group_id(), new_operation_id())
+            if messages
+            else None
+        )
         if messages:
             self.log_step("llm.request", {
                 "provider": provider,
                 "model": model,
                 "messages": messages,
                 "timestamp": utc_now_iso(),
+                "correlation": correlation,
             })
         
         # Log response
@@ -1747,6 +2094,8 @@ class EpiRecorderSession:
         if tool_uses:
             response_data["tool_uses"] = tool_uses
 
+        if correlation is not None:
+            response_data["correlation"] = correlation
         self.log_step("llm.response", response_data)
     
     def decision(
@@ -1822,12 +2171,15 @@ class EpiRecorderSession:
         if not self._entered:
             raise RuntimeError("Cannot log chat outside of context manager")
         
+        correlation = make_correlation(new_group_id(), new_operation_id())
+
         # Log request
         self.log_step("llm.request", {
             "provider": provider,
             "model": model,
             "messages": messages,
             "timestamp": utc_now_iso(),
+            "correlation": correlation,
             **metadata
         })
         
@@ -1837,6 +2189,7 @@ class EpiRecorderSession:
             "model": model,
             "choices": [{"message": {"role": "assistant", "content": response_content}}],
             "timestamp": utc_now_iso(),
+            "correlation": correlation,
         }
         if usage:
             response_data["usage"] = usage
