@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Auditability — Tamper-Evident AI Audit Trails (.epi) | EPI Labs</title>
+  <meta name="description" content="AI auditability requires evidence the auditor can verify without trusting the vendor. Seal AI decisions into signed .epi audit records verifiable offline.">
+  <meta property="og:title" content="AI Auditability — Tamper-Evident AI Audit Trails | EPI Labs">
+  <meta property="og:description" content="Turn mutable AI logs into portable, Ed25519-signed .epi decision records that banks, insurers, and regulators can audit offline.">
+  <meta property="og:url" content="https://epilabs.org/ai-auditability/">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AI Auditability — Tamper-Evident AI Audit Trails | EPI Labs">
+  <meta name="twitter:description" content="Seal every AI agent decision into one portable, offline-verifiable .epi audit record.">
+  <link rel="canonical" href="https://epilabs.org/ai-auditability/">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"AI Auditability: Portable, Tamper-Evident Decision Records","url":"https://epilabs.org/ai-auditability/","description":"How EPI gives regulated AI vendors and auditors offline-verifiable AI decision records using SHA-256 hash chains, Ed25519 signatures, and RFC 3161 timestamps.","publisher":{"@type":"Organization","name":"EPI Labs","url":"https://epilabs.org"}},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is AI auditability?","acceptedAnswer":{"@type":"Answer","text":"AI auditability is the ability for an independent reviewer, regulator, or counterparty to verify what an AI system saw, which model and policy rules ran, what it decided, and who approved or overrode it—using evidence that cannot be silently altered after the fact."}},{"@type":"Question","name":"Why are normal AI application logs not enough for an audit?","acceptedAnswer":{"@type":"Answer","text":"Application logs live inside the vendor's infrastructure under the vendor's retention and edit privileges. EPI exports each decision into a sealed .epi file with a SHA-256 manifest and Ed25519 signature so the auditor verifies it offline without a vendor login."}}]}]}</script>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/proof/">Tamper test</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/proof/">Tamper test</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+        <span class="z-eyebrow">AI Auditability</span>
+        <h1 class="z-h1" style="margin-top:1rem">AI auditability starts with a file the auditor can check</h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:40rem">
+          Real AI auditability means a bank reviewer, insurance carrier, examiner, or opposing counsel can inspect a single decision six months later and verify independently that the record was not edited, reordered, or invented after the dispute began.
+        </p>
+      </header>
+
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:2.5rem">
+            <a class="z-btn-primary" href="/verify/">Verify a sample .epi file</a>
+            <a class="z-btn-ghost" href="/insurance/sample-claim-record">See a worked claim record</a>
+          </div>
+
+          <h2 class="z-h2">Why internal logs fail AI audits</h2>
+          <p class="z-body" style="margin-top:0.85rem">
+            Most teams treat logging or <a href="/ai-observability/" style="color:var(--acc)">AI observability</a> dashboards as an audit trail. When a regulated buyer asks <em>&ldquo;What did the model see on Claim 4471, which policy applied, and who approved the override?&rdquo;</em>, vendor-hosted logs fail three tests:
+          </p>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li><strong>Custody bias:</strong> the party being audited owns the database, retention policy, and export script.</li>
+            <li><strong>No tamper evidence:</strong> a CSV, JSON export, or PDF summary carries no hash chain or cryptographic signature.</li>
+            <li><strong>Vendor lock-in:</strong> the auditor cannot check the evidence five years later if the SaaS account is closed.</li>
+          </ul>
+
+          <h2 class="z-h2" style="margin-top:2.75rem">What EPI seals for AI auditability</h2>
+          <p class="z-body" style="margin-top:0.85rem">
+            The open-source <code class="k">epi-recorder</code> SDK and CLI seal each decision into one portable <code class="k">.epi</code> archive containing:
+          </p>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li><strong>Hash-chained timeline (<code class="k">steps.jsonl</code>):</strong> inputs, tool calls, model ID/version, principal reasons, policy checks, and human approvals linked via <code class="k">prev_hash</code>.</li>
+            <li><strong>Cryptographic seal (<code class="k">manifest.json</code>):</strong> SHA-256 digests over every member plus an Ed25519 signature.</li>
+            <li><strong>Independent time proof:</strong> optional RFC 3161 timestamping (hash-only; file contents never leave your host) and witness log receipts to expose backdated re-signing.</li>
+            <li><strong>Zero-account verification:</strong> reviewers run <code class="k">epi verify file.epi --policy strict</code> locally or drop it into the offline browser verifier at <a href="/verify/" style="color:var(--acc)">epilabs.org/verify/</a>.</li>
+          </ul>
+
+          <h2 class="z-h2" style="margin-top:2.75rem">What a seal proves — and what it does not</h2>
+          <p class="z-body" style="margin-top:0.85rem">
+            A passing verification proves the <code class="k">.epi</code> file is intact and matches its pinned signer key. It does <strong>not</strong> prove the AI decision was legally compliant or that unrecorded code paths were captured. Read the <a href="/trust" style="color:var(--acc)">three-layer trust model</a>, <a href="/standards" style="color:var(--acc)">standards mapping</a> (EU AI Act Annex IV, NAIC, DORA, AIUC-1), and <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/AUDITORS-GUIDE.md" style="color:var(--acc)">Auditor&rsquo;s Guide</a> before relying on any artifact in a formal review.
+          </p>
+
+          <h2 class="z-h2" style="margin-top:2.75rem">Explore the three pillars</h2>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li><a href="/ai-explainability/" style="color:var(--acc)">AI Explainability</a> &mdash; preserving inputs, reasons, model version, and human override context per decision.</li>
+            <li><a href="/ai-observability/" style="color:var(--acc)">AI Observability vs. Verifiable Evidence</a> &mdash; how EPI complements LangSmith, Langfuse, Arize, and OpenTelemetry.</li>
+            <li><a href="/decision-record/" style="color:var(--acc)">The Decision Record format</a> &mdash; field-by-field anatomy and completeness checklist.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:2.25rem 2rem">
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:0.9rem;max-width:34rem">
+          <a href="/" class="z-brand z-footer-logo" aria-label="EPI Labs home">
+            <span class="z-brand__stack" aria-hidden="true">
+              <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+              <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+            </span>
+          </a>
+          <p class="z-body" style="font-size:0.85rem;max-width:28rem">One signed file per AI decision. Anyone can check it offline, without an account.</p>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Product</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/" class="z-footer-col__link" style="font-size:0.8rem">Platform</a>
+            <a href="/how-it-works" class="z-footer-col__link" style="font-size:0.8rem">How it works</a>
+            <a href="/decision-record" class="z-footer-col__link" style="font-size:0.8rem">Decision Record</a>
+            <a href="/verify/" class="z-footer-col__link" style="font-size:0.8rem">Verify a file</a>
+            <a href="/plans" class="z-footer-col__link" style="font-size:0.8rem">Pricing</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Evidence</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/trust" class="z-footer-col__link" style="font-size:0.8rem">Trust model</a>
+            <a href="/proof/" class="z-footer-col__link" style="font-size:0.8rem">Proof</a>
+            <a href="/checklist/" class="z-footer-col__link" style="font-size:0.8rem">Checklist</a>
+            <a href="/standards" class="z-footer-col__link" style="font-size:0.8rem">Standards</a>
+            <a href="/insurance/sample-claim-record" class="z-footer-col__link" style="font-size:0.8rem">Sample record</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">Known limitations</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Solutions</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/ai-auditability/" class="z-footer-col__link" style="font-size:0.8rem">AI Auditability</a>
+            <a href="/ai-explainability/" class="z-footer-col__link" style="font-size:0.8rem">AI Explainability</a>
+            <a href="/ai-observability/" class="z-footer-col__link" style="font-size:0.8rem">AI Observability</a>
+            <a href="/use-cases" class="z-footer-col__link" style="font-size:0.8rem">Use cases</a>
+            <a href="/reviewers" class="z-footer-col__link" style="font-size:0.8rem">For reviewers</a>
+            <a href="/integrations" class="z-footer-col__link" style="font-size:0.8rem">Integrations</a>
+            <a href="/docs" class="z-footer-col__link" style="font-size:0.8rem">Docs</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Company</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/about" class="z-footer-col__link" style="font-size:0.8rem">About</a>
+            <a href="/faq/" class="z-footer-col__link" style="font-size:0.8rem">FAQ</a>
+            <a href="/blog/" class="z-footer-col__link" style="font-size:0.8rem">Blog</a>
+            <a href="/status" class="z-footer-col__link" style="font-size:0.8rem">Status</a>
+            <a href="https://cloud.epilabs.org/" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">EPI Cloud</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Legal</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/terms" class="z-footer-col__link" style="font-size:0.8rem">Terms</a>
+            <a href="/privacy" class="z-footer-col__link" style="font-size:0.8rem">Privacy</a>
+            <a href="/refund" class="z-footer-col__link" style="font-size:0.8rem">Refund</a>
+            <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.8rem">Security.txt</a>
+            <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.8rem">Trust registry</a>
+          </div>
+        </div>
+      </div>
+      <div class="z-footer-bottom" style="margin-top:2.5rem">
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</div>
+        <div><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">PyPI package</a> · <a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link" style="font-size:0.75rem">mohdibrahim@epilabs.org</a></div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>

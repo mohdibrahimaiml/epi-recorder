@@ -34,6 +34,18 @@ keywords = [
     "execution-trace",
     "reproducibility",
     "decision-records",
+    "ai-agents",
+    "ai-auditability",
+    "ai-explainability",
+    "ai-observability",
+    "audit-trail",
+    "tamper-evident",
+    "provenance",
+    "ed25519",
+    "openai",
+    "langchain",
+    "mcp",
+    "eu-ai-act",
     "aiuc-1",
     "aiuc"
 ]
@@ -161,8 +173,10 @@ epi-mcp-http = "epi_mcp.http:main"
 
 [project.urls]
 Homepage = "https://epilabs.org"
-Documentation = "https://epilabs.org/docs"
+Documentation = "https://epilabs.org/docs/"
 Repository = "https://github.com/mohdibrahimaiml/epi-recorder"
+Source = "https://github.com/mohdibrahimaiml/epi-recorder"
+Changelog = "https://github.com/mohdibrahimaiml/epi-recorder/blob/main/CHANGELOG.md"
 Issues = "https://github.com/mohdibrahimaiml/epi-recorder/issues"
 
 [tool.setuptools.packages.find]
