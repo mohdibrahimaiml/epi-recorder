@@ -693,6 +693,7 @@ def create_verification_report(
     transparency_ok: bool | None = None,
     completeness_gaps: list[str] | None = None,
     forensic_reason: str | None = None,
+    event_audit: dict | None = None,
 ) -> dict:
     """
     Create a structured verification report separating Facts and Identity.
@@ -782,6 +783,10 @@ def create_verification_report(
             "mismatches": mismatches,
             "completeness_gaps": gaps,
             "forensic_reason": forensic_reason,
+            # Additive: per-family operation-lifecycle audit. Recomputed by the
+            # verifier; never a producer-written verdict. Absent (None) on
+            # reports built by callers that predate this contract.
+            "event_audit": event_audit,
             "content_truncated": manifest.content_truncated,
             "content_complete_asserted": manifest.content_truncated is False,
             # Timestamp validation happens in verify_command, which overwrites
@@ -985,6 +990,16 @@ def create_verification_report(
     return report
 
 
+def _event_audit_status(facts: dict) -> str | None:
+    """Operation-lifecycle audit status, or None when the report predates it."""
+    audit = facts.get("event_audit")
+    if isinstance(audit, dict):
+        status = audit.get("status")
+        if isinstance(status, str):
+            return status
+    return None
+
+
 def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.STANDARD) -> dict:
     """
     Evaluate a verification report against a specific governance policy.
@@ -1134,9 +1149,27 @@ def apply_policy(report: dict, policy: VerificationPolicy = VerificationPolicy.S
                 "order). The steps carry no prev_hash links, so the recorded order "
                 "could be rewritten and re-signed without detection."
             )
+        elif _event_audit_status(facts) == "consistent_scope_unknown":
+            # Legacy artifact: events may pair, but operation identity was never
+            # recorded, so pairing was decided by name only. Never a clean PASS.
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "Event completeness audited by name only; operation identity is not "
+                "proven (legacy artifact). Re-seal with a current recorder to obtain a "
+                "provable audit. Capture scope was not checked."
+            )
+        elif _event_audit_status(facts) == "no_observed_lifecycle_events":
+            decision["status"] = "WARN"
+            decision["reason"] = (
+                "No audited lifecycle events observed. Capture scope was not declared, "
+                "so the absence of LLM, tool and approval operations is not established."
+            )
         else:
             decision["status"] = "PASS"
-            decision["reason"] = "All strict criteria met (Integrity, Identity, Completeness)"
+            decision["reason"] = (
+                "All strict criteria met (Integrity, Identity, Event completeness "
+                "- capture scope not declared)"
+            )
 
     report["decision"] = decision
     return report

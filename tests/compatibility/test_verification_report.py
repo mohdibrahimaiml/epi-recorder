@@ -110,6 +110,9 @@ FROZEN_FACTS_KEYS = {
     "scitt_self_issued",
     # timestamp_key_bound: None=not evaluated, True=key-bound, False=contents-only.
     "timestamp_key_bound",
+    # Added with the operation-identity contract: per-family lifecycle audit,
+    # recomputed by the verifier. None on reports built by older callers.
+    "event_audit",
 }
 
 
