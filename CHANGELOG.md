@@ -4,6 +4,23 @@ All notable changes to EPI Recorder are documented here.
 
 ## [Unreleased]
 
+### Security: a manifest with a duplicate JSON key no longer verifies (red-team F-07)
+
+- The signature covers the canonical manifest, where a duplicate key collapses
+  to its last value. A duplicate added after sealing therefore kept the
+  signature valid, while a first-wins JSON parser could show a different `goal`
+  or `decision` than the one verified.
+- `epi verify`, the browser viewer (`crypto.js`) and epilabs.org/verify
+  (`epi-verify-core.js`) now refuse such a manifest at any depth with
+  `manifest.json contains a duplicate JSON key '<key>'`. `epi verify` exits 1.
+  EPI never writes duplicate keys, so no genuine file is affected.
+
+### Docs: ARCHITECTURE.md no longer says every file embeds the viewer
+
+- `record()`, `epi run` and `epi record` seal data-only files unless
+  `--with-viewer` / `with_viewer=True` is passed. Only the low-level
+  `EPIContainer.pack()` keeps `embed_viewer=True` as its default.
+
 ### Fixed: the Windows app no longer flashes and closes on launch
 
 - The Store package's Start-menu entry runs `epi view` with no argument. That
