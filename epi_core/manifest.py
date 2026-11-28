@@ -88,6 +88,15 @@ class CaptureManifest(BaseModel):
     active_surfaces: list[str] = Field(default_factory=list)
     known_gaps: list[str] = Field(default_factory=list)
     recorder_version: str = "unknown"
+    # Declared capture scope (P1). Absent on pre-scope artifacts: the honest
+    # answer there is "unknown", never an invented boundary.
+    # ``declared_surfaces`` is what the application owner said should be inside
+    # the boundary; ``active_surfaces`` above is what the run actually showed.
+    declared_surfaces: list[str] = Field(default_factory=list)
+    capture_exclusions: list[str] = Field(default_factory=list)
+    declaration_source: str = "none"
+    enforcement: str = "not_applicable"
+    scope_scheme: str | None = None
 
 
 def get_recorder_version() -> str:
@@ -294,6 +303,10 @@ def build_capture_manifest(
 
     active = _derive_active_surfaces(steps)
 
+    from epi_core.capture_scope import read_declaration
+
+    declaration = read_declaration(source_dir) or {}
+
     return CaptureManifest(
         schema_version=MANIFEST_SCHEMA_VERSION,
         capture_path=global_path,
@@ -305,6 +318,11 @@ def build_capture_manifest(
         active_surfaces=active,
         known_gaps=gaps,
         recorder_version=get_recorder_version(),
+        declared_surfaces=list(declaration.get("declared") or []),
+        capture_exclusions=list(declaration.get("exclusions") or []),
+        declaration_source=str(declaration.get("declaration_source") or "none"),
+        enforcement=str(declaration.get("enforcement") or "not_applicable"),
+        scope_scheme=declaration.get("scheme"),
     )
 
 

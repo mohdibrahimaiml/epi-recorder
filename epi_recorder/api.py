@@ -21,6 +21,10 @@ from uuid import uuid4
 
 from cryptography.hazmat.primitives import serialization
 
+from epi_core.capture_scope import (
+    normalize_declaration,
+    write_declaration,
+)
 from epi_core.container import (
     EPIContainer,
     EPI_CONTAINER_FORMAT_ENVELOPE,
@@ -1096,6 +1100,7 @@ class EpiRecorderSession:
         tools: Optional[Union[Dict[str, str], List[str], str]] = None,
         config: Optional[Union[Dict[str, str], List[str], str]] = None,
         git_commit: Optional[str] = None,
+        capture_scope: Optional[Union[Dict[str, Any], List[str]]] = None,
     ):
         """
         Initialize EPI recording session.
@@ -1163,6 +1168,12 @@ class EpiRecorderSession:
         self.metrics = metrics
         self.approved_by = approved_by
         self.metadata_tags = metadata_tags
+
+        # Declared capture scope (P1): the surfaces the application owner says
+        # should be inside the boundary. Sealed beside the artifact; assessed
+        # by the verifier against what this run actually observed. Absent means
+        # "unknown", never an invented boundary.
+        self.declared_capture_scope = normalize_declaration(capture_scope)
         
         # DID:WEB identity binding (zero-cost, issuer-independent).
         # Explicit `did` wins, then `did_web`, then EPI_DID env.
@@ -1271,6 +1282,11 @@ class EpiRecorderSession:
         try:
             # Create temporary directory for recording
             self.temp_dir = create_recording_workspace("epi_recording_")
+
+            # Seal the declared capture scope into the workspace before any
+            # evidence is written, so packing carries it into the archive.
+            if self.declared_capture_scope:
+                write_declaration(self.temp_dir, self.declared_capture_scope)
 
             _warn_if_local_policy_invalid()
 
@@ -2955,6 +2971,7 @@ def record(
     tools: Optional[Union[Dict[str, str], List[str], str]] = None,
     config: Optional[Union[Dict[str, str], List[str], str]] = None,
     git_commit: Optional[str] = None,
+    capture_scope: Optional[Union[Dict[str, Any], List[str]]] = None,
 ) -> Union[EpiRecorderSession, Callable]:
     """
     Create an EPI recording session (context manager).
@@ -3083,6 +3100,7 @@ def record(
             tools=tools,
             config=config,
             git_commit=git_commit,
+            capture_scope=capture_scope,
         )
 
     def _wrap(func: Callable) -> Callable:
@@ -3156,6 +3174,7 @@ def record(
             tools=tools,
             config=config,
             git_commit=git_commit,
+            capture_scope=capture_scope,
         )
 
     # Zero-config / metadata-only: works as both context manager and decorator

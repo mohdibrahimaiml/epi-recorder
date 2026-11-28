@@ -2391,6 +2391,29 @@ def verify_command(
             report["capture_manifest_present"] = False
             report["enforcement_downgraded"] = False
             report["enforcement_downgrade_count"] = 0
+
+        # P1: declared capture scope vs observed evidence. Disclosure, not proof:
+        # a declared surface that was never observed means the declaration was
+        # broader than the run, not that evidence was lost.
+        from epi_core.capture_scope import assess_capture_scope
+
+        report["facts"]["capture_scope"] = assess_capture_scope(
+            _cap_manifest if isinstance(_cap_manifest, dict) else None,
+            getattr(manifest, "spec_version", None),
+        )
+        if verbose:
+            _sc = report["facts"]["capture_scope"]
+            if _sc.get("status") == "declared":
+                console.print(
+                    f"  [green][OK][/green] Capture scope declared "
+                    f"({len(_sc.get('declared') or [])} surface(s), "
+                    f"{len(_sc.get('declared_not_observed') or [])} not observed)"
+                )
+            else:
+                console.print(
+                    "  [yellow]![/yellow] Capture scope not declared "
+                    "(coverage unknown)"
+                )
         if verbose:
             if _cap_manifest is None:
                 console.print(
