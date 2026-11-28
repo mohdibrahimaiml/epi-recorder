@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from typer.testing import CliRunner
 
 from epi_cli.main import app
@@ -23,7 +22,7 @@ from epi_recorder.api import record
 runner = CliRunner()
 
 
-def _seal(tmp_path, monkeypatch, steps) -> "object":
+def _seal(tmp_path, monkeypatch, steps) -> object:
     monkeypatch.setenv("EPI_KEYS_DIR", str(tmp_path / "keys"))
     monkeypatch.setenv("EPI_NOTARIZE", "0")
     path = tmp_path / "run.epi"
@@ -33,7 +32,7 @@ def _seal(tmp_path, monkeypatch, steps) -> "object":
     return path
 
 
-def _pin(tmp_path, artifact) -> "object":
+def _pin(tmp_path, artifact) -> object:
     manifest = EPIContainer.read_member_json(artifact, "manifest.json")
     trusted = tmp_path / "trusted"
     trusted.mkdir(exist_ok=True)
