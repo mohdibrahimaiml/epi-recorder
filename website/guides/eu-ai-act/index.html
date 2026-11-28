@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EU AI Act Evidence Prep — Article 12, 14 &amp; Annex IV (.epi) | EPI Labs</title>
+  <meta name="description" content="Prepare verifiable AI workflow evidence for EU AI Act Article 12 logging, Article 14 human oversight, and Annex IV technical documentation using signed .epi files.">
+  <meta property="og:title" content="EU AI Act Evidence Prep — Article 12, 14 &amp; Annex IV (.epi) | EPI Labs">
+  <meta property="og:description" content="How signed .epi Decision Records support EU AI Act Article 12, Article 14 human oversight, and Annex IV evidence packs—without false compliance claims.">
+  <meta property="og:url" content="https://epilabs.org/guides/eu-ai-act/">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://epilabs.org/assets/epi-walkthrough-og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://epilabs.org/guides/eu-ai-act/">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/css/zenjin-epi.css">
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Using .epi Artifacts for EU AI Act Evidence Preparation","url":"https://epilabs.org/guides/eu-ai-act/","description":"How portable, Ed25519-signed .epi Decision Records support EU AI Act Article 12, Article 14 human oversight, and Annex IV documentation workflows.","publisher":{"@type":"Organization","name":"EPI Labs","url":"https://epilabs.org"}},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does EPI make an AI system EU AI Act compliant?","acceptedAnswer":{"@type":"Answer","text":"No. EPI is evidence workflow infrastructure, not legal advice or a conformity assessment. A sealed .epi file proves a captured decision record was not altered after sealing; legal compliance depends on your full governance, risk management, and legal review."}},{"@type":"Question","name":"How does EPI support Article 14 human oversight evidence?","acceptedAnswer":{"@type":"Answer","text":"When actions route through EPI's approval gate, the approver signs the exact tool call and arguments with their own key before execution, and the request, response, and execution receipts can be logged to the customer's witness."}}]}]}</script>
+</head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <header id="site-navbar" class="z-header">
+    <div class="z-header__gutter-left" aria-hidden="true"></div>
+    <div class="z-header__center">
+      <a href="/" class="z-brand">
+        <span class="sr-only">EPI Labs home</span>
+        <span class="z-brand__stack" aria-hidden="true">
+          <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+          <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+        </span>
+      </a>
+      <nav aria-label="Primary" class="z-nav">
+        <a href="/" class="z-nav__link">Platform</a>
+        <details class="z-nav__menu">
+          <summary class="z-nav__link">Architecture</summary>
+          <div class="z-nav__panel">
+            <a href="/how-it-works">How it works</a>
+            <a href="/decision-record">Decision Record</a>
+            <a href="/proof/">Tamper test</a>
+          </div>
+        </details>
+        <a href="/verify/" class="z-nav__link">Verify</a>
+        <a href="/trust" class="z-nav__link">Trust model</a>
+        <a href="/plans" class="z-nav__link">Pricing</a>
+        <a href="https://github.com/mohdibrahimaiml/epi-recorder" target="_blank" rel="noopener noreferrer" class="z-nav__link">GitHub</a>
+      </nav>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <span id="nav-auth-slot" class="z-nav__auth-desktop"><a href="https://cloud.epilabs.org/" id="nav-auth" data-auth-link="1" class="z-nav__cta">Sign In</a></span>
+        <button type="button" class="z-theme-btn" data-theme-toggle aria-label="Switch to light mode" title="Switch to light mode">&#9788;</button>
+        <button type="button" id="burger" class="z-burger" aria-expanded="false" aria-controls="mmenu">Menu</button>
+      </div>
+    </div>
+    <div class="z-header__gutter-right" aria-hidden="true"></div>
+  </header>
+
+  <div id="mmenu" class="z-mobile-menu" role="navigation" aria-label="Mobile navigation">
+    <a href="/">Platform</a>
+    <details class="z-mobile-menu__group">
+      <summary>Architecture</summary>
+      <a href="/how-it-works">How it works</a>
+      <a href="/decision-record">Decision Record</a>
+      <a href="/proof/">Tamper test</a>
+    </details>
+    <a href="/verify/">Verify a .epi file</a>
+    <a href="/trust">Trust model</a>
+    <a href="/plans">Pricing</a>
+    <a href="https://cloud.epilabs.org/" id="mob-nav-auth" data-auth-link="1" style="margin-top:0.25rem;background:var(--cta-bg);color:var(--cta-fg);justify-content:center">Sign In to EPI Cloud</a>
+  </div>
+
+  <main id="main-content" style="padding-top:3.5rem">
+    <div class="z-shell">
+      <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+      <header class="z-intro-grid__title z-blur-in z-blur-in--d1" style="border-right:0">
+        <span class="z-eyebrow">EU AI Act Evidence Guide</span>
+        <h1 class="z-h1" style="margin-top:1rem">Using <code class="k">.epi</code> artifacts for EU AI Act evidence prep</h1>
+        <p class="z-body" style="margin-top:1.25rem;max-width:40rem">
+          High-risk AI workflows need durable records of what ran, when it happened, which controls fired, and who approved an action. EPI packages captured execution into a portable, Ed25519-signed <code class="k">.epi</code> file verifiable offline.
+        </p>
+      </header>
+
+      <div style="padding:2.5rem clamp(1.5rem, 5vw, 3rem) 4rem">
+        <div style="max-width:46rem">
+          <div class="z-body" style="margin-bottom:2rem;padding:1rem 1.25rem;border:1px solid var(--border-card);background:var(--stage);font-size:0.85rem;line-height:1.6">
+            <strong>Evidence input, not legal advice.</strong> EPI does not guarantee EU AI Act compliance, regulator approval, or conformity. Annex IV templates live in <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/ANNEX-IV.md" style="color:var(--acc)">docs/ANNEX-IV.md</a> as templates you fill with legal counsel.
+          </div>
+
+          <h2 class="z-h2">What <code class="k">.epi</code> evidence provides</h2>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li><strong>Article 12 logging support:</strong> hash-chained <code class="k">steps.jsonl</code> timelines with timestamps, inputs, tool calls, model identifiers, and sealed SHA-256 manifests.</li>
+            <li><strong>Article 14 human oversight support:</strong> pre-action approval requests signed by a pinned approver key before the action executes, plus optional customer witness receipts showing request &lt; response &lt; executed order.</li>
+            <li><strong>Independent inspection:</strong> offline CLI checks (<code class="k">epi verify</code>) and zero-upload browser verification at <a href="/verify/" style="color:var(--acc)">epilabs.org/verify/</a>.</li>
+            <li><strong>Microsoft AGT import:</strong> package existing AGT exports via <code class="k">epi import agt ./agt-export --out agt-case.epi</code> with a preserved <code class="k">mapping_report.json</code>.</li>
+          </ul>
+
+          <h2 class="z-h2" style="margin-top:2.75rem">What <code class="k">.epi</code> does not prove</h2>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li>It does not prove every uninstrumented model or tool call was captured.</li>
+            <li>It does not prove the decision was lawful, fair, or safe—or that a human approver read the underlying case deeply enough.</li>
+            <li>See <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" style="color:var(--acc)">Known limitations</a> and <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/EU-AI-ACT-EVIDENCE-PREP.md" style="color:var(--acc)">the full Markdown guide</a>.</li>
+          </ul>
+
+          <h2 class="z-h2" style="margin-top:2.75rem">Related pages</h2>
+          <ul class="z-body" style="margin-top:0.85rem;padding-left:1.4rem;display:grid;gap:0.6rem;list-style:disc">
+            <li><a href="/standards" style="color:var(--acc)">Standards support</a> &mdash; Annex IV, AIUC-1, and SCITT receipts.</li>
+            <li><a href="/guides/dora/" style="color:var(--acc)">DORA AI vendor evidence</a> &mdash; ICT third-party evidence for EU banks.</li>
+            <li><a href="/ai-auditability/" style="color:var(--acc)">AI Auditability</a> &amp; <a href="/ai-explainability/" style="color:var(--acc)">AI Explainability</a>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+    </div>
+  </main>
+
+  <div class="z-shell" style="margin-top:auto">
+    <div class="z-gutter z-gutter--left" aria-hidden="true"></div>
+    <footer class="z-center z-footer" aria-label="Site footer">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:2.25rem 2rem">
+        <div style="grid-column:1/-1;display:flex;flex-direction:column;gap:0.9rem;max-width:34rem">
+          <a href="/" class="z-brand z-footer-logo" aria-label="EPI Labs home">
+            <span class="z-brand__stack" aria-hidden="true">
+              <img src="/assets/logo-white.png" alt="" width="145" height="60" class="z-brand__img--dark">
+              <img src="/assets/logo-trimmed.png" alt="" width="145" height="60" class="z-brand__img--light">
+            </span>
+          </a>
+          <p class="z-body" style="font-size:0.85rem;max-width:28rem">One signed file per AI decision. Anyone can check it offline, without an account.</p>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Product</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/" class="z-footer-col__link" style="font-size:0.8rem">Platform</a>
+            <a href="/how-it-works" class="z-footer-col__link" style="font-size:0.8rem">How it works</a>
+            <a href="/decision-record" class="z-footer-col__link" style="font-size:0.8rem">Decision Record</a>
+            <a href="/verify/" class="z-footer-col__link" style="font-size:0.8rem">Verify a file</a>
+            <a href="/plans" class="z-footer-col__link" style="font-size:0.8rem">Pricing</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Evidence</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/trust" class="z-footer-col__link" style="font-size:0.8rem">Trust model</a>
+            <a href="/proof/" class="z-footer-col__link" style="font-size:0.8rem">Proof</a>
+            <a href="/checklist/" class="z-footer-col__link" style="font-size:0.8rem">Checklist</a>
+            <a href="/standards" class="z-footer-col__link" style="font-size:0.8rem">Standards</a>
+            <a href="/insurance/sample-claim-record" class="z-footer-col__link" style="font-size:0.8rem">Sample record</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder/blob/main/docs/KNOWN_LIMITATIONS.md" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">Known limitations</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Solutions</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/ai-auditability/" class="z-footer-col__link" style="font-size:0.8rem">AI Auditability</a>
+            <a href="/ai-explainability/" class="z-footer-col__link" style="font-size:0.8rem">AI Explainability</a>
+            <a href="/ai-observability/" class="z-footer-col__link" style="font-size:0.8rem">AI Observability</a>
+            <a href="/use-cases" class="z-footer-col__link" style="font-size:0.8rem">Use cases</a>
+            <a href="/reviewers" class="z-footer-col__link" style="font-size:0.8rem">For reviewers</a>
+            <a href="/integrations" class="z-footer-col__link" style="font-size:0.8rem">Integrations</a>
+            <a href="/docs" class="z-footer-col__link" style="font-size:0.8rem">Docs</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Company</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/about" class="z-footer-col__link" style="font-size:0.8rem">About</a>
+            <a href="/faq/" class="z-footer-col__link" style="font-size:0.8rem">FAQ</a>
+            <a href="/blog/" class="z-footer-col__link" style="font-size:0.8rem">Blog</a>
+            <a href="/status" class="z-footer-col__link" style="font-size:0.8rem">Status</a>
+            <a href="https://cloud.epilabs.org/" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">EPI Cloud</a>
+            <a href="https://github.com/mohdibrahimaiml/epi-recorder" class="z-footer-col__link" style="font-size:0.8rem" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted)">Legal</div>
+          <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+            <a href="/terms" class="z-footer-col__link" style="font-size:0.8rem">Terms</a>
+            <a href="/privacy" class="z-footer-col__link" style="font-size:0.8rem">Privacy</a>
+            <a href="/refund" class="z-footer-col__link" style="font-size:0.8rem">Refund</a>
+            <a href="/.well-known/security.txt" class="z-footer-col__link" style="font-size:0.8rem">Security.txt</a>
+            <a href="/.well-known/epi-trust-registry.json" class="z-footer-col__link" style="font-size:0.8rem">Trust registry</a>
+          </div>
+        </div>
+      </div>
+      <div class="z-footer-bottom" style="margin-top:2.5rem">
+        <div>&copy; 2026 EPI LABS · Apache-2.0 · v4.11.2</div>
+        <div><a href="https://pypi.org/project/epi-recorder/" target="_blank" rel="noopener noreferrer" class="z-footer-col__link" style="font-size:0.75rem">PyPI package</a> · <a href="mailto:mohdibrahim@epilabs.org" class="z-footer-col__link" style="font-size:0.75rem">mohdibrahim@epilabs.org</a></div>
+      </div>
+    </footer>
+    <div class="z-gutter z-gutter--right" aria-hidden="true"></div>
+  </div>
+
+  <script src="/js/auth-ui.js"></script>
+  <script src="/js/zenjin-epi.js"></script>
+</body>
+</html>
