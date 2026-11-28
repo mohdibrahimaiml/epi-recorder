@@ -363,6 +363,47 @@
     return mismatches;
   }
 
+  // Return the first key that appears twice in one JSON object of `text`, or
+  // null. Call it only on text JSON.parse accepted. The manifest signature covers
+  // the canonical form, where a duplicate key collapses (last value wins), so a
+  // duplicate added after sealing leaves the signature valid while a first-wins
+  // parser shows a different value. EPI never writes one, so refuse it, as
+  // `epi verify` does (red-team F-07).
+  function epiFindDuplicateJsonKey(text) {
+    var stack = [];
+    var i = 0, n = text.length;
+    while (i < n) {
+      var c = text.charAt(i);
+      if (c === '"') {
+        var j = i + 1;
+        while (j < n) {
+          var ch = text.charAt(j);
+          if (ch === '\\') { j += 2; continue; }
+          if (ch === '"') break;
+          j++;
+        }
+        var top = stack.length ? stack[stack.length - 1] : null;
+        if (top && top.isObject && top.expectKey) {
+          var key = JSON.parse(text.slice(i, j + 1));
+          if (Object.prototype.hasOwnProperty.call(top.keys, key)) return key;
+          top.keys[key] = true;
+          top.expectKey = false;
+        }
+        i = j + 1;
+        continue;
+      }
+      if (c === '{') stack.push({ isObject: true, keys: Object.create(null), expectKey: true });
+      else if (c === '[') stack.push({ isObject: false });
+      else if (c === '}' || c === ']') stack.pop();
+      else if (c === ',') {
+        var cur = stack.length ? stack[stack.length - 1] : null;
+        if (cur && cur.isObject) cur.expectKey = true;
+      }
+      i++;
+    }
+    return null;
+  }
+
   async function verifyManifestSignature(manifest, rawText) {
     if (!manifest || !manifest.signature) {
       return { valid: null, reason: 'No signature present' };
@@ -430,6 +471,15 @@
         structure: true, manifest: false, integrity: false, hashChain: null,
         signature: false, hash: null, trust_level: 'NONE', identity: 'UNKNOWN',
         message: 'manifest.json is not valid JSON', mismatches: []
+      };
+    }
+    var dupKey = epiFindDuplicateJsonKey(rawManifest);
+    if (dupKey !== null) {
+      return {
+        structure: true, manifest: false, integrity: false, hashChain: null,
+        signature: false, hash: null, trust_level: 'NONE', identity: 'UNKNOWN',
+        message: "manifest.json contains a duplicate JSON key '" + dupKey + "' (edited after sealing)",
+        mismatches: []
       };
     }
     if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {

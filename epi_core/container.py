@@ -2272,12 +2272,42 @@ class EPIContainer:
         return None
 
     @staticmethod
+    def _parse_manifest_json(text: str) -> Any:
+        """Parse manifest.json, rejecting duplicate keys at any depth.
+
+        The signature covers the RFC 8785 canonical form of the manifest, not
+        its raw bytes. A duplicate key sits outside the signature: Python keeps
+        the last value, but another JSON parser could keep the first and show a
+        different ``goal`` or ``decision`` than the one that was verified. A
+        file EPI writes never contains duplicate keys, so one is refused rather
+        than silently resolved (red-team F-07).
+        """
+
+        def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            obj: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in obj:
+                    raise ValueError(
+                        f"manifest.json contains a duplicate JSON key {key!r}; "
+                        "EPI never writes one, so the file was edited after sealing"
+                    )
+                obj[key] = value
+            return obj
+
+        try:
+            return json.loads(text, object_pairs_hook=_no_duplicates)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSON in manifest.json: {exc}") from exc
+
+    @staticmethod
     def read_manifest(epi_path: Path | str) -> ManifestModel:
         epi_path = Path(epi_path)
         if not epi_path.exists():
             raise FileNotFoundError(f"EPI file not found: {epi_path}")
 
-        manifest_dict = EPIContainer.read_member_json(epi_path, "manifest.json")
+        manifest_dict = EPIContainer._parse_manifest_json(
+            EPIContainer.read_member_text(epi_path, "manifest.json")
+        )
         if not isinstance(manifest_dict, dict):
             raise ValueError("manifest.json must be a JSON object")
         # Backward compatibility: old browser viewer wrote 'legacy' before 'legacy-zip'

@@ -25,7 +25,7 @@ flowchart LR
 Record → steps hash chain → manifest → signature → `.epi` → verify offline:
 
 1. `record()` captures steps into `steps.jsonl`, each step linked to the previous by `prev_hash` (first step: `"CHAIN_START"`).
-2. At seal time `EPIContainer.pack()` writes the payload files, records a SHA-256 hash per file in `manifest.json` (`file_manifest`), and embeds the offline viewer.
+2. At seal time `EPIContainer.pack()` writes the payload files and records a SHA-256 hash per file in `manifest.json` (`file_manifest`). Files are data-only by default: `record()`, `epi run` and `epi record` seal no viewer unless asked (`with_viewer=True` / `--with-viewer`), in which case `viewer.html` is embedded and listed in `file_manifest`, so the signature covers it. (The low-level `EPIContainer.pack()` keeps `embed_viewer=True` as its own default for backward compatibility.)
 3. The manifest (with the public key embedded) is hashed canonically and signed with Ed25519; the signature is stored in the manifest.
 4. Verification recomputes file hashes, the chain, and the signature locally — Tier 1 needs only the file.
 
@@ -37,7 +37,7 @@ Record → steps hash chain → manifest → signature → `.epi` → verify off
 | `epi_core/` | Container pack/unpack, canonical hashing, signing, verification, policy/fault analysis | Library (`EPIContainer` in `epi_core/container.py`); no CLI script |
 | `epi_cli/` | The `epi` command (record, verify, view, policy, share, **cloud**) and `epi-register` | `epi` (`epi_cli.main:cli_main`), `epi-register` (`epi_cli.register:cli_main`) |
 | `web_viewer/` | Canonical browser UI for reviewing Decision Records | Opened by `epi view` |
-| `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into every sealed file at pack time | Consumed by `epi_core/container.py`; no direct entry |
+| `epi_viewer_static/` | Browser crypto (`crypto.js`) baked into the embedded viewer when a file is sealed with a viewer; also loaded by `epi view` (the epilabs.org/verify page uses its own `website/js/epi-verify-core.js`) | Consumed by `epi_core/container.py`; no direct entry |
 | `epi_gateway/` (in `epi-enterprise`) | Self-hosted capture, review, approval and share runtime - paid, not in this repository | `epi gateway serve` |
 | `epi_mcp/` | Hosted evidence connector for Claude and ChatGPT (stdio for local use, Streamable HTTP for hosting) | `epi-mcp` (stdio), `epi-mcp-http` (still hosted on Render as of 4.6.2) |
 | `verify_portal/` | Legacy hosted verify/share API. **Login/auth is EPI Cloud, not this service.** Since 4.11.0 `epi share` and opt-in telemetry go to EPI Cloud only (no Render fallback). MCP hosting and some `/api/*` proxies still run on Render until it is retired — see [docs/CLOUD.md](docs/CLOUD.md) | `python -m verify_portal.main` |

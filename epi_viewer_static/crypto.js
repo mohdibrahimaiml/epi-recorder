@@ -619,8 +619,56 @@ function prepareManifestCopy(manifest) {
 // EPI Viewer Verification Logic
 // ==========================================
 
+// Return the first key that appears twice in one JSON object of `text`, or
+// null. Call it only on text JSON.parse accepted. The manifest signature covers
+// the canonical form, where a duplicate key collapses (last value wins), so a
+// duplicate added after sealing leaves the signature valid while a first-wins
+// parser shows a different value. EPI never writes one, so refuse it, as
+// `epi verify` does (red-team F-07).
+function epiFindDuplicateJsonKey(text) {
+  var stack = [];
+  var i = 0, n = text.length;
+  while (i < n) {
+    var c = text.charAt(i);
+    if (c === '"') {
+      var j = i + 1;
+      while (j < n) {
+        var ch = text.charAt(j);
+        if (ch === '\\') { j += 2; continue; }
+        if (ch === '"') break;
+        j++;
+      }
+      var top = stack.length ? stack[stack.length - 1] : null;
+      if (top && top.isObject && top.expectKey) {
+        var key = JSON.parse(text.slice(i, j + 1));
+        if (Object.prototype.hasOwnProperty.call(top.keys, key)) return key;
+        top.keys[key] = true;
+        top.expectKey = false;
+      }
+      i = j + 1;
+      continue;
+    }
+    if (c === '{') stack.push({ isObject: true, keys: Object.create(null), expectKey: true });
+    else if (c === '[') stack.push({ isObject: false });
+    else if (c === '}' || c === ']') stack.pop();
+    else if (c === ',') {
+      var cur = stack.length ? stack[stack.length - 1] : null;
+      if (cur && cur.isObject) cur.expectKey = true;
+    }
+    i++;
+  }
+  return null;
+}
+
 async function verifyManifestSignature(manifest, rawManifestText) {
     console.log("Verifying manifest signature...", manifest);
+
+    if (typeof rawManifestText === 'string') {
+        var _dupKey = epiFindDuplicateJsonKey(rawManifestText);
+        if (_dupKey !== null) {
+            return { valid: false, reason: "manifest.json contains a duplicate JSON key '" + _dupKey + "' (edited after sealing)" };
+        }
+    }
 
     // 1. Check if signature exists
     if (!manifest.signature) {
@@ -779,6 +827,7 @@ async function verifyManifestSignature(manifest, rawManifestText) {
 
 // Expose for embedded forensic viewer self-check (web_viewer/app.js)
 globalThis.verifyManifestSignature = verifyManifestSignature;
+globalThis.epiFindDuplicateJsonKey = epiFindDuplicateJsonKey;
 
 // ==========================================
 // EPI Browser Sign & Seal (envelope-v2 + Ed25519)
